@@ -45,19 +45,21 @@ stays as the way back. The guard's questions are answered yes
 (`--allow-downgrade --force-replace-safe-slot`): the operator chose the release.
 
 The first update to a new release that the Pi itself offers as its latest
-goes the real user's way: the Pi's own lookup (`rq_ab_releases.sh latest`,
-rasqberry.org's manifest, as the menu and the update notice use it), its own
-installed `rq_update_slot.sh`, and its own download from GitHub. The run also
-checks the Imager lists on rasqberry.org (RQB-images.json, rpi-imager.json)
-for that release against GitHub: URL, size and SHA256, short of writing a
-card. `--update latest` takes whatever the Pi offers.
+goes the real user's way: the Pi's own lookup (`rq_ab_releases.sh latest`, as
+the menu's release picker uses it), the target slot from `rq_slot_manager.sh
+plan-update`, its own installed `rq_update_slot.sh` with its guard deciding,
+and its own download from GitHub. Once such an update came up, the release
+is listed in `~/.local/share/rasqberry-rig/real-path-done.txt`. That run also
+checks the Imager lists on rasqberry.org for the release against GitHub (URL,
+size, SHA256). `--update latest` takes what the Pi offers.
 
 Later updates to that release use this checkout's updater and a cache:
 `~/.cache/rasqberry-rig/images/` (or `RIG_IMAGE_CACHE`; newest 3 releases),
 downloaded from GitHub once, checked against its SHA256, copied to the Pi
-(`--image-file`).
+(`--image-file`). A cached update of a release that never went the real way
+is a WARN.
 
-Every GitHub download of ours is logged in
+Each of our GitHub downloads is logged in
 `~/.local/share/rasqberry-rig/own-image-downloads.csv` (date_utc, tag, asset,
 bytes, purpose: `real-path-test` or `rig-update`), for the download statistics
 to subtract. The report's `update-path` row says which way a run went.
