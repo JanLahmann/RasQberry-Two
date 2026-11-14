@@ -38,7 +38,7 @@ jobs:
         run: |
           chmod +x tests/test_basic_validation.sh
           ./tests/test_basic_validation.sh | tee /tmp/basic_validation.log
-        continue-on-error: false
+        continue-on-error: true   # all checks run; "Fail if validation failed" fails the job
 
       - name: Run Advanced Pattern Detection
         id: advanced
@@ -47,7 +47,7 @@ jobs:
         run: |
           chmod +x tests/test_common_library_usage.sh
           ./tests/test_common_library_usage.sh | tee /tmp/advanced_validation.log
-        continue-on-error: false
+        continue-on-error: true   # all checks run; "Fail if validation failed" fails the job
 
       - name: Validate Demo Manifests
         id: manifests
@@ -61,7 +61,7 @@ jobs:
           # patches written against it (issue #37).
           chmod +x RQB2-bin/rq_demo_validate.sh
           ./RQB2-bin/rq_demo_validate.sh | tee /tmp/manifest_validation.log
-        continue-on-error: false
+        continue-on-error: true   # all checks run; "Fail if validation failed" fails the job
 
       - name: RasQberry menu inside raspi-config
         id: menu

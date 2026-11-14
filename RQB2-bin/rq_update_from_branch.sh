@@ -358,13 +358,16 @@ install_system_files() {
 reload_environment() {
     log_message "Reloading environment configuration..."
 
-    # Source the environment config to pick up changes (load_rqb2_env: only
-    # with rq_common.sh; the minimal fallback above has no environment)
-    if command -v load_rqb2_env >/dev/null 2>&1 && [ -f "${RQ_CONFIG_FILE:-}" ]; then
+    # Pick up the new environment. The files are installed by now: a reload
+    # that fails is a warning, not a failed update (tried in a subshell first,
+    # as load_rqb2_env stops the script on an error)
+    if ! command -v load_rqb2_env >/dev/null 2>&1; then
+        warn "Environment not reloaded (rq_common.sh not found)"
+    elif ( load_rqb2_env ) >/dev/null 2>&1; then
         load_rqb2_env
         log_message "Environment reloaded"
     else
-        warn "Environment config file not found"
+        warn "The environment could not be reloaded: restart to use the new settings"
     fi
 }
 
