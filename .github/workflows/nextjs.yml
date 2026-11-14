@@ -82,21 +82,20 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
-      - name: Generate the demo list and learning paths from the demo manifests
+      - name: Check the demo list and learning paths match the demo manifests
         # 01-demo-list.md and 02-learning-paths.md are generated from
         # RQB2-config/demo-manifests (the manifests and learning-paths.json) -
-        # the same files the image installs from. The deploy regenerates them,
-        # so a manifest change on development can't leave the pages behind
-        # (17 demos once shipped with 8 listed). It used to fail instead, which
-        # stopped every deploy, release JSON included, from 13 to 14 Nov 2026.
-        # Out-of-date committed pages give a warning; commit them with:
-        # npm run demos
+        # the same files the image installs from. Out of date (a demo or path
+        # added or changed there, 17 demos once shipped with 8 listed) or not
+        # checkable (GitHub API down): a warning, and the deploy goes on with the
+        # committed pages, reviewed on gh-pages. Failing here stopped every
+        # deploy, the release JSON the Pis read included, on 13-14 Nov 2026.
+        # Fix with: npm run demos
         #
         # GITHUB_TOKEN lifts the GitHub API limit from 60/hour per IP (and Actions
         # runners share IPs) to 1000/hour, so this does not fail at random.
         run: |
-          npm run demos
-          git diff --quiet -- content/03-quantum-computing-demos || echo "::warning::The demo list or learning paths were out of date with the manifests: deployed the regenerated pages. Commit them with: npm run demos"
+          npm run demos:check || echo "::warning::The demo list or learning paths don't match the demo manifests (or could not be checked): deployed the committed pages. Fix with: npm run demos"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build with Next.js

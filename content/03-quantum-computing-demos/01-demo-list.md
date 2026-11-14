@@ -4,9 +4,9 @@ The demos come in seven groups: an icon on the desktop and a submenu of
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with `rq_demo_run.sh <id>`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to
-run on real IBM hardware. Demos tagged beta are new and some things may not work yet. On the Pi they say
-"(beta)" on their icon and when they start:
-[tell us how they work](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml).
+run on real IBM hardware. Demos tagged beta are still in development: they are in
+the development images only, where they say "(beta)" on their icon and when they
+start: [tell us how they work](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml).
 
 New here? Start with the [First 15 minutes](/03-quantum-computing-demos/02-learning-paths/#2-first-15-minutes) learning path.
 
@@ -24,7 +24,7 @@ Demos on the LED panel, or in its on-screen view without a panel.
 | **[LED Demos](/03-quantum-computing-demos/led-display/)** | Tests, text, logos and colour effects on the LED panel | LED panel or on-screen view | `led-demos` |
 | **RasQ-LED Demo** | Circuits with superposition and entanglement, measured and shown on the LED panel | LED panel or on-screen view | `rasq-led` |
 | **[Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/)** | Watch Grover's search solve Lights Out puzzles on the LED panel, one after another | LED panel or on-screen view, network on first start | `quantum-lights-out` |
-| **[Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)** | Measured qubits on the LED panel, from a simulator or a real IBM quantum computer <span className="beta-tag">beta</span>: Real IBM Quantum computer (IBM Quantum account) | LED panel or on-screen view, display, network on first start, IBM Quantum account optional | `quantum-raspberry-tie` |
+| **[Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)** | Measured qubits on the LED panel, from a simulator or a real IBM quantum computer <span className="beta-tag">beta</span>: Real IBM Quantum computer | LED panel or on-screen view, display, network on first start, IBM Quantum account optional | `quantum-raspberry-tie` |
 | **LED-Painter** | Paint and draw on the LED panel from a graphical interface | LED panel or on-screen view, display, network on first start | `led-painter` |
 
 ## Play
