@@ -53,6 +53,8 @@ WT_MENU_HEIGHT="${WT_MENU_HEIGHT:-12}"
 # Usage: die "Error message"
 die() {
     echo "ERROR: $*" >&2
+    # a script that also logs its errors defines rq_die_hook (rq_update_slot.sh)
+    if declare -F rq_die_hook >/dev/null; then rq_die_hook "$*" || true; fi
     # The RasQberry menu passes a file here (RQB2_menu.sh run_engine_demo), so
     # the reason survives the menu redrawing over this terminal output.
     if [ -n "${RQ_ERROR_FILE:-}" ]; then
