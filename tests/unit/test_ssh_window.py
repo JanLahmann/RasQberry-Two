@@ -19,7 +19,8 @@ def _run(tmp_path, code, demo="yes", boot_env="", stubs=""):
     (tmp_path / "sshd_config.d").mkdir(exist_ok=True)
     env = dict(os.environ, RQ_SSHD_DIR=str(tmp_path), RQ_SSH_DROPIN=str(tmp_path / "05-first-login.conf"),
                RQ_BOOT_ENV_FILES=f"{tmp_path / 'none.env'}:{env_file}", RQ_DEMO_PW_STATE=demo,
-               RQ_SSH_USER="rasqberry", RQ_SSH_RELOAD="true", RQ_NO_LED="1", RQ_SSH_POLL="0")
+               RQ_SSH_USER="rasqberry", RQ_SSH_RELOAD="true", RQ_NO_LED="1", RQ_SSH_POLL="0",
+               RQ_SSH_BANNER=str(tmp_path / "banner.txt"), RQ_VNC_MARKER=str(tmp_path / "vnc-marker"))
     return subprocess.run(["bash", "-c", f'{stubs} . "{_WINDOW}"; {code}'],
                           capture_output=True, text=True, env=env)
 
@@ -32,10 +33,14 @@ def _dropin(tmp_path):
 def test_closed_before_sshd_starts_while_the_demo_password_is_set(tmp_path):
     assert _run(tmp_path, "cmd_close").returncode == 0
     d = _dropin(tmp_path)
-    assert "PasswordAuthentication no" in d and "KbdInteractiveAuthentication no" in d
-    assert "Banner /usr/share/rasqberry/ssh-password-closed.txt" in d
     assert "ExposeAuthInfo yes" in d
-    assert d.rstrip().endswith("Match User rasqberry\n    ForceCommand /usr/bin/rq_ssh_first_login.sh")
+    # everything else only for the desktop user, inside its Match block
+    match = d[d.index("Match User rasqberry"):]
+    for line in ("ForceCommand /usr/bin/rq_ssh_first_login.sh", "DisableForwarding yes",
+                 "PasswordAuthentication no", "KbdInteractiveAuthentication no", "Banner "):
+        assert "\n    " + line in match, line
+    assert "PasswordAuthentication" not in d[:d.index("Match User")]
+    assert "within 15 minutes" in (tmp_path / "banner.txt").read_text()
 
 
 def test_unknown_counts_as_the_demo_password(tmp_path):
@@ -47,7 +52,7 @@ def test_nothing_on_a_card_with_its_own_password(tmp_path):
     (tmp_path / "05-first-login.conf").write_text("old")
     _run(tmp_path, "cmd_close", demo="no")
     assert _dropin(tmp_path) is None
-    assert _run(tmp_path, "vnc_allowed() { :; }; main vnc-allowed", demo="no").returncode == 0
+    assert _run(tmp_path, "main vnc-allowed", demo="no").returncode == 0
 
 
 def test_window_opens_with_a_network_then_closes(tmp_path):
@@ -65,6 +70,7 @@ def test_window_minutes_from_rasqberry_boot_env(tmp_path):
     assert _run(tmp_path, "window_minutes", boot_env='DEFAULT_PW_WINDOW_MIN="0"\n').stdout == "0"
     assert _run(tmp_path, "window_minutes", boot_env="DEFAULT_PW_WINDOW_MIN=soon\n").stdout == "15"
     assert _run(tmp_path, "window_minutes", boot_env="# DEFAULT_PW_WINDOW_MIN=1\n").stdout == "15"
+    assert _run(tmp_path, "window_minutes", boot_env="DEFAULT_PW_WINDOW_MIN=08\n").stdout == "8"
 
 
 def test_no_window_with_0(tmp_path):
@@ -84,7 +90,7 @@ def test_vnc_waits_for_the_password_unless_opted_in(tmp_path):
     assert _run(tmp_path, "main vnc-allowed").returncode != 0
     assert _run(tmp_path, "main vnc-allowed", boot_env="DEFAULT_PW_WINDOW_VNC=yes\n").returncode == 0
     vnc = open(os.path.join(_ROOT, "RQB2-system", "usr", "local", "bin", "rasqberry-enable-vnc.sh")).read()
-    assert vnc.index("rq_ssh_window.sh vnc-allowed") < vnc.index("do_vnc 0")
+    assert vnc.index('"$WINDOW" vnc-allowed') < vnc.index("do_vnc 0")
 
 
 def test_units_close_before_sshd_and_watch_password_changes():
@@ -97,7 +103,7 @@ def test_units_close_before_sshd_and_watch_password_changes():
     assert "\nrasqberry-ssh-window.service\n" in units and "\nrasqberry-ssh-window-check.path\n" in units
 
 
-def _first(tmp_path, auth, tty=False, cmd="echo ran-original"):
+def _first(tmp_path, auth, cmd="echo ran-original"):
     f = tmp_path / "auth"
     f.write_text(auth)
     env = dict(os.environ, SSH_USER_AUTH=str(f), SSH_ORIGINAL_COMMAND=cmd, SHELL="/bin/bash")
@@ -122,3 +128,21 @@ def test_nothing_when_password_login_is_off_anyway(tmp_path):
     (tmp_path / "05-first-login.conf").write_text("old")
     assert _run(tmp_path, "cmd_close").returncode == 0
     assert _dropin(tmp_path) is None
+
+
+def test_the_carry_over_ignores_the_window_drop_in(tmp_path):
+    # an A/B update must not turn the closed window into "keys only for good"
+    src = tmp_path / "src" / "etc" / "ssh"
+    (src / "sshd_config.d").mkdir(parents=True)
+    (src / "sshd_config").write_text("# defaults\n")
+    r = _run(tmp_path, f'RQ_SSHD_DIR="{src}"; RQ_SSH_DROPIN="{src}/sshd_config.d/05-rasqberry-first-login.conf"; '
+                       f'SSHD_DIR="{src}"; DROPIN="$RQ_SSH_DROPIN"; write_dropin closed; '
+                       f'rq_sshd_first_value "{src}" passwordauthentication; echo "[end]"')
+    assert r.stdout.strip() == "[end]", r.stdout
+
+
+def test_a_rejected_config_keeps_the_window_closed():
+    sh = open(_WINDOW).read()
+    reload = sh[sh.index("reload_sshd() {"):]
+    reload = reload[:reload.index("\n}\n")]
+    assert "write_dropin closed" in reload and "remove_dropin" not in reload

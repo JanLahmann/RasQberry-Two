@@ -699,3 +699,15 @@ def test_rq_help_lists_existing_commands_in_80_columns():
 def test_new_terminals_skip_pip_when_qiskit_is_there():
     text = open(os.path.join(_ROOT, "RQB2-config", "setup_qiskit_env.sh")).read()
     assert text.index("qiskit-*.dist-info") < text.index("pip show qiskit")
+
+
+def test_vnc_waits_while_the_published_password_is_set(stubs, tmp_path):
+    # rq_ssh_window.sh vnc-allowed says no (exit 1): VNC stays off, no marker
+    window = tmp_path / "rq_ssh_window.sh"
+    window.write_text("#!/bin/sh\nexit 1\n")
+    window.chmod(0o755)
+    marker = tmp_path / "lib" / "vnc-auto-enabled"
+    env = dict(os.environ, PATH=stubs.path, RQ_VNC_MARKER=str(marker), RQ_SSH_WINDOW=str(window),
+               RQ_VNC_WAIT="0", RQ_VNC_RETRY_WAIT="0")
+    assert subprocess.run(["bash", _VNC], env=env, capture_output=True, text=True, timeout=30).returncode == 0
+    assert "do_vnc 0" not in stubs.logged() and not marker.exists()

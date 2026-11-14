@@ -6,7 +6,9 @@ Description=RasQberry SSH window on a card with the published password
 # network, and asks for a new password at the first login. Nothing to do on a
 # card with its own password (Raspberry Pi Imager).
 Before=ssh.service
-After=local-fs.target
+# after the units that bring the user's own password: a new A/B slot's
+# carry-over, Raspberry Pi Imager's settings
+After=local-fs.target rasqberry-carry-over.service rasqberry-imager-firstrun.service
 
 [Service]
 Type=simple

@@ -273,7 +273,7 @@ task_password_run() {
     local choice who
     who="${USER:-$(id -un)}"
     choice=$(whiptail --title "Password" --notags --menu \
-"This RasQberry Two uses the published demo password: anyone can look it up on the website. Until it is changed, SSH takes it only for 15 minutes after each start, and VNC stays off.
+"This RasQberry Two uses the published demo password: anyone can look it up on the website. Until it is changed, SSH takes it only for a while after each start (15 minutes, unless changed), and VNC stays off.
 
 At a booth or in a classroom you may want to keep it." 15 74 2 \
         change "Change the password now (recommended)" \

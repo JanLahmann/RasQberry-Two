@@ -640,6 +640,17 @@ stop_led_holders() {
 # scroll at start-up gives way; a demo on the panel keeps it. The text goes
 # through a root-only file, not the command line (it may hold a password).
 # As root. Returns 1 when nothing scrolls.
+# rq_sshd_first_value DIR KEYWORD: the first value sshd reads for KEYWORD
+# (lower case) from DIR's sshd_config.d/*.conf and sshd_config - sshd keeps the
+# first one, and Debian's sshd_config includes the drop-ins at its top. Stops
+# at the first Match block: what follows applies only to some logins (as in
+# rq_ssh_window.sh's drop-in for the demo password). Prints nothing if unset.
+rq_sshd_first_value() {
+    cat "$1"/sshd_config.d/*.conf "$1/sshd_config" 2>/dev/null \
+        | awk -v key="$2" 'tolower($1) == "match" { exit }
+                           tolower($1) == key { print tolower($2); exit }' || true
+}
+
 rq_wifi_scroll() {
     local unit="$1" seconds="$2" text="$3" py file others
     command -v systemd-run >/dev/null 2>&1 || return 1

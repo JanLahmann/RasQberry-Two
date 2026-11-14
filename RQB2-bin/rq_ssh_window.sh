@@ -15,7 +15,9 @@ set -euo pipefail
 #   - an SSH login with the password must set a new one first
 #     (rq_ssh_first_login.sh, sshd ForceCommand for that user).
 #   - VNC stays off until the password is changed (rasqberry-enable-vnc.sh),
-#     unless DEFAULT_PW_WINDOW_VNC=yes (classrooms, booths).
+#     unless DEFAULT_PW_WINDOW_VNC=yes (classrooms, booths). A card that had
+#     VNC on before this release keeps it (it may be its only way in).
+#   - no port forwarding for that user meanwhile (ssh -N skips the step).
 #   Both settings are read at every start from rasqberry_boot.env (CONFIG on
 #   A/B cards, else the boot partition), so an edit after flashing counts.
 #   Once the password is changed (any way: the checklist, the menu, passwd),
@@ -32,7 +34,8 @@ set -euo pipefail
 #
 # Environment (tests): RQ_SSHD_DIR, RQ_SSH_DROPIN, RQ_BOOT_ENV_FILES (colon-separated),
 #   RQ_DEMO_PW_STATE (yes|no|unknown instead of asking rq_remote_access.sh),
-#   RQ_SSH_USER, RQ_SSH_RELOAD (command), RQ_SSH_POLL (seconds), RQ_NO_LED=1
+#   RQ_SSH_USER, RQ_SSH_RELOAD (command), RQ_SSH_POLL (seconds), RQ_NO_LED=1,
+#   RQ_SSH_BANNER, RQ_VNC_MARKER
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -40,9 +43,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SSHD_DIR="${RQ_SSHD_DIR:-/etc/ssh}"
 DROPIN="${RQ_SSH_DROPIN:-$SSHD_DIR/sshd_config.d/05-rasqberry-first-login.conf}"
 BOOT_ENV_FILES="${RQ_BOOT_ENV_FILES:-/boot/firmware/rasqberry_boot.env:/boot/config/rasqberry_boot.env}"
-BANNER=/usr/share/rasqberry/ssh-password-closed.txt
+BANNER="${RQ_SSH_BANNER:-/run/rasqberry/ssh-password-closed.txt}"
 FIRST_LOGIN=/usr/bin/rq_ssh_first_login.sh
 POLL="${RQ_SSH_POLL:-5}"
+VNC_MARKER="${RQ_VNC_MARKER:-/var/lib/rasqberry/vnc-auto-enabled}"
 SCROLL_UNIT="rasqberry-ssh-window-scroll"
 
 # A setting from rasqberry_boot.env (the last file that has it wins: CONFIG
@@ -62,6 +66,7 @@ window_minutes() {
     local m
     m=$(boot_setting DEFAULT_PW_WINDOW_MIN 15)
     case "$m" in ''|*[!0-9]*) m=15 ;; esac
+    m=$((10#$m))                     # 08 is eight, not a bad octal number
     [ "$m" -le 240 ] || m=240
     printf '%s' "$m"
 }
@@ -87,29 +92,48 @@ write_dropin() {
         echo "# rq_ssh_window.sh: $user still has the published demo password."
         echo "# Removed by itself once it is changed. Do not edit."
         echo "ExposeAuthInfo yes"
-        if [ "$state" = closed ]; then
-            echo "PasswordAuthentication no"
-            echo "KbdInteractiveAuthentication no"
-            echo "Banner $BANNER"
-        fi
         echo "Match User $user"
         echo "    ForceCommand $FIRST_LOGIN"
+        # a login without a shell (ssh -N) would skip the password step
+        echo "    DisableForwarding yes"
+        if [ "$state" = closed ]; then
+            echo "    PasswordAuthentication no"
+            echo "    KbdInteractiveAuthentication no"
+            echo "    Banner $BANNER"
+        fi
     } > "$tmp"
     chmod 644 "$tmp"
     mv -f "$tmp" "$DROPIN"
+    write_banner
+}
+
+# The closed-window banner, with this card's window length
+write_banner() {
+    local minutes how
+    minutes=$(window_minutes)
+    if [ "$minutes" -eq 0 ]; then
+        how="Password login is off on this card (DEFAULT_PW_WINDOW_MIN=0): use an SSH key."
+    else
+        how="Restart the Pi and log in within $minutes minutes; you set a new password first."
+    fi
+    mkdir -p "$(dirname "$BANNER")"
+    printf '%s\n%s\n%s\n' "RasQberry: password login is closed while this Pi has the published password." \
+        "$how" "Or set a password or SSH key in Raspberry Pi Imager." > "$BANNER"
 }
 
 remove_dropin() { rm -f "$DROPIN" "$DROPIN.tmp"; }
 
-# Tell sshd, if it runs; a drop-in sshd rejects is removed again
+# Tell sshd, if it runs. If sshd rejects the files, an open window is
+# closed again, never the other way round: the safe state stays.
 reload_sshd() {
     if [ -n "${RQ_SSH_RELOAD:-}" ]; then
         $RQ_SSH_RELOAD
         return 0
     fi
+    mkdir -p /run/sshd                 # sshd -t needs it, also while ssh is off
     if ! /usr/sbin/sshd -t 2>/dev/null; then
-        warn "rq_ssh_window: sshd rejects $DROPIN - removed"
-        remove_dropin
+        warn "rq_ssh_window: sshd rejects its configuration; password login stays closed"
+        write_dropin closed
     fi
     systemctl try-reload-or-restart ssh.service 2>/dev/null || true
 }
@@ -120,15 +144,9 @@ led_message() {
 }
 
 # Password login off anyway, by another file (Imager's "public-key only",
-# carried over by an update): then there is nothing to open or ask. sshd
-# takes the first value it reads; drop-ins come first, in name order.
+# carried over by an update): then there is nothing to open or ask.
 keys_only_anyway() {
-    local f v
-    v=$(for f in "$SSHD_DIR"/sshd_config.d/*.conf "$SSHD_DIR/sshd_config"; do
-            [ -f "$f" ] && [ "$f" != "$DROPIN" ] && cat "$f"
-        done 2>/dev/null | awk 'tolower($1) == "match" { exit }
-                                tolower($1) == "passwordauthentication" { print tolower($2); exit }')
-    [ "$v" = no ]
+    [ "$(rq_sshd_first_value "$SSHD_DIR" passwordauthentication)" = no ]
 }
 
 has_network() { [ -n "$(ip route show default 2>/dev/null)" ]; }
@@ -143,6 +161,7 @@ cmd_close() {
 
 cmd_window() {
     local minutes user addr
+    # the password may have come in since "close" (carry-over, Imager)
     [ "$(demo_password)" != no ] || { cmd_check; return 0; }
     keys_only_anyway && return 0
     minutes=$(window_minutes)
@@ -174,7 +193,11 @@ cmd_check() {
     [ -e "$DROPIN" ] || return 0
     remove_dropin
     reload_sshd
-    info "rq_ssh_window: the demo password is changed: SSH and VNC as set, no more first-login step."
+    # VNC waited for this (rasqberry-enable-vnc.sh): on now, once, as at a first login
+    if [ ! -e "$VNC_MARKER" ] && raspi-config nonint do_vnc 0 >/dev/null 2>&1; then
+        mkdir -p "$(dirname "$VNC_MARKER")" && date '+%F %T' > "$VNC_MARKER"
+    fi
+    info "rq_ssh_window: the demo password is changed: no more first-login step; VNC on."
 }
 
 cmd_status() {

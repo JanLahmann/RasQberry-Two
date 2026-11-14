@@ -64,10 +64,10 @@ if [ -n "$home" ] && [ -s "$src$home/.ssh/authorized_keys" ] && [ -d "$target$tg
     carried="${carried:+$carried and }authorized_keys"
 fi
 
-# The password-login choice. sshd keeps the first value it reads, and Debian's
-# sshd_config includes sshd_config.d/*.conf at its top, so drop-ins come first
-pw_auth=$(cat "$src"/etc/ssh/sshd_config.d/*.conf "$src/etc/ssh/sshd_config" 2>/dev/null \
-    | awk 'tolower($1) == "passwordauthentication" { print tolower($2); exit }' || true)
+# The password-login choice, as sshd reads it (rq_common.sh): not the lines
+# in a Match block, such as rq_ssh_window.sh's while the demo password is set
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/rq_common.sh"
+pw_auth=$(rq_sshd_first_value "$src/etc/ssh" passwordauthentication)
 if [ "$pw_auth" = "no" ] && [ -d "$target/etc/ssh" ]; then
     mkdir -p "$target/etc/ssh/sshd_config.d"
     printf '%s\n' "# Carried over by RasQberry's A/B update: password login stays off" \

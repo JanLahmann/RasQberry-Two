@@ -7,6 +7,9 @@
 # once the password is changed). A login with an SSH key goes straight
 # through; a login with the password sets a new password first, then gets its
 # shell or command. Runs as the user who logged in.
+#
+# No set -e and no rq_common.sh on purpose: it must always reach exec or a
+# clear message, and it runs before the user's environment exists.
 
 run_original() {
     if [ -n "${SSH_ORIGINAL_COMMAND:-}" ]; then
