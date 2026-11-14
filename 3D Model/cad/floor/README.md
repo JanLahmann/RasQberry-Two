@@ -49,19 +49,22 @@ behind its skirt and is lowered onto them. Its plate covers the tabs.
 
 ## Cryostat and wall on the floor
 
-`R2_Floor-BayonetPlug` (`bayonet_plug.py`) holds them without screw, nut
-or ScrewOctopus; print it three times (cryostat, two for the wall). The
-floor, cryostat and wall are unchanged and still stand on a table.
+Two printed plugs (`plugs.py`) replace screw, nut and ScrewOctopus. The
+floor, cryostat and wall are unchanged and still stand on a table; both
+plugs keep the Ø 20 cable bore.
 
-- Push the plug up from below through the floor hole and the part's
-  opening (the hexagon on top lined up with the hole), then turn it 30 deg
-  by its wings: the hexagon's corners now clamp the part's floor and the
-  floor plate against the wings. Turn back to take the part off.
-- The Ø 20 bore keeps the cable passage.
-- Fit from test prints on a Prusa: 0.05 mm round the hexagon, 6.2 mm
-  between wings and hexagon (6.0 = both 3 mm floors; 6.0-5.8 was too
-  tight). `R2_Floor-BayonetTest` (plug + three 3 mm plates with the
-  floor's, the cryostat's and the wall's hole) tries it on another printer.
+- `R2_Floor-CryoPlug` (1x): the shape of the cryostat's opening with a
+  flange under the floor plate. Put it into the hole where Tile1-4 meet
+  from below and lower the cryostat onto it: it cannot slide or turn, and
+  lifts straight off.
+- `R2_Floor-WallPlug` (2x), a bayonet: push it up from below through the
+  floor's hex hole and the wall's, hexagon lined up, then turn it 30 deg by
+  its wings. The hexagon's corners clamp the wall's floor and the floor
+  plate against the wings. Turn back to take the wall off.
+- Fit from test prints on a Prusa: 0.05 mm clearance; the cryostat plug is
+  6.2 mm above its flange, the wall plug 6.2 mm between wings and hexagon
+  (6.0 = both 3 mm floors; 6.0-5.8 was too tight). The `...Test` prints
+  add 3 mm plates with the holes to try it on another printer.
 
 ## How it is built
 
