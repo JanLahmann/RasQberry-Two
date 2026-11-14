@@ -202,4 +202,4 @@ Follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/R
 ## Need Help?
 
 Start with [Troubleshooting](/02-software/01-installation-overview/#2-troubleshooting).
-You can also ask our [AI documentation assistant](https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344) based on [Google NotebookLM](https://notebooklm.google.com/) (needs a Google login), or [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues). <a href="https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344" target="_blank"><img src="/Artwork/notebooklm-icon.svg" alt="NotebookLM" width="20" height="20" style={{verticalAlign: 'middle'}} /></a>
+You can also ask [Ket, the assistant](/?assistant=1), or [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues).

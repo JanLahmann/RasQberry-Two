@@ -1,9 +1,13 @@
 import { NavItem } from "@/components/HeaderNav"
 import { fromKebabToHuman } from "./fromKebabToHuman"
 
+// pages linked from the footer only
+const NOT_IN_NAV = ["privacy"]
+
 export async function getNavItems(paths: { path: string[] }[]): Promise<NavItem[]> {
     const navItems: NavItem[] = []
     for (const path of paths) {
+        if (NOT_IN_NAV.includes(path.path[0])) continue
         addPathsToNavItems(navItems, path)
     }
 
