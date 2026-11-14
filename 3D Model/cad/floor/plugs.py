@@ -11,7 +11,8 @@ wall still stand on a table:
 
 `R2_Floor-CryoPlug` (print once): that opening's shape, `clearance`
 smaller, with a thin flange under the floor plate. It fills the floor hole
-and goes 3.2 mm up into the cryostat's 3 mm floor, so the cryostat cannot
+and goes up through the cryostat's 3 mm floor (0.2 mm beyond it), so the
+cryostat cannot
 slide or turn and lifts straight off.
 
 `R2_Floor-WallPlug` (print twice), a bayonet: a winged flange under the
@@ -27,8 +28,8 @@ flange; wall plug 6.2 mm between wings and hexagon (6.0-5.8 was too tight).
 
 The `...Test` prints add 3 mm plates with the holes to try the fit on
 another printer. The outlines are measured from the rebuilt parts in
-print/ (Floor-all, NarrowYCryoConjoined, Wall-Base; under --outdir when given), so build
-those first.
+print/ (Floor-all, NarrowYCryoConjoined, Wall-Base; under --outdir when
+given), so build those first.
 
 Usage:  python plugs.py [--outdir ROOT] [--only CryoPlug,WallPlug,...]
 """
@@ -44,15 +45,14 @@ import trimesh
 from build123d import Cylinder, Pos
 
 CAD = Path(__file__).resolve().parent.parent
-sys.path[:0] = [str(CAD), str(CAD / "wall")]
+sys.path.insert(0, str(CAD))
 import rqb_params  # noqa: E402
-from rqb_cad import OUTPUT, bbox_size, check_solid, export_part  # noqa: E402
+from rqb_cad import OUTPUT, bbox_size, check_solid, export_part, part_path  # noqa: E402
 from floor_model import prism, top_chamfer  # noqa: E402
-from screw_nut import PARAMS as SCREW  # noqa: E402
 
 PARAMS = dict(
     clearance=0.05,      # plug outline inside the tightest opening
-    bore_d=SCREW["bore_d"],   # the hollow screw's cable passage
+    bore_d=rqb_params.CABLE_BORE_D,
     test_plate=3.0,
     # cryostat plug
     cryo_flange=2.0, cryo_rim=4.0,   # flange under the floor plate, rim beyond the hole
@@ -67,32 +67,50 @@ PARAMS = dict(
     lug=2.0,             # height of the hexagon on top
     lead_in=0.4,
 )
-# (stl in print/, z of a section through the hole, a point inside the hole)
+# (part in rqb_cad.PARTS, z of a section through the hole, the hole's
+# centre): the plugs are built round the origin, so the centre must be exact
+# (hole() checks it against the outline's centroid)
 HOLES = dict(
-    floor_cryo=("floor/Dovetail Version/R2_Floor-all.stl", 8.5, (130.32, 140.18)),
-    cryo=("cryostat/R2_NarrowYCryoConjoined.stl", 1.5, (0.0, 10.25)),
-    wall=("wall/R2_Wall-Base.stl", 1.5, (30.20, 27.27)),
-    floor_wall=("floor/Dovetail Version/R2_Floor-all.stl", 8.5, (37.36, 322.27)),
+    floor_cryo=("R2_Floor-all", 8.5, (130.32, 140.18)),
+    cryo=("R2_NarrowYCryoConjoined", 1.5, (0.0, 10.25)),
+    wall=("R2_Wall-Base", 1.5, (30.20, 27.27)),
+    floor_wall=("R2_Floor-all", 8.5, (37.36, 322.27)),
 )
+HOLE_MAX_AREA = 2000.0   # mm2: larger loops are outlines of the part, not the hole
+CENTRE_TOL = 0.05
 
 
 @functools.cache
-def load(root, path):
-    """Mesh of a built part, back in unscaled mm (the STLs in print/ have
-    rqb_params.SCALE applied, and export_part applies it to the plugs)."""
-    m = trimesh.load(Path(root) / path, force="mesh")
+def load(root, name):
+    """Mesh of built part `name`, back in unscaled mm (the STLs in print/
+    have rqb_params.SCALE applied, and export_part applies it to the plugs)."""
+    m = trimesh.load(f"{part_path(name, root=root)}.stl", force="mesh")
     return m.apply_scale(1 / rqb_params.SCALE)
 
 
 def hole(spec, root=OUTPUT):
     """The hole of the part's section at z that contains point `pt`,
     moved so that `pt` is the origin. Parts are read from `root`."""
-    path, z, pt = spec
-    for loop in load(root, path).section([0, 0, 1], [0, 0, z]).discrete:
+    name, z, pt = spec
+    for loop in load(root, name).section([0, 0, 1], [0, 0, z]).discrete:
         p = sg.Polygon(loop[:, :2])
-        if p.contains(sg.Point(pt)) and p.area < 2000:
+        if p.contains(sg.Point(pt)) and p.area < HOLE_MAX_AREA:
+            if p.centroid.distance(sg.Point(pt)) > CENTRE_TOL:
+                raise ValueError(f"{name}: hole centre is {p.centroid}, not {pt}")
             return sa.translate(p.buffer(0), -pt[0], -pt[1])
-    raise ValueError(f"{path}: no hole at {pt}")
+    raise ValueError(f"{name}: no hole at {pt}")
+
+
+class Holes(dict):
+    """HOLES measured on first use, so a plug needs only its own parts."""
+
+    def __init__(self, root):
+        super().__init__()
+        self.root = root
+
+    def __missing__(self, key):
+        self[key] = hole(HOLES[key], self.root)
+        return self[key]
 
 
 def bored(body, top, prm):
@@ -118,7 +136,7 @@ def shared_hexagon(holes, clearance):
     outline has short facets that the lead-in chamfer cannot follow. The
     tightest is the floor's cryostat hole, as in the tested plugs; the wall
     holes get about 0.13 mm."""
-    common = functools.reduce(sg.Polygon.intersection, holes.values())
+    common = functools.reduce(sg.Polygon.intersection, (holes[k] for k in HOLES))
     r = (sg.Point(0, 0).distance(common.exterior) - clearance) / math.cos(math.pi / 6)
     hexagon = sg.Polygon([(r * math.cos(k * math.pi / 3), r * math.sin(k * math.pi / 3))
                           for k in range(6)])
@@ -165,7 +183,7 @@ def main():
     ap.add_argument("--only", default="CryoPlug,CryoPlugTest,WallPlug,WallPlugTest")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
-    holes = {k: hole(v, a.outdir or OUTPUT) for k, v in HOLES.items()}
+    holes = Holes(a.outdir or OUTPUT)
     cryo = functools.cache(lambda: cryo_plug(holes))
     wall = functools.cache(lambda: wall_plug(holes))
     builds = {

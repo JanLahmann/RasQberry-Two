@@ -31,8 +31,11 @@ versions without floor end in `-no-floor` (in `originals/` they are in
   split for small printers; `R2_Wall-Back-SolidForStaticModels`; screw and
   hex nut. Jan's `R2_Wall-Base-jrl01-2` (+ no-floor) and
   `RQB2-WallPanel-jrl02-2`.
-- **[`floor/`](floor/README.md)**: the six floor tiles, the two magnet
-  versions and `R2_Floor-all`.
+- **[`floor/`](floor/README.md)**: the six floor tiles with dovetail
+  joints, the two magnet versions, `R2_Floor-all` and `R2_Floor-JointTest`,
+  plus `R2_Floor-CryoPlug` and `R2_Floor-WallPlug`, which replace screw,
+  nut and ScrewOctopus; all in `print/floor/Dovetail Version/` (the earlier
+  rebuild with pins stays in `print/floor/`).
 - **[`RTE/`](RTE/README.md)**: the server `R2_NarrowServerSingle`
   (`--variant original`), Jan's `RQB2-R2_NarrowServerSingle-jrl02`,
   `R2_ServerStandalone` (two servers back to back) and the lid `R2_NarrowServerSingleLid`, with the fit adjustable per axis.

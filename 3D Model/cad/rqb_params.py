@@ -22,6 +22,10 @@ RTE_DEPTH = 23.25
 # Fits (per side) for parts that slot together.
 CLEARANCE = 0.15            # wall dovetail keys
 
+# Cable passage through the floor: bore of the hollow wall screw and of the
+# floor plugs that replace it.
+CABLE_BORE_D = 20.0
+
 # Dovetail (puzzle) keys used to split parts that are too big for the bed.
 DOVETAIL = dict(key_depth=9.0, key_neck=7.0, key_end=12.0)
 

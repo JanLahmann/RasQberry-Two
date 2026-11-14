@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Parametric rebuild of the floor tiles (R2_Floor-Tile1..6s, -Tile1Mag/2Mag, -all).
+"""Parametric rebuild of the floor tiles (R2_Floor-Tile1..6s, -Tile1Mag/2Mag, -all, -JointTest).
 
 The floor is 260 x 390 mm in six 130 x 130 tiles (2 x 3), 10 mm high:
 
@@ -241,6 +241,8 @@ def joint(kind, prm):
         if z0 - k * L <= -H:
             raise ValueError("tail_len / tail_overhang: the tab's sloped top would reach the floor")
         u0 = (z0 + plate - 0.01) / k                           # where the slope meets the plate
+        if u0 < -w:
+            raise ValueError("tail_gap / tail_overhang: the tab's slope would start behind the skirt")
         side = sg.Polygon([(-w, -H), (-w, -plate + 0.01), (u0, -plate + 0.01),
                            (L, z0 - k * L), (L, -H)])
         prof = extrude(Plane.XZ * Polygon(*side.exterior.coords[:-1], align=None), h + 1, both=True)
