@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-14T09:18:07Z",
+  "generated": "2026-11-14T11:45:42Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,25 +35,29 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-14-093627",
-      "name": "rasqberry-development-2026-11-14-093627",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-093627/rasqberry-development-2026-11-14-093627.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-14-093627",
-      "release_date": "2026-11-14 09:36",
-      "image_download_size": 1861756820,
+      "tag": "development-2026-11-14-115923",
+      "name": "rasqberry-development-2026-11-14-115923",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-115923/rasqberry-development-2026-11-14-115923.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-14-115923",
+      "release_date": "2026-11-14 11:59",
+      "image_download_size": 1862141860,
       "extract_size": 9604956160,
-      "extract_sha256": "855e47b3d2d0bb12f8f1ebccf0aaaab1d58bb3023480f06ce45af9063d27251b",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-093627/rasqberry-development-2026-11-14-093627-ab.img.xz",
-      "ab_extract_sha256": "6b122e63b834f164913c654cbeed415e89209b2b9a0ee79bfc5739dd8c186d1a",
-      "ab_image_sha256": "4e9b7f8544226dddb44990928d1498fe3ded766171bdcc1789927d6a1bbc99c0",
+      "extract_sha256": "56ae578cc4243842cfa00c773165f599b2d9d1c3594b2263d365bd4d516aa0fe",
+      "image_sha256": "ac1569e729b8a7ca2281d6805f0db40e0169189fd6c0058088f9c6764b9a345f",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-115923/rasqberry-development-2026-11-14-115923-ab.img.xz",
+      "ab_extract_sha256": "5d0ba41dcacdd249ae0c0405008c67801b23e0a646cb7f8169643dd0452181fd",
+      "ab_image_sha256": "ce023fd54725c9255331d6ae7ecb4f23baeebabe8e8e4fa247bf5aa4c30ccba9",
+      "ab_image_download_size": 1910599140,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1913285104,
       "highlights": [
-        "Bump version to development-2026-11-14-093627",
-        "Merge pull request #379 from JanLahmann/rig-image-cache",
-        "Stream-image test: the image is staged (downloaded or --image-file) before the checks",
-        "Reference docs: rq_update_slot.sh --image-file",
-        "Updater --image-file; rig cache checked, locked and pruned"
+        "Reference docs: the hotspot setting covers the setup Wi-Fi",
+        "Setup Wi-Fi rule: old table first, removed at stop, reject; texts",
+        "Setup Wi-Fi: the booth hotspot's client rules for SSH and VNC",
+        "CI checks: all run, the job still fails; die hook; tolerant env reload",
+        "CI: the validation checks fail when they find errors",
+        "Real path: target from plan-update, done only once it came up, safer rows",
+        "Rig --update: the real user's way once per release, Imager lists checked",
+        "LED setup check: colour-safe panel finder, shape check, repair kept only if right"
       ]
     }
   }
