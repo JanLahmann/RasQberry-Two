@@ -62,7 +62,8 @@ migrate: move a name or password from the environment file into their own file
 sync: its firewall rules, Entangible's address, the landing page and its
   DNS follow whether the hotspot runs (NetworkManager hook 91-rasqberry-hotspot)
 iface: the Wi-Fi device the hotspot uses (or would use)
-admin: may devices on the hotspot use SSH and VNC? on|off, then the reason
+admin: may devices on the hotspot (and the first-boot setup Wi-Fi) use
+…
 ```
 
 ## Demos
