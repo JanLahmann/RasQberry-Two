@@ -277,23 +277,35 @@ def build(name, prm=PARAMS, with_joints=True):
     return body.clean()
 
 
-def joint_test(prm=PARAMS):
-    """Test piece for the fit: two small plates (40 x 30 mm) with the seam
-    wall and one joint, nothing else - the tab piece (blue side of a seam)
-    and the socket piece. Exported plate-down, as the tiles print, 10 mm
-    apart."""
+JOINT_TEST_CLEARANCES = (0.05, 0.10, 0.15)
+
+
+def joint_test(prm=PARAMS, clearances=JOINT_TEST_CLEARANCES):
+    """Test pieces for the fit: per clearance a pair of small plates
+    (30 x 30 mm) with the seam wall and one joint, nothing else - a tab
+    piece and a socket piece. Pair i (1, 2, 3 ...) has i small holes
+    through both plates. Exported plate-down, as the tiles print."""
     H, pl, w = prm["height"], prm["plate"], prm["wall"]
-    half = 15.0
+    half, depth = 15.0, 30.0
 
-    def piece(x0, x1, wall_x0):
+    def piece(x0, x1, wall_x0, marks):
         body = top_chamfer(prism(sg.box(x0, -half, x1, half), -pl, 0.0), prm["top_chamfer"])
-        return body + prism(sg.box(wall_x0, -half, wall_x0 + w, half), -H, -pl + 0.01)
+        body += prism(sg.box(wall_x0, -half, wall_x0 + w, half), -H, -pl + 0.01)
+        xm = x1 - 5 if x1 > 0 else x0 + 5
+        for k in range(marks):
+            body -= Pos(xm, -half + 4 + 3 * k, -pl / 2) * Cylinder(0.75, pl + 1)
+        return body
 
-    tab = piece(0, 40, 0) + place(joint("tab", prm), 0, 0, (-1, 0))
-    block, cut = joint("socket", prm)
-    sock = piece(-40, 0, -w) + place(block, 0, 0, (-1, 0)) - place(cut, 0, 0, (-1, 0))
     flip = lambda s: Pos(0, 0, H) * Rot(180, 0, 0) * s   # noqa: E731  plate on the bed
-    return (Pos(5, 0, 0) * flip(tab) + Pos(-5, 0, 0) * flip(sock)).clean()
+    out = None
+    for i, c in enumerate(clearances):
+        q = dict(prm, tail_clearance=c)
+        tab = piece(0, depth, 0, i + 1) + place(joint("tab", q), 0, 0, (-1, 0))
+        block, cut = joint("socket", q)
+        sock = piece(-depth, 0, -w, i + 1) + place(block, 0, 0, (-1, 0)) - place(cut, 0, 0, (-1, 0))
+        pair = Pos(5, 40 * i, 0) * flip(tab) + Pos(-5, 40 * i, 0) * flip(sock)
+        out = pair if out is None else out + pair
+    return out.clean()
 
 
 def main():
