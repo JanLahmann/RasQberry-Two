@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-14T09:17:18Z",
+  "generated": "2026-11-14T09:18:07Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,17 +43,17 @@
       "image_download_size": 1861756820,
       "extract_size": 9604956160,
       "extract_sha256": "855e47b3d2d0bb12f8f1ebccf0aaaab1d58bb3023480f06ce45af9063d27251b",
-      "image_sha256": "4a4b4248afe03d0d1a5ef445b376bb2e358baaa88a4d5df992e11b1088d313af",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-093627/rasqberry-development-2026-11-14-093627-ab.img.xz",
       "ab_extract_sha256": "6b122e63b834f164913c654cbeed415e89209b2b9a0ee79bfc5739dd8c186d1a",
       "ab_image_sha256": "4e9b7f8544226dddb44990928d1498fe3ded766171bdcc1789927d6a1bbc99c0",
-      "ab_image_download_size": 1913285104,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1913285104,
       "highlights": [
+        "Bump version to development-2026-11-14-093627",
+        "Merge pull request #379 from JanLahmann/rig-image-cache",
         "Stream-image test: the image is staged (downloaded or --image-file) before the checks",
         "Reference docs: rq_update_slot.sh --image-file",
-        "Updater --image-file; rig cache checked, locked and pruned",
-        "Rig test --update: download each release once, log our own downloads"
+        "Updater --image-file; rig cache checked, locked and pruned"
       ]
     }
   }
