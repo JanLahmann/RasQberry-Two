@@ -137,10 +137,19 @@ Before a Pi's LED demos, each run checks that this setup still holds (rows
   that doesn't match the wiring puts the blocks elsewhere or the big one in
   another corner (mirrored, upside down).
 
-If the layout or the crop is wrong, the run says so and does not judge that
-Pi's LED demos by the camera (they would only give wrong results). A panel
-that stays dark is reported, but judging stays on: that is more likely the
-image's LED output, and the demos then fail "panel dark". Frames: `<pi>-setup-*.png`.
+It repairs what it can, each repair a WARN row in the report:
+
+- a layout that doesn't map like rig.json's is set to rig.json's
+  (`LED_LAYOUT`, marked verified) and put back if the panel then looks no
+  better;
+- a crop that no longer frames the panel is found again from the corner
+  pattern anywhere in the frame (the four brightest blocks, two above two)
+  and written to rig.json (the old file kept as `rig.json.bak`).
+
+What it can't repair turns camera judging off for that Pi's LED demos (they
+would only give wrong results). A panel that stays dark and can't be found
+anywhere is reported, but judging stays on: that is more likely the image's
+LED output, and the demos then fail "panel dark". Frames: `<pi>-setup-*.png`.
 - LED Painter starts with an empty canvas: instead of the camera, the test
   checks that the LED renderer service that drives the panel is running.
 

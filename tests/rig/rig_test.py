@@ -727,54 +727,157 @@ def corners_in_crop(frame, baseline, crop):
     return True, "a block in each corner of the crop, the origin's top left"
 
 
-def check_led_setup(pi, camera, outdir, all_pis):
+def find_panel(frame, baseline):
+    """
+    Find the corner pattern anywhere in the frame (the camera moved, the crop
+    went stale): the four biggest lit blobs, two above two, give the panel.
+
+    Returns:
+        list or None: a new panel_crop [x1, y1, x2, y2] (with a small margin),
+            None if four corner blocks can't be told apart.
+    """
+    from PIL import Image, ImageFilter
+    w, h = 160, 90
+    diff = lit_diff(frame, baseline, [0, 0, 1, 1])
+    lit = diff.point(lambda v: 255 if v >= LIT_DELTA else 0).resize((w, h), Image.BOX)
+    level = diff.resize((w, h), Image.BOX).load()                  # how bright: LEDs beat reflections
+    near = lit.point(lambda v: 255 if v >= 255 * SAMPLE_LIT else 0).filter(ImageFilter.MaxFilter(3)).load()
+    lit = lit.load()
+    seen, blobs = set(), []
+    for y in range(h):
+        for x in range(w):
+            if not near[x, y] or (x, y) in seen:
+                continue
+            # a blob: lit cells joined across the gaps between one block's LEDs
+            blob, todo = [], [(x, y)]
+            seen.add((x, y))
+            while todo:
+                cx, cy = todo.pop()
+                if lit[cx, cy] >= 255 * SAMPLE_LIT:
+                    blob.append((cx, cy))
+                for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                    if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in seen and near[nx, ny]:
+                        seen.add((nx, ny))
+                        todo.append((nx, ny))
+            if blob:
+                blobs.append(blob)
+    blobs = sorted(blobs, key=lambda b: sum(level[c] for c in b), reverse=True)[:4]
+    if len(blobs) < 4:
+        return None
+    centre = lambda b: (sum(c[0] for c in b) / len(b), sum(c[1] for c in b) / len(b))
+    top, bottom = (sorted(pair, key=lambda b: centre(b)[0])
+                   for pair in (sorted(blobs, key=lambda b: centre(b)[1])[:2], sorted(blobs, key=lambda b: centre(b)[1])[2:]))
+    # a rectangle: the top pair level, the bottom pair level, left above left
+    if max(abs(centre(top[0])[1] - centre(top[1])[1]), abs(centre(bottom[0])[1] - centre(bottom[1])[1])) > h * 0.08:
+        return None
+    xs = [c[0] for b in blobs for c in b]
+    ys = [c[1] for b in blobs for c in b]
+    margin = 0.02
+    return [round(max(0.0, min(xs) / w - margin), 3), round(max(0.0, min(ys) / h - margin), 3),
+            round(min(1.0, (max(xs) + 1) / w + margin), 3), round(min(1.0, (max(ys) + 1) / h + margin), 3)]
+
+
+def corner_pattern(pi, camera, baseline, crop, want, frame):
+    """
+    Light the corner pattern (led_fill.py --corners) and judge it.
+
+    Returns:
+        tuple: (match of led_fill's layout line or None, corners_in_crop's result)
+    """
+    expect = f"--expect {shlex.quote(want)} " if want else ""
+    seen = (None, "no camera or panel_crop")
+    try:
+        launch_holder(pi, 60, f"--corners {expect}80 80 80")
+        end = time.time() + 20
+        while baseline and time.time() < end:
+            seen = corners_in_crop(camera.grab(frame), baseline, crop)
+            if seen[0] is not None:
+                break
+        # without the camera: wait until led_fill.py has reported the layout
+        wait_for(pi["host"], f"grep -q '^led_fill: corners, ' {REMOTE_DIR}/led_fill.log", 20, interval=1)
+    finally:
+        stop_holder(pi)
+    _, log = ssh(pi["host"], f"cat {REMOTE_DIR}/led_fill.log; {CLEAR_LEDS}", timeout=60)
+    return re.search(r"^led_fill: corners, layout (\S+?)(?:, matches \S+: (yes|no))?$", log, re.M) or log, seen
+
+
+def set_led_layout(pi, layout):
+    """Set the Pi's LED_LAYOUT (as the LED setup wizard does) and mark it verified."""
+    ssh(pi["host"], f"sudo bash -c '. /usr/bin/rq_common.sh && update_env_var LED_LAYOUT {shlex.quote(layout)} "
+                    f"&& update_env_var LED_LAYOUT_VERIFIED true'", timeout=60, check=True)
+
+
+def save_panel_crop(config, name, crop):
+    """Write a Pi's new panel_crop into rig.json (the old file kept as rig.json.bak)."""
+    path = Path(config)
+    data = json.loads(path.read_text())
+    path.with_name(path.name + ".bak").write_text(path.read_text())
+    for p in data["pis"]:
+        if p["name"] == name:
+            p["panel_crop"] = crop
+    path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def check_led_setup(pi, camera, outdir, all_pis, config):
     """
     Before a Pi's LED demos: does its LED layout map like the one rig.json
     expects, and do the panel's corners sit in the corners of its panel_crop,
     the right way round? A stale crop made lit demos look dark; a wrong layout
     drew Lights Out's grid in one corner and still counted as lit.
-    led_fill.py --corners maps the corners through the layout as rq_led_utils
-    resolves it (the demos' own lookup) and reports it.
+
+    It repairs what it can: a wrong layout is set to rig.json's (and put back
+    if the panel then looks no better), a stale crop is found again from the
+    corner pattern and written to rig.json. Each repair is a WARN row.
 
     Returns:
         tuple: (report rows, True if this Pi's LED demos can be judged by the camera)
     """
     want, crop = pi.get("led_layout"), pi.get("panel_crop")
     frame = outdir / f"{pi['name']}-setup-corners.png"
-    expect = f"--expect {shlex.quote(want)} " if want else ""
+    rows = []
     with PANEL_LOCK:
         baseline, _ = (fresh_baseline(all_pis, camera, outdir / f"{pi['name']}-setup-baseline.png")
                        if camera and crop else (None, None))
-        seen = (None, "no camera or panel_crop")
-        try:
-            launch_holder(pi, 60, f"--corners {expect}80 80 80")
-            end = time.time() + 20
-            while baseline and time.time() < end:
-                seen = corners_in_crop(camera.grab(frame), baseline, crop)
-                if seen[0] is not None:
-                    break
-            # without the camera: wait until led_fill.py has reported the layout
-            wait_for(pi["host"], f"grep -q '^led_fill: corners, ' {REMOTE_DIR}/led_fill.log", 20, interval=1)
-        finally:
-            stop_holder(pi)
-        _, log = ssh(pi["host"], f"cat {REMOTE_DIR}/led_fill.log; {CLEAR_LEDS}", timeout=60)
-    m = re.search(r"^led_fill: corners, layout (\S+?)(?:, matches \S+: (yes|no))?$", log, re.M)
-    if not m:
-        rows = [{"verdict": "FAIL", "name": "led-setup: layout",
-                 "detail": f"led_fill.py reported no layout: {log.strip()[-160:] or 'no output'}"}]
+        m, seen = corner_pattern(pi, camera, baseline, crop, want, frame)
+        if isinstance(m, re.Match) and want and m.group(2) == "no":
+            old = m.group(1)
+            set_led_layout(pi, want)
+            m2, seen2 = corner_pattern(pi, camera, baseline, crop, want, frame)
+            # put the old one back only if the panel looked right with it and not now
+            looked_worse = bool(baseline) and seen[0] is True and seen2[0] is not True
+            if isinstance(m2, re.Match) and m2.group(2) == "yes" and not looked_worse:
+                rows.append({"verdict": "WARN", "name": "led-setup: layout repaired",
+                             "detail": f"LED_LAYOUT was {old}, set to {want} as rig.json says"})
+                m, seen = m2, seen2
+            else:
+                set_led_layout(pi, old)
+                rows.append({"verdict": "WARN", "name": "led-setup: layout not repaired",
+                             "detail": f"{want} looked no better on the panel: {old} put back"})
+        if baseline and not seen[0]:
+            new = find_panel(frame, baseline)
+            fixed = new and corners_in_crop(frame, baseline, new)
+            if fixed and fixed[0]:
+                save_panel_crop(config, pi["name"], new)
+                rows.append({"verdict": "WARN", "name": "led-setup: crop repaired",
+                             "detail": f"panel_crop {crop} -> {new}, written to {Path(config).name}"})
+                pi["panel_crop"], seen = new, fixed
+    if not isinstance(m, re.Match):
+        rows.insert(0, {"verdict": "FAIL", "name": "led-setup: layout",
+                        "detail": f"led_fill.py reported no layout: {m.strip()[-160:] or 'no output'}"})
     elif not want:
-        rows = [{"verdict": "WARN", "name": "led-setup: layout",
-                 "detail": f"Pi has {m.group(1)}; put \"led_layout\" into rig.json to check it"}]
+        rows.insert(0, {"verdict": "WARN", "name": "led-setup: layout",
+                        "detail": f"Pi has {m.group(1)}; put \"led_layout\" into rig.json to check it"})
     elif m.group(2) == "yes":
         same = "" if m.group(1) == want else f" (maps like {want})"
-        rows = [{"verdict": "PASS", "name": "led-setup: layout", "detail": m.group(1) + same}]
+        rows.insert(0, {"verdict": "PASS", "name": "led-setup: layout", "detail": m.group(1) + same})
     else:
-        rows = [{"verdict": "FAIL", "name": "led-setup: layout",
-                 "detail": f"Pi has {m.group(1)}, rig.json expects {want}"}]
+        rows.insert(0, {"verdict": "FAIL", "name": "led-setup: layout",
+                        "detail": f"Pi has {m.group(1)}, rig.json expects {want}"})
     if baseline:
         ok, what = seen
         detail = what if ok else f"{what} ({frame.name}): " + (
-            "the LED output or panel_crop" if ok is None else "fix panel_crop in rig.json or the Pi's LED layout")
+            "the LED output, or the panel is out of the camera's view" if ok is None
+            else "could not repair it: check the camera and panel_crop")
         rows.append({"verdict": "PASS" if ok else "FAIL", "name": "led-setup: corners in the crop", "detail": detail})
     # a dark panel is more likely the image's LED output than the rig: keep
     # judging, so the LED demos fail "panel dark" and point at it
@@ -971,7 +1074,7 @@ def main():
                     try:
                         if any(d["leds"] for d in demos):
                             try:
-                                rows, pi["led_setup_ok"] = check_led_setup(pi, camera, outdir, cfg["pis"])
+                                rows, pi["led_setup_ok"] = check_led_setup(pi, camera, outdir, cfg["pis"], args.config)
                             except Exception as exc:   # the demos still run, unjudged
                                 rows, pi["led_setup_ok"] = [{"verdict": "FAIL", "name": "led-setup",
                                                              "detail": f"harness: {exc}"}], False
