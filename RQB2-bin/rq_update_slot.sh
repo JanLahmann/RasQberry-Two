@@ -122,7 +122,7 @@ INCOMPLETE_SLOT=""
 # Helper Functions
 # ============================================================================
 
-# rq_common.sh's die, plus a line in the log: the menu runs this script in
+# Extends rq_common.sh's die with a line in the log: the menu runs this script in
 # the user's terminal, and the log is what is left after the screen scrolls.
 die() {
     echo "ERROR: $*" >&2

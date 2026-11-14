@@ -186,7 +186,8 @@ for script in "$BIN_DIR"/*.sh; do
     [ "$script_name" = "rq_common.sh" ] && continue
 
     # Look for USER_HOME assignments (but not exports or comments)
-    if grep -n "USER_HOME=" "$script" 2>/dev/null | grep -v "export USER_HOME" | grep -v "#.*USER_HOME"; then
+    # the variable itself, not RQ_USER_HOME=... (an environment passed to a program)
+    if grep -nE "(^|[^A-Za-z0-9_])USER_HOME=" "$script" 2>/dev/null | grep -v "export USER_HOME" | grep -v "#.*USER_HOME"; then
         USER_HOME_VIOLATIONS+=("$script_name")
         error "$script_name: Redefines USER_HOME (CRITICAL VIOLATION)"
         echo "    USER_HOME should ONLY be set in rasqberry_env-config.sh"

@@ -358,10 +358,10 @@ install_system_files() {
 reload_environment() {
     log_message "Reloading environment configuration..."
 
-    # Source the environment config to pick up changes
-    if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
-        # shellcheck disable=SC1091
-        . /usr/config/rasqberry_env-config.sh 2>/dev/null || true
+    # Source the environment config to pick up changes (load_rqb2_env: only
+    # with rq_common.sh; the minimal fallback above has no environment)
+    if command -v load_rqb2_env >/dev/null 2>&1 && [ -f "${RQ_CONFIG_FILE:-}" ]; then
+        load_rqb2_env
         log_message "Environment reloaded"
     else
         warn "Environment config file not found"

@@ -177,7 +177,8 @@ for script in "$BIN_DIR"/*.sh; do
 
     if grep -q "rq_common.sh" "$script"; then
         # Check for custom die/warn/info functions
-        if grep -q '^die()' "$script"; then
+        # (a script may extend it on purpose: "Extends rq_common.sh's die" above it)
+        if grep -q '^die()' "$script" && ! grep -B3 '^die()' "$script" | grep -q "Extends rq_common.sh's die"; then
             error "$script_name: Redefines die() function (use from rq_common.sh)"
         fi
 
