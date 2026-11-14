@@ -144,8 +144,8 @@ It repairs what it can, each repair a WARN row in the report:
   judged there: a moved camera needs no new `panel_crop`, which is only the
   fallback;
 - with the camera, a layout that doesn't map like rig.json's is set to
-  rig.json's (`LED_LAYOUT`; `LED_LAYOUT_VERIFIED` stays as it was) and the
-  old setting put back if the panel looked right before and doesn't now.
+  rig.json's (`LED_LAYOUT`; `LED_LAYOUT_VERIFIED` stays as it was), kept only
+  if the panel then looks right, else the old setting is put back.
   A repaired layout is a WARN, not a pass: a new image that saves the wrong
   layout shows up there.
 
