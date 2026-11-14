@@ -43,8 +43,8 @@ behind its skirt and is lowered onto them. Its plate covers the tabs.
   Tile1/2). Take them apart in reverse.
 - Print plate-down as before; the tabs' top slopes at 45 deg, so they
   need no support.
-- Fit: `tail_clearance` (0.2 mm all round) in `PARAMS`. Print
-  `R2_Floor-JointTest` (two small pieces, one joint) to try it first.
+- Fit: `tail_clearance` (0.05 mm all round, from test prints of 0.05/0.10/0.15 on a Prusa; 0.2 was loose) in `PARAMS`. Print
+  `R2_Floor-JointTest` (three pairs, 1-3 marker holes = 0.05/0.10/0.15 mm) to try it on another printer.
 - `R2_Floor-all` is one piece and has no joints.
 
 ## How it is built

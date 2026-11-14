@@ -48,7 +48,7 @@ PARAMS = dict(
     # the seam, clearance all round in the socket, gap under the plate
     # above the tab, overhang of the tab's sloped top (deg from vertical,
     # as printed plate-down)
-    tail_neck=7.0, tail_head=11.0, tail_len=5.5, tail_clearance=0.2,
+    tail_neck=7.0, tail_head=11.0, tail_len=5.5, tail_clearance=0.05,
     tail_gap=0.3, tail_overhang=45.0, socket_wall=2.5,
     magnet_d=15.93, magnet_depth=1.0,
     cable_hole_r=11.03,
