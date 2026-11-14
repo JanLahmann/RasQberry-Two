@@ -2849,7 +2849,7 @@ do_hotspot_admin() {
         [ "$_ha_now" = auto ] && _ha_text="$_ha_text\nChange the password (RasQberry > Remote Access & Security) to allow them."
     fi
     _ha_new=$(show_menu --default-item "$_ha_now" "Wi-Fi hotspot: SSH and VNC" \
-        "Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try.\n\n$_ha_text" \
+        "Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try. (The same applies to the setup Wi-Fi a new Pi opens.)\n\n$_ha_text" \
         auto "auto: only once the default password is changed (recommended)" \
         no   "no: never" \
         yes  "yes: always, even with the default password") || return 0
