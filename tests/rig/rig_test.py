@@ -303,9 +303,20 @@ def lit_score(frame, baseline, crop):
 # steps
 # ----------------------------------------------------------------------------
 def no_usage_counts(pi):
-    """Switch the usage counts off on this Pi (NO_USAGE_COUNTS)."""
+    """
+    Switch the usage counts off on this Pi (NO_USAGE_COUNTS), and mark the card
+    as ours (rasqberry-internal on CONFIG on A/B cards, else bootfs) if that was
+    forgotten after writing it: then its first start was counted once.
+    """
     if ssh(pi["host"], NO_USAGE_COUNTS, timeout=60)[0] != 0:
         raise RuntimeError("could not set RQ_UMAMI=0 (usage counts off)")
+    # where rq_umami_event.internal_card looks: CONFIG on A/B cards, else bootfs
+    _, out = ssh(pi["host"], "d=/boot/firmware; [ -e /boot/config/autoboot.txt ] && d=/boot/config; "
+                             "ls $d/rasqberry-internal* >/dev/null 2>&1 || "
+                             "{ sudo touch $d/rasqberry-internal && echo $d; }", timeout=60)
+    if out.strip():
+        print(f"   {pi['name']}: card marked as ours now ({out.strip()}/rasqberry-internal): "
+              "its first start was counted; mark rig cards right after writing them")
 
 
 def update_slot(pi, tag):

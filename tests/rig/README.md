@@ -20,11 +20,10 @@ boot.
   `rig.json` and `results/` are git-ignored.
 - Usage counts: each run first puts `RQ_UMAMI=0` into the Pi's
   `/usr/config/rasqberry_environment.env`, so rig demo starts, health checks
-  and updates do not count in the project's Umami statistics. So that a
-  freshly written rig card doesn't count its first start either, put an
-  empty file `rasqberry-internal` on its FAT partition right after writing it
-  (the volume a computer shows: CONFIG on A/B cards, bootfs on standard
-  ones); such a card never counts.
+  and updates do not count in the project's Umami statistics. A freshly
+  written rig card would still count its first start: put an empty file
+  `rasqberry-internal` on its FAT partition (CONFIG on A/B cards, bootfs on
+  standard ones) right after writing it.
 
 ## Running
 
