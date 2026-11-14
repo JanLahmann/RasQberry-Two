@@ -1,0 +1,19 @@
+[Unit]
+Description=RasQberry SSH window on a card with the published password
+# rq_ssh_window.sh: while the desktop user still has the published demo
+# password, SSH password login is closed before sshd starts, opens for
+# DEFAULT_PW_WINDOW_MIN minutes (rasqberry_boot.env, 15) once the Pi has a
+# network, and asks for a new password at the first login. Nothing to do on a
+# card with its own password (Raspberry Pi Imager).
+Before=ssh.service
+# after the units that bring the user's own password: a new A/B slot's
+# carry-over, Raspberry Pi Imager's settings
+After=local-fs.target rasqberry-carry-over.service rasqberry-imager-firstrun.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/rq_ssh_window.sh close
+ExecStart=/usr/bin/rq_ssh_window.sh window
+
+[Install]
+WantedBy=multi-user.target

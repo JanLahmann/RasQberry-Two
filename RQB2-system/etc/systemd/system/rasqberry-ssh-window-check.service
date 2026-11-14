@@ -1,0 +1,6 @@
+[Unit]
+Description=RasQberry: end the SSH first-login step once the password is changed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rq_ssh_window.sh check

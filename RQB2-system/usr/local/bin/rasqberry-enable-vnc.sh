@@ -29,8 +29,18 @@ mark_done() {
 # Done once: from now on, on or off is the user's choice
 [ -e "$MARKER" ] && exit 0
 
+
 if vnc_on; then
     mark_done
+    exit 0
+fi
+
+# Not while the account has the published password (VNC cannot ask for a new
+# one): rq_ssh_window.sh switches it on once the password is changed, or now
+# with DEFAULT_PW_WINDOW_VNC=yes in rasqberry_boot.env
+WINDOW="${RQ_SSH_WINDOW:-/usr/bin/rq_ssh_window.sh}"
+if [ -x "$WINDOW" ] && ! sudo -n "$WINDOW" vnc-allowed 2>/dev/null; then
+    log "VNC stays off while the published password is set (on once it is changed)"
     exit 0
 fi
 
