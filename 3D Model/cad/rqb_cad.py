@@ -44,10 +44,12 @@ PARTS = {
     "R2_Wall-Back-SolidForStaticModels": "wall/R2_Wall-Back-SolidForStaticModels",
     "R2_Screw": "wall/R2_Screw",
     "R2_Hex_Nut": "wall/R2_Hex_Nut",
-    **{f"R2_Floor-{t}": f"floor/R2_Floor-{t}"
+    # the floor with dovetail joints and the plugs; the earlier rebuild
+    # (alignment pins, screws) stays in floor/ unchanged
+    **{f"R2_Floor-{t}": f"floor/Dovetail Version/R2_Floor-{t}"
        for t in ("Tile1", "Tile2", "Tile3", "Tile4", "Tile5", "Tile6s", "all", "JointTest",
                  "CryoPlug", "CryoPlugTest", "WallPlug", "WallPlugTest")},
-    **{f"R2_Floor-{t}": f"floor/Sign Magnet Indent Version/R2_Floor-{t}"
+    **{f"R2_Floor-{t}": f"floor/Dovetail Version/Sign Magnet Indent Version/R2_Floor-{t}"
        for t in ("Tile1Mag", "Tile2Mag")},
     # Jan's modifications (originals: 3D Model - modifications - Jan/October 2025[ - no-floor])
     "R2_Wall-Base-jrl01-2": "wall/R2_Wall-Base-jrl01-2",

@@ -69,10 +69,10 @@ PARAMS = dict(
 )
 # (stl in print/, z of a section through the hole, a point inside the hole)
 HOLES = dict(
-    floor_cryo=("floor/R2_Floor-all.stl", 8.5, (130.32, 140.18)),
+    floor_cryo=("floor/Dovetail Version/R2_Floor-all.stl", 8.5, (130.32, 140.18)),
     cryo=("cryostat/R2_NarrowYCryoConjoined.stl", 1.5, (0.0, 10.25)),
     wall=("wall/R2_Wall-Base.stl", 1.5, (30.20, 27.27)),
-    floor_wall=("floor/R2_Floor-all.stl", 8.5, (37.36, 322.27)),
+    floor_wall=("floor/Dovetail Version/R2_Floor-all.stl", 8.5, (37.36, 322.27)),
 )
 
 
