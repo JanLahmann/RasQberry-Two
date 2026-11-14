@@ -85,14 +85,17 @@ jobs:
       - name: Check the demo list and learning paths match the demo manifests
         # 01-demo-list.md and 02-learning-paths.md are generated from
         # RQB2-config/demo-manifests (the manifests and learning-paths.json) -
-        # the same files the image installs from. This fails the build when a
-        # demo or path is added or changed there and the pages are not
-        # regenerated, which is how 17 demos came to ship with 8 listed.
+        # the same files the image installs from. Out of date (a demo or path
+        # added or changed there, 17 demos once shipped with 8 listed) or not
+        # checkable (GitHub API down): a warning, and the deploy goes on with the
+        # committed pages, reviewed on gh-pages. Failing here stopped every
+        # deploy, the release JSON the Pis read included, on 13-14 Nov 2026.
         # Fix with: npm run demos
         #
         # GITHUB_TOKEN lifts the GitHub API limit from 60/hour per IP (and Actions
         # runners share IPs) to 1000/hour, so this does not fail at random.
-        run: npm run demos:check
+        run: |
+          npm run demos:check || echo "::warning::The demo list or learning paths don't match the demo manifests (or could not be checked): deployed the committed pages. Fix with: npm run demos"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build with Next.js

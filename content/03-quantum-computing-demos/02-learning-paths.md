@@ -12,7 +12,7 @@ try and what to notice. On the Pi, open the **Learning paths** icon or
 
 ## First 15 minutes
 
-Visitors at a stand · about 15 minutes · <span className="beta-tag">beta</span>
+Visitors at a stand · about 15 minutes
 
 Light up the panel, see a qubit and lose a coin game to a quantum computer.
 
@@ -28,7 +28,7 @@ Light up the panel, see a qubit and lose a coin game to a quantum computer.
 
 **Keep going:** <a href="#2-superposition-measurement" title="Find out what the H gate did to the coin." data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="superposition-and-measurement">Superposition & measurement</a> · <a href="https://fun-with-quantum.org" title="Play the quantum games at home, in your browser." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="https://fun-with-quantum.org">Fun with Quantum</a> · <a href="https://qamposer.org" title="Build your own quantum circuits in the browser." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="https://qamposer.org">QAMPoser</a> · <a href="#2-continue-with-ibm-quantum-learning" title="Continue with IBM Quantum Learning" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="ibm-learning">IBM Quantum Learning</a>
 
-This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/first-15-minutes).
+[Tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/first-15-minutes).
 
 </div>
 
@@ -36,7 +36,7 @@ This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-
 
 ## Superposition & measurement
 
-A school lesson · about 45 minutes · <span className="beta-tag">beta</span>
+A school lesson · about 45 minutes
 
 Learn what a superposition is and what a measurement does to it.
 
@@ -52,7 +52,7 @@ Learn what a superposition is and what a measurement does to it.
 
 **Keep going:** <a href="https://doqumentation.org/learning/modules/quantum-mechanics" title="Lessons on superposition, measurement and uncertainty, with Qiskit code." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="https://doqumentation.org/learning/modules/quantum-mechanics">Quantum mechanics module</a> · <a href="https://doqumentation.org/learning/courses/basics-of-quantum-information" title="The full course: qubits, measurements and gates, at your own pace." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="https://doqumentation.org/learning/courses/basics-of-quantum-information">Basics of quantum information</a> · <a href="#2-entanglement" title="See what happens when two or three qubits share one state." data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="entanglement">Entanglement</a> · <a href="#2-continue-with-ibm-quantum-learning" title="Continue with IBM Quantum Learning" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="ibm-learning">IBM Quantum Learning</a>
 
-This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/superposition-and-measurement).
+[Tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/superposition-and-measurement).
 
 </div>
 
@@ -60,7 +60,7 @@ This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-
 
 ## Entanglement
 
-Curious learners · about 40 minutes · <span className="beta-tag">beta</span>
+Curious learners · about 40 minutes
 
 Win games that no classical team can win every time, with entangled qubits.
 
@@ -76,7 +76,7 @@ Win games that no classical team can win every time, with entangled qubits.
 
 **Keep going:** <a href="https://doqumentation.org/tutorials/chsh-inequality" title="Run a Bell test on a real quantum computer." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="https://doqumentation.org/tutorials/chsh-inequality">CHSH inequality tutorial</a> · <a href="https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction" title="Teleportation, superdense coding and the CHSH game, step by step." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction">Entanglement in action</a> · <a href="#2-your-first-program" title="Write your own entangled circuit with Qiskit." data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="your-first-program">Your first program</a> · <a href="#2-continue-with-ibm-quantum-learning" title="Continue with IBM Quantum Learning" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="ibm-learning">IBM Quantum Learning</a>
 
-This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/entanglement).
+[Tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/entanglement).
 
 </div>
 
@@ -84,7 +84,7 @@ This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-
 
 ## Your first program
 
-Learners who want to code · about 60 minutes · <span className="beta-tag">beta</span>
+Learners who want to code · about 60 minutes
 
 Write and run a quantum circuit with Qiskit, then keep learning.
 
@@ -100,7 +100,7 @@ Write and run a quantum circuit with Qiskit, then keep learning.
 
 **Keep going:** <a href="https://doqumentation.org/workshop/Qiskit%20101%20Hands-on" title="A workshop notebook: your first circuits, a quiz and a run on real hardware." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://doqumentation.org/workshop/Qiskit%20101%20Hands-on">Qiskit 101 hands-on</a> · <a href="https://doqumentation.org/learning/courses/fundamentals-of-quantum-algorithms" title="Query algorithms, phase estimation, factoring and Grover's search." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://doqumentation.org/learning/courses/fundamentals-of-quantum-algorithms">Fundamentals of quantum algorithms</a> · <a href="https://certiq.dev" title="Free community prep for the Qiskit developer certification (unofficial, not by IBM)." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://certiq.dev">CertiQ</a> · <a href="#2-continue-with-ibm-quantum-learning" title="Continue with IBM Quantum Learning" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="ibm-learning">IBM Quantum Learning</a>
 
-This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/your-first-program).
+[Tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/your-first-program).
 
 </div>
 
@@ -108,14 +108,14 @@ This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-
 
 ## IBM: Introduction to quantum
 
-Newcomers with time to learn · about 26 hours · <span className="beta-tag">beta</span>
+Newcomers with time to learn · about 26 hours
 
 Learn key terms, applications and starter skills, on the Pi where you can.
 
 <a href="https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum">From IBM Quantum Learning: its Introduction to quantum learning path.</a>
 
 1. **Quickstart** (1 hour): in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">doQumentation</a> on the Pi, or <a href="https://quantum.cloud.ibm.com/docs/en/guides/quick-start" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="https://quantum.cloud.ibm.com/docs/en/guides/quick-start">online at IBM Quantum</a>
-   - Try: Skip Install Qiskit (it is on this Pi): build the circuit and run its cells.
+   - Try: Build the circuit and run it (on this Pi, Qiskit is already installed).
    - Notice: A few lines of code build a circuit, draw it and show its results.
 2. **Run your first circuit on hardware** (0.5 hours): in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">doQumentation</a> on the Pi, or <a href="https://quantum.cloud.ibm.com/docs/en/guides/hello-world" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="https://quantum.cloud.ibm.com/docs/en/guides/hello-world">online at IBM Quantum</a>
    - Try: Follow its four steps: map, optimize, execute, analyze. Hardware needs an IBM Quantum account.
@@ -135,7 +135,7 @@ Learn key terms, applications and starter skills, on the Pi where you can.
 
 **Keep going:** <a href="https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum" title="The same path online: earn its badge with an IBM Quantum account." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum">Introduction to quantum at IBM</a> · <a href="#2-your-first-program" title="Write your own circuits on this Pi." data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="your-first-program">Your first program</a> · <a href="#2-continue-with-ibm-quantum-learning" title="Continue with IBM Quantum Learning" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="ibm-learning">IBM Quantum Learning</a>
 
-This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/ibm-introduction-to-quantum).
+[Tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/ibm-introduction-to-quantum).
 
 </div>
 

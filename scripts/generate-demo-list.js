@@ -21,7 +21,8 @@
  * (issue #309).
  *
  *   node scripts/generate-demo-list.js            # write both files
- *   node scripts/generate-demo-list.js --check    # fail if one is out of date (CI)
+ *   node scripts/generate-demo-list.js --check    # fail if one is out of date (the deploy
+ *                                                 # warns and keeps the committed pages)
  *   node scripts/generate-demo-list.js --ref beta # read from another branch
  *   node scripts/generate-demo-list.js --local ../RasQberry-Two-development
  *                                                 # read a local checkout instead
@@ -178,18 +179,33 @@ function catalogueRows(registry) {
   }));
 }
 
-// A stable demo with beta variants (Fun with Quantum: its website and family)
-// names them, as the Pi tags each of them in its chooser
+// Demo level (demo levels, #371): "dev" demos are in development images only
+// and tagged beta, as the Pi marks them "(beta)". A manifest without a level
+// takes its catalogue entry's, as rq_demo_maturity does on the Pi.
+const isDev = (d) => d.maturity === 'dev';
+const BETA_TAG = '<span className="beta-tag">beta</span>';
+
+// The catalogue entry's level for a shipped manifest that has none (by id, or
+// an entry that "replaces" it), as the Pi falls back to it.
+function withCatalogueLevel(manifests, registry) {
+  const entries = registry?.demos || [];
+  const levelOf = (id) => (entries.find((d) => d.id === id) || entries.find((d) => (d.replaces || []).includes(id)))?.maturity;
+  return manifests.map((m) => (m.maturity ? m : { ...m, maturity: levelOf(m.id) }));
+}
+
+// A demo with dev variants (Fun with Quantum) names them, as the Pi tags
+// each of them in its chooser
 function betaParts(m) {
-  if (m.maturity === 'beta') return '';
-  const parts = (m.variants || []).filter((v) => v.maturity === 'beta').map((v) => v.name.split(':')[0]);
-  return parts.length ? ` <span className="beta-tag">beta</span>: ${parts.join(', ')}` : '';
+  if (isDev(m)) return '';
+  const parts = (m.variants || []).filter((v) => isDev({ maturity: v.maturity || m.maturity }))
+    .map((v) => v.name.split(':')[0].replace(/\s*\(.*\)$/, ''));
+  return parts.length ? ` ${BETA_TAG}: ${parts.join(', ')}` : '';
 }
 
 function row(m) {
   const page = pageFor(m.id);
   const name = page ? `[${m.name}](${page})` : m.name;
-  const beta = m.maturity === 'beta' ? ' <span className="beta-tag">beta</span>' : '';
+  const beta = isDev(m) ? ` ${BETA_TAG}` : '';
   const formerly = m.formerly ? ` (formerly ${m.formerly})` : '';
   const needs = m.catalogue
     ? [`add it first: **Manage demos** → **Add demo from catalogue**${m.download ? ` (${m.download < 1000 ? `${m.download} MB` : `${(m.download / 1000).toFixed(1)} GB`})` : ''}`]
@@ -209,9 +225,9 @@ function render(manifests, groups, registry) {
   // a manifest without a valid group goes where the Pi's guess puts it
   const guess = (m) => (m.needs_hw?.leds ? 'led-panel' : ['game', 'visualization'].includes(m.category) ? 'play' : 'learn');
   const byGroup = Object.fromEntries(ids.map((g) => [g, []]));
-  // a beta demo: the group marked beta, whatever group it names (Jan, 2026-10-24), as on the Pi
+  // a dev demo (tagged beta, Jan 2026-11-13): the group marked beta, whatever group it names, as on the Pi
   const betaGroup = groups.groups.find((g) => g.beta)?.id;
-  const inBeta = (d) => betaGroup && d.maturity === 'beta';
+  const inBeta = (d) => betaGroup && isDev(d);
   for (const m of manifests.filter(isShown)) byGroup[inBeta(m) ? betaGroup : ids.includes(m.group) ? m.group : guess(m)]?.push(m);
   for (const list of Object.values(byGroup)) list.sort((a, b) => (a.menu?.order ?? 99) - (b.menu?.order ?? 99));
   // a catalogue demo: its entry's group, else the catalogue group (Contributed demos)
@@ -225,9 +241,9 @@ The demos come in ${count(groups.groups.length)} groups: an icon on the desktop 
 \`sudo raspi-config\` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with \`rq_demo_run.sh <id>\`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to
-run on real IBM hardware. Demos tagged beta are new and some things may not work yet. On the Pi they say
-"(beta)" on their icon and when they start:
-[tell us how they work](${FEEDBACK}).
+run on real IBM hardware. Demos tagged beta are still in development: they are in
+the development images only, where they say "(beta)" on their icon and when they
+start: [tell us how they work](${FEEDBACK}).
 
 ${first}> This page is generated from the [demo manifests](https://github.com/${REPO}/tree/${ref}/${MANIFEST_DIR})
 > — the same files the image installs from, so it cannot fall out of step with
@@ -264,9 +280,9 @@ function renderByCategory(manifests) {
 Start a demo from its desktop icon, from \`sudo raspi-config\` → **0 RasQberry** →
 **Quantum Demos**, or from a terminal with \`rq_demo_run.sh <id>\`. Demos marked
 "network on first start" download the first time you run them. An IBM Quantum
-account is only needed to run on real IBM hardware. Demos tagged beta are new and some things may not
-work yet. On the Pi they say "(beta)" on their icon and when they start:
-[tell us how they work](${FEEDBACK}).
+account is only needed to run on real IBM hardware. Demos tagged beta are still in
+development: they are in the development images only, where they say "(beta)" on
+their icon and when they start: [tell us how they work](${FEEDBACK}).
 
 > This page is generated from the [demo manifests](https://github.com/${REPO}/tree/${ref}/${MANIFEST_DIR})
 > — the same files the image installs from, so it cannot fall out of step with
@@ -281,7 +297,7 @@ work yet. On the Pi they say "(beta)" on their icon and when they start:
     for (const m of byCategory[category]) {
       const page = pageFor(m.id);
       const name = page ? `[${m.name}](${page})` : m.name;
-      const beta = m.maturity === 'beta' ? ' <span className="beta-tag">beta</span>' : '';
+      const beta = isDev(m) ? ` ${BETA_TAG}` : '';
       const needs = needsOf(m);
       md += `| **${name}**${beta} | ${m.description || ''}${betaParts(m)} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
     }
@@ -396,7 +412,7 @@ try and what to notice. On the Pi, open the **Learning paths** icon or
 [Demo List](${DEMO_LIST_URL}).
 `;
   for (const p of paths) {
-    const beta = p.maturity === 'beta' ? ' · <span className="beta-tag">beta</span>' : '';
+    const beta = isDev(p) ? ` · ${BETA_TAG}` : '';
     md += `
 <div className="path-card">
 
@@ -408,7 +424,7 @@ ${esc(p.goal)}
 ${p.credit ? `\n${trackedLink(p.credit, p.credit_url, p.id, p.credit_url)}\n` : ''}
 ${p.steps.map((st, i) => renderStep(st, i, byId, p.id)).join('')}
 ${renderNext(p, paths, learning.ibm_learning)}
-${p.maturity === 'beta' ? 'This path is new: ' : ''}[tell us how it went](${FEEDBACK}&demo=learning-paths/${p.id}).
+${isDev(p) ? 'This path is new: [tell' : '[Tell'} us how it went](${FEEDBACK}&demo=learning-paths/${p.id}).
 
 </div>
 `;
@@ -417,7 +433,9 @@ ${p.maturity === 'beta' ? 'This path is new: ' : ''}[tell us how it went](${FEED
 }
 
 (async () => {
-  const { manifests, learning, groups, registry } = await fetchSources();
+  const sources = await fetchSources();
+  const { learning, groups, registry } = sources;
+  const manifests = withCatalogueLevel(sources.manifests, registry);
   const paths = learning.paths;
   if (!manifests.length) throw new Error('no manifests found — refusing to write an empty list');
   if (!paths || !paths.length) throw new Error(`no paths in ${PATHS_FILE} — refusing to write an empty page`);
