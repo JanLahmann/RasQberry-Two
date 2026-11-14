@@ -44,13 +44,23 @@ slot and its health check, then tests it. The running slot is never written; it
 stays as the way back. The guard's questions are answered yes
 (`--allow-downgrade --force-replace-safe-slot`): the operator chose the release.
 
-The image is downloaded from GitHub once per release into
-`~/.cache/rasqberry-rig/images/` (or `RIG_IMAGE_CACHE`; the newest 3 releases
-are kept), checked against GitHub's SHA256 and copied to the Pi, where the
-updater uses it instead of downloading (`--image-file`), so rig updates don't
-show up as GitHub downloads. Each GitHub download the cache makes is logged in
+The first update to a new release that the Pi itself offers as its latest
+goes the real user's way: the Pi's own lookup (`rq_ab_releases.sh latest`,
+rasqberry.org's manifest, as the menu and the update notice use it), its own
+installed `rq_update_slot.sh`, and its own download from GitHub. The run also
+checks the Imager lists on rasqberry.org (RQB-images.json, rpi-imager.json)
+for that release against GitHub: URL, size and SHA256, short of writing a
+card. `--update latest` takes whatever the Pi offers.
+
+Later updates to that release use this checkout's updater and a cache:
+`~/.cache/rasqberry-rig/images/` (or `RIG_IMAGE_CACHE`; newest 3 releases),
+downloaded from GitHub once, checked against its SHA256, copied to the Pi
+(`--image-file`).
+
+Every GitHub download of ours is logged in
 `~/.local/share/rasqberry-rig/own-image-downloads.csv` (date_utc, tag, asset,
-bytes, purpose), for the download statistics to subtract.
+bytes, purpose: `real-path-test` or `rig-update`), for the download statistics
+to subtract. The report's `update-path` row says which way a run went.
 
 The report goes to `results/<timestamp>/report.md`, with a desktop screenshot per
 demo and, for LED demos, the camera frame. Exit status 1 if anything failed.
