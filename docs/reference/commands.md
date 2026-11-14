@@ -388,9 +388,11 @@ Download a RasQberry A/B image and install it into the other slot
 
 ```
 rq_update_slot.sh <download_url> <release_tag> [--slot A|B] [--sha256 SUM]
-                  [--allow-unverified] [--allow-downgrade]
-                  [--force-replace-safe-slot] [--force-old-release]
-rq_update_slot.sh --preflight [--slot A|B]
+                         [--allow-unverified] [--allow-downgrade]
+                         [--force-replace-safe-slot] [--force-old-release]
+                         [--image-file PATH]
+       rq_update_slot.sh --preflight [--slot A|B]
+--image-file: use this local .img.xz instead of downloading (moved in, checked, removed)
 ```
 
 ### rq_ab_releases.sh
