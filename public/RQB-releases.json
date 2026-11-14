@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-14T08:31:55Z",
+  "generated": "2026-11-14T09:17:18Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,24 +35,25 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-14-084124",
-      "name": "rasqberry-development-2026-11-14-084124",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-084124/rasqberry-development-2026-11-14-084124.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-14-084124",
-      "release_date": "2026-11-14 08:41",
-      "image_download_size": 1861767076,
+      "tag": "development-2026-11-14-093627",
+      "name": "rasqberry-development-2026-11-14-093627",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-093627/rasqberry-development-2026-11-14-093627.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-14-093627",
+      "release_date": "2026-11-14 09:36",
+      "image_download_size": 1861756820,
       "extract_size": 9604956160,
-      "extract_sha256": "7259ff22c501f772ee7864d0872d038ce1caa768dc6a045710d83c3bd9505e68",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-084124/rasqberry-development-2026-11-14-084124-ab.img.xz",
-      "ab_extract_sha256": "42e6d3d57fe67b769186acb9d249f9176a8c269066511f419d8e5fb5940c575f",
-      "ab_image_sha256": "ea47add6c9d9f9fed3da10f28357c0159b9e3aa24a3996b416f299d475f08f48",
+      "extract_sha256": "855e47b3d2d0bb12f8f1ebccf0aaaab1d58bb3023480f06ce45af9063d27251b",
+      "image_sha256": "4a4b4248afe03d0d1a5ef445b376bb2e358baaa88a4d5df992e11b1088d313af",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-093627/rasqberry-development-2026-11-14-093627-ab.img.xz",
+      "ab_extract_sha256": "6b122e63b834f164913c654cbeed415e89209b2b9a0ee79bfc5739dd8c186d1a",
+      "ab_image_sha256": "4e9b7f8544226dddb44990928d1498fe3ded766171bdcc1789927d6a1bbc99c0",
+      "ab_image_download_size": 1913285104,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1918648372,
       "highlights": [
-        "Bump version to development-2026-11-14-084124",
-        "Merge pull request #378 from JanLahmann/umami-internal-marker",
-        "Internal-card marker: CONFIG on A/B cards, .txt too, queue dropped",
-        "Usage counts: a card marked as ours never counts"
+        "Stream-image test: the image is staged (downloaded or --image-file) before the checks",
+        "Reference docs: rq_update_slot.sh --image-file",
+        "Updater --image-file; rig cache checked, locked and pruned",
+        "Rig test --update: download each release once, log our own downloads"
       ]
     }
   }
