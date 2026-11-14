@@ -27,7 +27,8 @@ export function youtubeMd() {
 
         data.hName = "iframe";
         data.hProperties = {
-          src: "https://www.youtube.com/embed/" + id,
+          // youtube-nocookie: no cookies until the video is played (privacy page)
+          src: "https://www.youtube-nocookie.com/embed/" + id,
           frameBorder: 0,
           allow: "picture-in-picture",
           allowFullScreen: true,
