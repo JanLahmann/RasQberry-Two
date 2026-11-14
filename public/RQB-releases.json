@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-14T11:46:14Z",
+  "generated": "2026-11-14T13:28:01Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,25 +35,25 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-14-115923",
-      "name": "rasqberry-development-2026-11-14-115923",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-115923/rasqberry-development-2026-11-14-115923.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-14-115923",
-      "release_date": "2026-11-14 11:59",
-      "image_download_size": 1862141860,
+      "tag": "development-2026-11-14-134511",
+      "name": "rasqberry-development-2026-11-14-134511",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-134511/rasqberry-development-2026-11-14-134511.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-14-134511",
+      "release_date": "2026-11-14 13:45",
+      "image_download_size": 1861705440,
       "extract_size": 9604956160,
-      "extract_sha256": "56ae578cc4243842cfa00c773165f599b2d9d1c3594b2263d365bd4d516aa0fe",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-115923/rasqberry-development-2026-11-14-115923-ab.img.xz",
-      "ab_extract_sha256": "5d0ba41dcacdd249ae0c0405008c67801b23e0a646cb7f8169643dd0452181fd",
-      "ab_image_sha256": "ce023fd54725c9255331d6ae7ecb4f23baeebabe8e8e4fa247bf5aa4c30ccba9",
+      "extract_sha256": "bdb8ca2f1c7c1d83f59eb7a6f10a034b43b3a42a30a62a4d142d7f2bff3b5fff",
+      "image_sha256": "bb3d54d1443433a565f560006674dc341a9eb90b0be9180990733064379cd01c",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-134511/rasqberry-development-2026-11-14-134511-ab.img.xz",
+      "ab_extract_sha256": "d724a42a1cf3843e10ea341481acf630d6a1a2eb6bcb8331dde442cdc8b52a43",
+      "ab_image_sha256": "b70f5b3f7ef825d0de140fb5bedc7279f04a2f02d12f841553f4e5c984f8929d",
+      "ab_image_download_size": 1922899240,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1910599140,
       "highlights": [
-        "Bump version to development-2026-11-14-115923",
-        "Merge pull request #384 from JanLahmann/setup-wifi-client-rules",
-        "Reference docs: the hotspot setting covers the setup Wi-Fi",
-        "Setup Wi-Fi rule: old table first, removed at stop, reject; texts",
-        "Setup Wi-Fi: the booth hotspot's client rules for SSH and VNC"
+        "LED sandbox runtime folder: no symlinks, the session's display, sized",
+        "LED sandbox: only the display and sound sockets of the runtime folder",
+        "SSH first login: scoped to the user, no forwarding, safe on errors",
+        "SSH: first-login password step for headless setups"
       ]
     }
   }
