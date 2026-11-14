@@ -47,6 +47,22 @@ behind its skirt and is lowered onto them. Its plate covers the tabs.
   `R2_Floor-JointTest` (three pairs, 1-3 marker holes = 0.05/0.10/0.15 mm) to try it on another printer.
 - `R2_Floor-all` is one piece and has no joints.
 
+## Cryostat and wall on the floor
+
+`R2_Floor-BayonetPlug` (`bayonet_plug.py`) holds them without screw, nut
+or ScrewOctopus; print it three times (cryostat, two for the wall). The
+floor, cryostat and wall are unchanged and still stand on a table.
+
+- Push the plug up from below through the floor hole and the part's
+  opening (the hexagon on top lined up with the hole), then turn it 30 deg
+  by its wings: the hexagon's corners now clamp the part's floor and the
+  floor plate against the wings. Turn back to take the part off.
+- The Ø 20 bore keeps the cable passage.
+- Fit from test prints on a Prusa: 0.05 mm round the hexagon, 6.2 mm
+  between wings and hexagon (6.0 = both 3 mm floors; 6.0-5.8 was too
+  tight). `R2_Floor-BayonetTest` (plug + three 3 mm plates with the
+  floor's, the cryostat's and the wall's hole) tries it on another printer.
+
 ## How it is built
 
 The numbers (plate, chamfer, groove, dovetail and magnet sizes, cable hole) are
