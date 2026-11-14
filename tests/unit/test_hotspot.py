@@ -638,7 +638,9 @@ def test_status_and_menu_say_why(tmp_path):
     assert "admin_effect" in status and "allowed (" in status and "blocked (" in status
     assert "    admin)   admin_effect ;;" in sh
     share = sh[sh.index("share_rules() {"):]
-    assert "if ! admin_allowed; then" in share[:share.index("\n}\n")]
+    assert 'admin_drop_rule "$iface"' in share[:share.index("\n}\n")]
+    rule = sh[sh.index("admin_drop_rule() {"):]
+    assert "admin_allowed ||" in rule[:rule.index("\n}\n")]
 
 
 def test_a_password_change_in_the_menu_applies_to_the_hotspot():

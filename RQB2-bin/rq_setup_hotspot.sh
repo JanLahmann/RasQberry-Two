@@ -38,6 +38,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+# the booth hotspot's functions (sourced: nothing runs), for its client rules
+. "${SCRIPT_DIR}/rq_hotspot.sh"
 
 if [ -n "${RQ_NETWORK_SEEN:-}" ]; then
     SEEN="$RQ_NETWORK_SEEN"
@@ -58,6 +60,7 @@ SCAN_EVERY=120          # ... this often
 JOIN_WAIT=90            # a known Wi-Fi in range: time to join it
 JOIN_TRIES=3            # at most this many times
 SCROLL_UNIT="rasqberry-setup-scroll"
+SETUP_NFT_TABLE="rasqberry_setup_wifi"
 WC_PID=""
 REASON=""
 SSID=""
@@ -237,9 +240,27 @@ stop_portal() {
     done
 }
 
+# The setup Wi-Fi's clients get the booth hotspot's rule for SSH and VNC
+# (admin_drop_rule, HOTSPOT_ALLOW_ADMIN): its password is public too
+client_rules_on() {
+    {
+        echo "table inet $SETUP_NFT_TABLE {"
+        echo "    chain input {"
+        echo "        type filter hook input priority filter - 1; policy accept;"
+        admin_drop_rule "$1"
+        echo "    }"
+        echo "}"
+    } | nft -f - || warn "Setup hotspot: the firewall rule for its clients could not be set (nft)."
+}
+
+client_rules_off() {
+    nft delete table inet "$SETUP_NFT_TABLE" 2>/dev/null || true
+}
+
 cleanup() {
     stop_portal
     led_scroll_stop
+    client_rules_off
 }
 
 main() {
@@ -273,6 +294,7 @@ main() {
     trap cleanup EXIT
     trap 'exit 143' TERM
     trap 'exit 130' INT
+    client_rules_on "$dev"
     START=$(now)
     JOINS=0
     while :; do

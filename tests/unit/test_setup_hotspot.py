@@ -298,3 +298,17 @@ def test_known_wifi_with_accents_or_colons_is_found_in_the_scan(tmp_path):
     assert found("Müller WLAN")
     assert found("Lab\\:2")                      # nmcli -g's escaping is undone
     assert not found("Müller")
+
+
+# --- review: the setup Wi-Fi's clients and SSH/VNC ---------------------------
+
+def test_setup_wifi_clients_get_the_booth_hotspots_ssh_vnc_rule():
+    rule = 'iifname "wlan0" tcp dport { 22, 5900 } drop'
+    out = _bash("admin_allowed() { return 1; }; nft() { cat; }; client_rules_on wlan0").stdout
+    assert "table inet rasqberry_setup_wifi" in out and rule in out
+    out = _bash("admin_allowed() { return 0; }; nft() { cat; }; client_rules_on wlan0").stdout
+    assert "table inet rasqberry_setup_wifi" in out and "dport" not in out
+    sh = open(_SCRIPT).read()
+    main = sh[sh.index("main() {"):]
+    assert main.index("client_rules_on") < main.index('"$WIFI_CONNECT" --portal-interface')
+    assert "client_rules_off" in sh[sh.index("cleanup() {"):sh.index("main() {")]

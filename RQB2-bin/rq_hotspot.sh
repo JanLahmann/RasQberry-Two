@@ -428,6 +428,13 @@ admin_allowed() {
 # Internet sharing
 # ---------------------------------------------------------------------------
 
+# admin_drop_rule IFACE: the nft input rule that keeps devices on IFACE off
+# SSH (22) and VNC (5900) unless admin_allowed - nothing when allowed. Also
+# used by the first-boot setup Wi-Fi (rq_setup_hotspot.sh).
+admin_drop_rule() {
+    admin_allowed || echo "        iifname \"$1\" tcp dport { 22, 5900 } drop"
+}
+
 # share_rules IFACE: the hotspot's firewall, table inet rasqberry_hotspot
 # (gone with the hotspot: cmd_off, the NetworkManager hook, a reboot)
 #  - SSH (22) and VNC (5900) from devices on the hotspot are dropped unless
@@ -449,9 +456,7 @@ share_rules() {
         echo "table inet $NFT_TABLE {"
         echo "    chain input {"
         echo "        type filter hook input priority filter - 1; policy accept;"
-        if ! admin_allowed; then
-            echo "        iifname \"$iface\" tcp dport { 22, 5900 } drop"
-        fi
+        admin_drop_rule "$iface"
         echo "    }"
         if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = no ]; then
             echo "    chain forward {"
