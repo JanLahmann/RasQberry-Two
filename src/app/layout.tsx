@@ -39,6 +39,19 @@ const FROM_PI = `try{var q=new URLSearchParams(location.search);` +
 // build turned "\\b" into a backspace). Pages opened on a Pi (?from=pi, see above)
 // count as device.rasqberry.org, like the Pi's own events
 // (rq_umami_event.py), so rasqberry.org shows only website visitors.
+const KET_LOADER = `(function(){try{var q=new URLSearchParams(location.search),s=sessionStorage;` +
+  `if(!(q.get("assistant")==="1"||q.get("from")==="pi"||s.getItem("fwq-assistant")||s.getItem("fwq-from-pi")` +
+  `||s.getItem("rq-from")==="pi"||document.querySelector("[data-fwq-assistant]")))return;` +
+  `var e=document.createElement("script");e.defer=true;e.src="https://fwq-assistant.jan-35c.workers.dev/widget.js";` +
+  `e.setAttribute("data-site","rasqberry");e.setAttribute("data-context","build");` +
+  `e.setAttribute("data-context-pi","device");document.body.appendChild(e)}catch(e){}})()`;
+
+const YOUTUBE_CLICK = `document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a.youtube-click");` +
+  `if(!a)return;e.preventDefault();var f=document.createElement("iframe");` +
+  `f.src="https://www.youtube-nocookie.com/embed/"+encodeURIComponent(a.getAttribute("data-youtube-id"))+"?autoplay=1";` +
+  `f.className="youtube-iframe";f.allow="autoplay; picture-in-picture";f.allowFullscreen=true;f.style.border="0";` +
+  `a.replaceWith(f)})`;
+
 const UMAMI_FILTER = `(function(){try{var q=location.search;` +
   `if(/[?&]notrack(?=$|[&=])/.test(q))localStorage.setItem('umami.disabled','1');` +
   `if(/[?&]track(?=$|[&=])/.test(q))localStorage.removeItem('umami.disabled')}catch(e){}` +
@@ -66,15 +79,12 @@ export default function RootLayout({
           data-domains="rasqberry.org"
           data-before-send="fwqUmamiBeforeSend"
         />
-        {/* The RasQberry helper (Fun with Quantum's assistant): hidden until
-            the URL has ?assistant=1; "device" context on the Pi (?from=pi) */}
-        <Script
-          defer
-          src="https://fwq-assistant.jan-35c.workers.dev/widget.js"
-          data-site="rasqberry"
-          data-context="build"
-          data-context-pi="device"
-        />
+        {/* The RasQberry helper (Fun with Quantum's assistant), loaded only where
+            it can open: ?assistant=1, a Pi (?from=pi; "device" context), or a
+            page with [data-fwq-assistant] (testing). Elsewhere no request goes
+            to its server (privacy page). */}
+        <script dangerouslySetInnerHTML={{ __html: KET_LOADER }} />
+        <script dangerouslySetInnerHTML={{ __html: YOUTUBE_CLICK }} />
       </body>
     </html>
   );

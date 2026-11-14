@@ -25,15 +25,16 @@ export function youtubeMd() {
           file.fail("Unexpected missing `id` on `youtube` directive", node);
         }
 
-        data.hName = "iframe";
+        // click to load (privacy page): nothing comes from YouTube until the
+        // visitor plays the video; YOUTUBE_CLICK in layout.tsx swaps in the
+        // youtube-nocookie player
+        data.hName = "a";
         data.hProperties = {
-          // youtube-nocookie: no cookies until the video is played (privacy page)
-          src: "https://www.youtube-nocookie.com/embed/" + id,
-          frameBorder: 0,
-          allow: "picture-in-picture",
-          allowFullScreen: true,
-          class: 'youtube-iframe'
+          href: "https://www.youtube.com/watch?v=" + id,
+          class: "youtube-click",
+          "data-youtube-id": id,
         };
+        data.hChildren = [{ type: "text", value: "▶ Play the video (loads it from YouTube)" }];
       }
     });
   };

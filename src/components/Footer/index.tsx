@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Column, Grid } from "../carbon-wrapper"
 import styles from "./footer.module.scss"
 import { loadFamily, footerLinks, footerEvent } from "@/lib/fwq-family"
@@ -34,7 +35,7 @@ export async function Footer() {
                     RasQberry is an independent educational project and is not affiliated with, endorsed by, or sponsored by IBM Corporation. IBM®, IBM Quantum®, Qiskit®, and IBM Quantum System Two are trademarks of International Business Machines Corporation. This project creates an educational tool inspired by IBM&apos;s quantum computing systems for teaching purposes.
                     <br />
                     Licensed under <a href="https://github.com/JanLahmann/RasQberry-Two/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Apache 2.0</a>
-                    {' · '}<a href="/privacy/" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy</a>
+                    {' · '}<Link href="/privacy/" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy</Link>
                 </p>
             </Column>
         </Grid>
