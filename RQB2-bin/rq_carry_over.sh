@@ -373,14 +373,12 @@ pull_vnc_state() {
     local other="$1" state=/var/lib/rasqberry
     if compgen -G "$other/etc/systemd/system/*.wants/wayvnc.service" >/dev/null; then
         [ -e "$ROOT$state/vnc-was-on" ] && return 1
-        mkdir -p "$ROOT$state"
-        date '+%F %T' > "$ROOT$state/vnc-was-on"
+        mkdir -p "$ROOT$state" && date '+%F %T' > "$ROOT$state/vnc-was-on" || return 1
         echo "VNC on"
         return 0
     fi
     [ -e "$other$state/vnc-auto-enabled" ] && [ ! -e "$ROOT$state/vnc-auto-enabled" ] || return 1
-    mkdir -p "$ROOT$state"
-    cp -p "$other$state/vnc-auto-enabled" "$ROOT$state/vnc-auto-enabled"
+    mkdir -p "$ROOT$state" && cp -p "$other$state/vnc-auto-enabled" "$ROOT$state/vnc-auto-enabled" || return 1
     echo "VNC off"
 }
 

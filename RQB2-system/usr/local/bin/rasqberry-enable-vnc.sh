@@ -38,7 +38,8 @@ fi
 # Not while the account has the published password (VNC cannot ask for a new
 # one): rq_ssh_window.sh switches it on once the password is changed, or now
 # with DEFAULT_PW_WINDOW_VNC=yes in rasqberry_boot.env. Except after an A/B
-# update from a system that had VNC on (rq_carry_over.sh writes VNC_WAS_ON).
+# update from a system that had VNC on (rq_carry_over.sh writes vnc-was-on;
+# used once: deleting the marker later brings the password check back).
 WINDOW="${RQ_SSH_WINDOW:-/usr/bin/rq_ssh_window.sh}"
 VNC_WAS_ON="${RQ_VNC_WAS_ON:-/var/lib/rasqberry/vnc-was-on}"
 if [ ! -e "$VNC_WAS_ON" ] && [ -x "$WINDOW" ] && ! sudo -n "$WINDOW" vnc-allowed 2>/dev/null; then
@@ -52,6 +53,7 @@ for attempt in 1 2 3 4 5; do
     if vnc_on; then
         log "VNC enabled (attempt $attempt) - once; it stays off if switched off later"
         mark_done
+        sudo -n rm -f "$VNC_WAS_ON" 2>/dev/null
         exit 0
     fi
     log "attempt $attempt: VNC still off after do_vnc 0${out:+: $out}"

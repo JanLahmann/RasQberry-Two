@@ -171,6 +171,7 @@ def _enable_vnc(tmp_path, updated):
                RQ_SSH_WINDOW=str(bin_dir / "window"), RQ_VNC_WAS_ON=str(was_on), RQ_VNC_WAIT="0")
     script = os.path.join(_ROOT, "RQB2-system", "usr", "local", "bin", "rasqberry-enable-vnc.sh")
     subprocess.run(["bash", script], env=env, check=True)
+    assert not (updated and was_on.exists())  # used once
     return state.exists()
 
 
