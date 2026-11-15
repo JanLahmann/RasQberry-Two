@@ -103,7 +103,7 @@ const SERVER_Y = [-183.8, -160.5];        // the two servers of the +Y arm (y mi
 const COLOURS = { // as printed (bill of materials): name -> [hex, metallic, roughness, alpha]
   floor: ['#dcdcd8', 0, 0.9, 1],          // White / Rock White
   wall: ['#232326', 0.05, 0.75, 1],       // (matte) Black
-  silver: ['#9ea3aa', 0.6, 0.42, 1],     // Silk Silver: Cryostat, RTE servers
+  silver: ['#d0d4da', 0.85, 0.26, 1],    // Silk Silver: Cryostat, RTE servers (bright, glossy)
   clear: ['#f3f5f6', 0, 0.25, 0.62],       // Transparent: lids
   gold: ['#e3a33a', 0.75, 0.32, 1],       // Silk Gold: chandeliers
   glass: ['#1c262e', 0.1, 0.15, 0.55],    // welding glass (cut, not printed)
