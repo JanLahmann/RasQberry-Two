@@ -134,19 +134,19 @@ add('wall-base', 'Wall base', 'Wall', 2, 'wall/R2_Wall-Base.stl', 'wall', WALL, 
 WALL_BOLTS.forEach(([x, y], i) =>
   add(`wall-bolt-${i + 1}`, 'Wall bolt', 'Wall', 3, 'wall/R2_Screw.stl', 'hardware',
     chain(WALL, T(x, y, 5), rot('x', 180), T(0.2, -34.7, 0)), [0, 60, 130]));
-// LED array: four WS2812 panels of 4 x 12 LEDs (192), behind the filter screen as one 24 x 8 grid,
+// LED panel: one WS2812 matrix of 24 x 8 LEDs (192, LED_LAYOUT=single-24x8) behind the filter screen,
 // 10 mm pitch (the 240 x 81 mm screen opening); LEDs face the screen.
 const LED = { x0: 139.9 - 115, z0: 41.5 - 35, pitch: 10, front: -84.1 };   // centre of LED (0, 0), wall frame
 const ledAt = (c, r) => [LED.x0 + c * LED.pitch, LED.front, LED.z0 + r * LED.pitch];   // r = 0 at the bottom
-[[0, 4], [12, 4], [0, 0], [12, 0]].forEach(([c0, r0], i) => {
-  const [x0, , z0] = ledAt(c0, r0);
-  const boxes = [[[x0 - 5, LED.front + 1.6, z0 - 5], [x0 + 115, LED.front + 2.6, z0 + 35], 'pcb']];
-  for (let c = 0; c < 12; c++) for (let r = 0; r < 4; r++) {
-    const [x, y, z] = ledAt(c0 + c, r0 + r);
+{
+  const [x0, , z0] = ledAt(0, 0);
+  const boxes = [[[x0 - 5, LED.front + 1.6, z0 - 5], [x0 + 235, LED.front + 2.6, z0 + 75], 'pcb']];
+  for (let c = 0; c < 24; c++) for (let r = 0; r < 8; r++) {
+    const [x, y, z] = ledAt(c, r);
     boxes.push([[x - 2.5, y, z - 2.5], [x + 2.5, y + 1.6, z + 2.5], 'led']);
   }
-  add(`led-panel-${i + 1}`, 'LED panel (WS2812, 4 x 12)', 'Wall', 4, null, 'vertex', WALL, [0, 30, 45], { boxes });
-});
+  add('led-panel', 'LED panel (WS2812, 24 x 8)', 'Wall', 4, null, 'vertex', WALL, [0, 30, 45], { boxes });
+}
 
 // "LEDs on": a still of the IBM LED demo (RQB2-bin/rq_led_ibm_logo.py, rainbow), top row first
 const IBM_LOGO = [
