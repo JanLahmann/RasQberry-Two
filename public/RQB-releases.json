@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T13:21:28Z",
+  "generated": "2026-11-15T13:22:07Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,15 +43,17 @@
       "image_download_size": 1861774052,
       "extract_size": 9604956160,
       "extract_sha256": "2cf7bcd7e851708436340848c1c059aec8f9cd58e15b5a53d4c17824cdf410e1",
-      "image_sha256": "df54264b4d828a99cb3d8601feb21517d41904390fcaec19aa12cb52f78dc2ba",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-133516/rasqberry-development-2026-11-15-133516-ab.img.xz",
       "ab_extract_sha256": "ba44b0f405a8fa637fbdca1d1a7609922e5944be0ee9a57e8962373143209038",
       "ab_image_sha256": "d59187f9d75d452fc6357633d573316e09f2aeca32ad68031fa66bc26140d8b0",
-      "ab_image_download_size": 1912403736,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1912403736,
       "highlights": [
+        "Bump version to development-2026-11-15-133516",
+        "Merge pull request #397 from JanLahmann/demo-flags",
         "Environment file: log retired keys on update; review fixes",
-        "Environment file: drop 14 demo keys nothing reads"
+        "Environment file: drop 14 demo keys nothing reads",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-11-15-113015"
       ]
     }
   }
