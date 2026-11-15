@@ -143,9 +143,9 @@ on:
           - beta
           - prod
       hold_listing:
-        # Publish a held release later: gh release upload <tag> RQB-images.json RQB-releases.json
-        # (both committed to the branch by this run), then run consolidate-json.yaml on main.
-        description: 'Hold: release without the JSON files, so it stays out of the Imager lists and update notices until published'
+        # The run summary prints the commands that publish a held release later.
+        # Slot Manager's "Other release..." picker reads GitHub directly and still lists it.
+        description: 'Hold: release without RQB-images.json, so it stays out of the Imager lists and update notices until published'
         required: false
         default: false
         type: boolean
@@ -379,7 +379,7 @@ jobs:
           # Dev and beta are pre-releases, main is stable
           prerelease: ${{ github.ref != 'refs/heads/main' }}
           # Only main is marked as GitHub's official "latest"
-          make_latest: ${{ github.ref == 'refs/heads/main' }}
+          make_latest: ${{ github.ref == 'refs/heads/main' && !inputs.hold_listing }}
 
   # ============================================================================
   # JOB 3: Build Raspberry Pi Image
@@ -1878,9 +1878,9 @@ jobs:
             RQB-images.json
             RQB-releases.json
 
-      # RQB-releases.json is ALWAYS pushed to gh-pages (required for cross-branch consolidation)
+      # RQB-releases.json is pushed to gh-pages (required for cross-branch consolidation), unless held
       # RQB-images.json is only pushed when publish_json is true (Pi Imager compatibility)
-      - name: Upload RQB-releases.json to gh-pages (always)
+      - name: Upload RQB-releases.json to gh-pages
         if: ${{ !inputs.hold_listing }}
         run: |
           echo "Uploading RQB-releases.json to gh-pages (required for stream consolidation)..."
@@ -1909,6 +1909,21 @@ jobs:
             echo "⚠ No gh-pages branch exists - RQB-releases.json consolidation requires gh-pages branch"
             echo "  Create gh-pages branch or run with publish_json=true on first build"
           fi
+
+      - name: Publishing instructions (held release)
+        if: ${{ inputs.hold_listing }}
+        run: |
+          {
+            echo "### Held: ${TAG} is not listed"
+            echo 'Publish it later (consolidation lists releases that carry RQB-images.json):'
+            echo '```'
+            echo "git show $(git rev-parse HEAD):RQB-images.json > /tmp/RQB-images.json"
+            echo "gh release upload ${TAG} /tmp/RQB-images.json --repo ${{ github.repository }}"
+            echo "gh workflow run consolidate-json.yaml --ref main --repo ${{ github.repository }} -f trigger_source=${{ github.ref_name }} -f trigger_type=${{ steps.version-type.outputs.type }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          TAG: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
 
       # Trigger consolidation workflow to merge all branches into gh-pages
       - name: Trigger JSON consolidation workflow
