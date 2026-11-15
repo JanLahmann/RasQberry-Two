@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T11:16:22Z",
+  "generated": "2026-11-15T13:21:28Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,25 +35,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-15-113015",
-      "name": "rasqberry-development-2026-11-15-113015",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-113015/rasqberry-development-2026-11-15-113015.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-113015",
-      "release_date": "2026-11-15 11:30",
-      "image_download_size": 1862354160,
+      "tag": "development-2026-11-15-133516",
+      "name": "rasqberry-development-2026-11-15-133516",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-133516/rasqberry-development-2026-11-15-133516.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-133516",
+      "release_date": "2026-11-15 13:35",
+      "image_download_size": 1861774052,
       "extract_size": 9604956160,
-      "extract_sha256": "26bcfd41e8d35c3196b107eb1ecda6bd716799d9d196d1734db88693ee841596",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-113015/rasqberry-development-2026-11-15-113015-ab.img.xz",
-      "ab_extract_sha256": "5e8f88c3f564b5c5b327c82452d47f75bfddda581e6fcd071f979806a4b3457b",
-      "ab_image_sha256": "e837f60b2cfb46866264a808529fae63163c910846e83e45ba24d17f4ee8953e",
+      "extract_sha256": "2cf7bcd7e851708436340848c1c059aec8f9cd58e15b5a53d4c17824cdf410e1",
+      "image_sha256": "df54264b4d828a99cb3d8601feb21517d41904390fcaec19aa12cb52f78dc2ba",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-133516/rasqberry-development-2026-11-15-133516-ab.img.xz",
+      "ab_extract_sha256": "ba44b0f405a8fa637fbdca1d1a7609922e5944be0ee9a57e8962373143209038",
+      "ab_image_sha256": "d59187f9d75d452fc6357633d573316e09f2aeca32ad68031fa66bc26140d8b0",
+      "ab_image_download_size": 1912403736,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1917425016,
       "highlights": [
-        "Bump version to development-2026-11-15-113015",
-        "Merge pull request #395 from JanLahmann/desktop-order",
-        "Desktop launcher list: flat desktop starts with Setup again; skip unreadable files",
-        "Desktop launcher list: simpler, read once next to the other constants",
-        "the launcher list comes from desktop-bookmarks/"
+        "Environment file: log retired keys on update; review fixes",
+        "Environment file: drop 14 demo keys nothing reads"
       ]
     }
   }
