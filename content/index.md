@@ -105,6 +105,12 @@ Raspberry Pi 5, Qiskit 2.x, more demos and a menu in raspi-config.
   </div>
 </div>
 
+## Explore the Model in 3D
+
+Turn, zoom and take apart the model you print: click a part for its name and STL file, press **Assemble** to watch it come together, or **LEDs on** to light the LED panel. Step by step: the [hardware assembly guide](/01-3d-model/02-hardware-assembly-guide/).
+
+<ModelViewer />
+
 ## Getting Started
 
 Already running RasQberry Two? Go to [First boot](/#3-first-boot).
