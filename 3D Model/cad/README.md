@@ -23,6 +23,9 @@ cad/           this code
                    FILAMENTS) and PARTS, the table of where each part is written
   build_print.py   copies the not-yet-rebuilt originals into print/generated/ and
                    writes a coloured 3MF for every STL there
+  build_plates.py  print/generated/complete/ (each variant assembled, in colour)
+                   and print/generated/plates/ (ready PrusaSlicer plates for
+                   MK4S and Core One, with the print list)
   wall/ floor/ RTE/ cryostat/   one folder per part family
 ```
 
@@ -56,7 +59,8 @@ original only for a part that has no script yet.
 
 From the bill of materials (`FILAMENTS` in `rqb_cad.py`, assigned in
 `build_print.py`): wall black (matte preferred), floor white / rock white,
-cryostat and RTE silk silver, chandeliers silk gold, lids transparent.
+cryostat and RTE silk silver, chandeliers silk gold, lids transparent;
+the LED filter screen galaxy grey (Jan's corner).
 A multi-colour 3MF (jrl01) is one object with one part per colour; each part
 carries its filament name and an extruder number (PrusaSlicer's 3MF
 metadata, also read by Bambu Studio and OrcaSlicer). Checked in PrusaSlicer
@@ -65,6 +69,18 @@ metadata, also read by Bambu Studio and OrcaSlicer). Checked in PrusaSlicer
 CI (`stl-analysis.yml`) checks every STL in `print/generated/` on each push and PR
 and fails on any mesh problem; `print/originals/` is only analysed on manual
 dispatch.
+
+## Complete models and print plates
+
+`build_plates.py` builds two variants from the new parts: the standard
+(dovetail floor, cryostat and wall held by the plugs) and one without floor,
+with the closed wall base and cryostat (`-no-floor`) and five jrl02 servers.
+`PLAN` lists the plates (one filament each) and how many of each part;
+`ORIENT` how a part lies on the bed; `layout()` where each part sits in the
+assembled model (taken from the website's 3D viewer). The plates are
+PrusaSlicer projects with the system presets (Prusament PLA, 0.20 mm SPEED,
+HF0.4 nozzle); PrusaSlicer slices each once for the grams and times in
+`print/generated/plates/README.md`.
 
 ## Regenerating
 
@@ -78,7 +94,8 @@ cd "3D Model/cad"
 (cd cryostat && python3 cryostat_model.py && python3 new_door.py && python3 screw_octopus.py \
                && python3 narrow_y_conjoined.py)
 (cd floor && python3 plugs.py)          # measures floor, wall and cryostat: after them
-python3 build_print.py                  # copies + 3MFs, always last
+python3 build_print.py                  # copies + 3MFs
+python3 build_plates.py                 # complete models + plates (needs PrusaSlicer 2.9), last
 ```
 
 Each part script takes `--outdir ROOT` to write the same tree elsewhere.

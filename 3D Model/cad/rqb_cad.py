@@ -270,6 +270,7 @@ FILAMENTS = {
     "silk silver": "#9EA3AA",
     "silk gold": "#E3A33A",
     "transparent": "#F3F5F6",
+    "galaxy grey": "#5B5E63",    # LED filter screen, 0.6 mm (Jan's corner)
 }
 
 
@@ -299,15 +300,9 @@ def write_3mf(path, bodies):
     PrusaSlicer / Bambu Studio / OrcaSlicer, as a named part with its own
     extruder (Metadata/Slic3r_PE_model.config; filaments numbered in order
     of first use). Plain 3MF readers see one multi-colour mesh."""
-    import zipfile
     from xml.sax.saxutils import quoteattr
     names = list(dict.fromkeys(f for _, f, _ in bodies))
-    out = ['<?xml version="1.0" encoding="UTF-8"?>',
-           '<model unit="millimeter" xml:lang="en-US" '
-           'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
-           'xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">',
-           '<metadata name="slic3rpe:Version3mf">1</metadata>',
-           '<resources>', '<basematerials id="1">']
+    out = MODEL_HEAD + ['<resources>', '<basematerials id="1">']
     out += [f'<base name={quoteattr(n)} displaycolor="{FILAMENTS[n]}FF"/>' for n in names]
     out.append('</basematerials>')
     stem = Path(path).stem
@@ -334,6 +329,20 @@ def write_3mf(path, bodies):
     config += ['</object>', '</config>']
     out += ['</triangles></mesh></object>', '</resources>',
             '<build><item objectid="2"/></build>', '</model>']
+    zip_3mf(path, out, {"Metadata/Slic3r_PE_model.config": "\n".join(config)})
+
+
+MODEL_HEAD = ['<?xml version="1.0" encoding="UTF-8"?>',
+              '<model unit="millimeter" xml:lang="en-US" '
+              'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
+              'xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">',
+              '<metadata name="slic3rpe:Version3mf">1</metadata>']
+
+
+def zip_3mf(path, model, metadata):
+    """Write the 3MF package: `model` (lines of 3D/3dmodel.model) and
+    `metadata` {path in the zip: text} (PrusaSlicer's Metadata/ files)."""
+    import zipfile
     types = ('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/'
              'package/2006/content-types"><Default Extension="rels" ContentType="application/'
              'vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" '
@@ -346,5 +355,6 @@ def write_3mf(path, bodies):
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", types)
         z.writestr("_rels/.rels", rels)
-        z.writestr("3D/3dmodel.model", "\n".join(out))
-        z.writestr("Metadata/Slic3r_PE_model.config", "\n".join(config))
+        z.writestr("3D/3dmodel.model", "\n".join(model))
+        for name, text in metadata.items():
+            z.writestr(name, text)
