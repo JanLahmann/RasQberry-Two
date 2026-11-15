@@ -142,6 +142,13 @@ on:
           - dev
           - beta
           - prod
+      hold_listing:
+        # Publish a held release later: gh release upload <tag> RQB-images.json RQB-releases.json
+        # (both committed to the branch by this run), then run consolidate-json.yaml on main.
+        description: 'Hold: release without the JSON files, so it stays out of the Imager lists and update notices until published'
+        required: false
+        default: false
+        type: boolean
       runner_type:
         description: 'Runner architecture (default=arm64 native, x64=QEMU emulated)'
         required: false
@@ -1861,6 +1868,8 @@ jobs:
           echo "Generated RQB-images.json and RQB-releases.json in current branch"
 
       - name: Upload JSON files to release
+        # hold_listing: consolidation (also every 8 h) lists only releases that carry RQB-images.json
+        if: ${{ !inputs.hold_listing }}
         uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -1872,6 +1881,7 @@ jobs:
       # RQB-releases.json is ALWAYS pushed to gh-pages (required for cross-branch consolidation)
       # RQB-images.json is only pushed when publish_json is true (Pi Imager compatibility)
       - name: Upload RQB-releases.json to gh-pages (always)
+        if: ${{ !inputs.hold_listing }}
         run: |
           echo "Uploading RQB-releases.json to gh-pages (required for stream consolidation)..."
 
@@ -1902,6 +1912,7 @@ jobs:
 
       # Trigger consolidation workflow to merge all branches into gh-pages
       - name: Trigger JSON consolidation workflow
+        if: ${{ !inputs.hold_listing }}
         run: |
           echo "Triggering consolidation workflow to update gh-pages..."
           gh workflow run consolidate-json.yaml \
