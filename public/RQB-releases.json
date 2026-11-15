@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T09:11:14Z",
+  "generated": "2026-11-15T09:11:57Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,13 +43,14 @@
       "image_download_size": 1861810284,
       "extract_size": 9604956160,
       "extract_sha256": "88b5be7863d50cf7f8f6276018041b0cddf23c90e18c6e83339f92c3f2856517",
-      "image_sha256": "2680103f95dd45cbed6923b2aff23be43f91bb4aba7c6d575a72933296ca4440",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-093005/rasqberry-development-2026-11-15-093005-ab.img.xz",
       "ab_extract_sha256": "ae866187dbbd257c31d552348c329beff9d7f4a86e6cf010af963a9a14a1db69",
       "ab_image_sha256": "ab8b8e97a25b7f733b5b2f084b414ebe12d125bbc9708453fac9464712af405d",
-      "ab_image_download_size": 1908653648,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1908653648,
       "highlights": [
+        "Bump version to development-2026-11-15-093005",
+        "Merge pull request #394 from JanLahmann/demo-table",
         "Demo launchers: review fixes",
         "Demo launchers: simpler manifest fields, one list in stage 06",
         "Demo launchers: generated from the manifests"
