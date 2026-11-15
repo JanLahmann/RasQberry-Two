@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T14:58:55Z",
+  "generated": "2026-11-15T17:14:15Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,24 +35,25 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-15-151802",
-      "name": "rasqberry-development-2026-11-15-151802",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-151802/rasqberry-development-2026-11-15-151802.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-151802",
-      "release_date": "2026-11-15 15:18",
-      "image_download_size": 1861717292,
+      "tag": "development-2026-11-15-173247",
+      "name": "rasqberry-development-2026-11-15-173247",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-173247/rasqberry-development-2026-11-15-173247.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-173247",
+      "release_date": "2026-11-15 17:32",
+      "image_download_size": 1861756320,
       "extract_size": 9604956160,
-      "extract_sha256": "035a1f4ae058c9605df6b9f260d0949676575f02258bb140526c72b89d287968",
-      "image_sha256": "7327ce3e33e64442f6678d1a58ba7b0d2a6e87be0965e3611324b2a38954fd87",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-151802/rasqberry-development-2026-11-15-151802-ab.img.xz",
-      "ab_extract_sha256": "01d6254340a5f08cd9e1508a7640bcf316f6d12d9a0f863a25ce972e7ac4fef2",
-      "ab_image_sha256": "a07de0d0d036122fbd6a3ce617d935adc0c5f521025ffb1119fc63d3655fb4f0",
-      "ab_image_download_size": 1911939792,
+      "extract_sha256": "c37a8ec9176e1091297d327d526e361977f421388e9e42fe4ed9a5ab680aac5c",
+      "image_sha256": "c47a128c2a9c2b85af9ae4b44236eb4bc7f1847da35191c49237334f6db45b3d",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-173247/rasqberry-development-2026-11-15-173247-ab.img.xz",
+      "ab_extract_sha256": "e41ccb2a626c2d7fffb45ba0aafddda55bef1f63a903ebe4d1f7abb252bf1048",
+      "ab_image_sha256": "a01a052a1e520852f53a12f6c890147825d09a484a2d503579d52779b91d6129",
+      "ab_image_download_size": 1913560768,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Demo keys: launchers check the manifest's marker; review fixes",
-        "Demo keys: reuse rq_demo_repo; the engine checks the marker",
-        "Demo scripts read marker files and repositories from the manifests"
+        "VNC gate: a locked account waits; unreadable hash is unknown; review fixes",
+        "VNC after a password change: the login routine, and locked counts as its hash",
+        "VNC after a password change: only from the password-change trigger, confirmed",
+        "VNC comes on when the password is changed on an Imager-customised card"
       ]
     }
   }
