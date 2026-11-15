@@ -15,7 +15,7 @@ export const UMAMI = {
   betaBoxClick: 'RasQberry Two: beta box click',
   // Homepage on a Pi (?from=pi): the welcome's links, data: target
   piWelcomeClick: 'RasQberry Two: pi welcome click',
-  // 3D model viewer (src/components/ModelViewer): the first interaction per page view, data: via (model, parts, explode, assemble, reset, fullscreen)
+  // 3D model viewer (src/components/ModelViewer): the first interaction per page view, data: via (model, parts, explode, assemble, reset, leds, fullscreen)
   modelViewerOpen: 'RasQberry Two: 3d viewer open',
   // A link to a GitHub release or one of its files, data: tag, file (if a file)
   releaseClick: 'RasQberry Two: release click',

@@ -22,6 +22,7 @@ export function ModelViewer() {
   const [explode, setExplode] = useState(0);
   const [step, setStep] = useState<PartInfo | null>(null);
   const [assembling, setAssembling] = useState(false);
+  const [leds, setLeds] = useState(false);
   const opened = useRef(false);
   // one Umami event per page view, on the first interaction with the viewer
   const used = (via: string) => {
@@ -74,6 +75,12 @@ export function ModelViewer() {
     setIsolate(false); setExplode(0); setAssembling(true);
     v.playAssembly();
   };
+  const toggleLeds = () => {
+    used('leds');
+    const on = !leds;
+    setLeds(on);
+    viewer.current?.setLeds(on);
+  };
   const fullscreen = () => {
     used('fullscreen');
     if (document.fullscreenElement) document.exitFullscreen();
@@ -114,6 +121,12 @@ export function ModelViewer() {
         <button type="button" onClick={assemble} disabled={!ready} aria-pressed={assembling}>
           {assembling ? 'Stop' : 'Assemble'}
         </button>
+        {viewer.current?.hasLeds && (
+          <button type="button" onClick={toggleLeds} disabled={!ready} aria-pressed={leds}
+                  title="A still of the IBM LED demo, shining through the filter screen">
+            {leds ? 'LEDs off' : 'LEDs on'}
+          </button>
+        )}
         <button type="button" onClick={fullscreen} disabled={!ready} className={styles.fs}>Full screen</button>
       </div>
 
