@@ -44,6 +44,8 @@ import sys
 
 LEVELS = ("dev", "beta", "prod")
 ALIASES = {"stable": "prod"}
+# How a launcher or menu entry of a dev demo says so on a dev image
+MARK = "(beta)"
 LEVEL_FILE = "/etc/rasqberry-demo-level"
 MIN_STEPS = 2                   # learning-paths.json: steps (2-6)
 # A launcher's Exec: rq_demo_run.sh ID [VARIANT] or rq_demo_choose.sh ID
@@ -306,7 +308,8 @@ def _unmark(path):
     out = []
     for line in lines:
         if line.startswith(("Name=", "Comment=")):
-            line = re.sub(r"\s*\(beta\)", "", re.sub(r"^(\w+)=\(beta\)\s*", r"\1=", line))
+            mark = re.escape(MARK)
+            line = re.sub(rf"\s*{mark}", "", re.sub(rf"^(\w+)={mark}\s*", r"\1=", line))
         out.append(line)
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(out))

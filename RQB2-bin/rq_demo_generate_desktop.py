@@ -20,15 +20,15 @@ import json
 import os
 import sys
 
+from rq_demo_level import MARK, level_of
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(os.path.dirname(_HERE), "RQB2-config")
 MANIFESTS = os.path.join(CONFIG, "demo-manifests")
 BOOKMARKS = os.path.join(CONFIG, "desktop-bookmarks")
 BIN = "/usr/bin"
-HEADER = "# Generated from demo-manifests/{manifest} by RQB2-bin/rq_demo_generate_desktop.py - edit the manifest\n"
-# A launcher of a demo at level dev says so (rq_demo_maturity in rq_common.sh);
-# rq_demo_level.py drops the mark again on beta and prod images
-MARK = "(beta)"
+GENERATED = "# Generated from demo-manifests/"
+HEADER = GENERATED + "{manifest} by RQB2-bin/rq_demo_generate_desktop.py - edit the manifest"
 
 
 def shipped_manifests():
@@ -42,21 +42,21 @@ def shipped_manifests():
 def launchers(manifest):
     """(desktop block, variant or None) for each launcher a manifest declares."""
     desktop = manifest.get("desktop", {})
-    if desktop.get("show", True) and "comment" in desktop:
+    if desktop.get("show", True):
         yield desktop, None
     for variant in manifest.get("variants", []):
         if "desktop" in variant:
             yield variant["desktop"], variant
 
 
-def exec_line(manifest, desktop, variant):
+def exec_line(manifest, desktop, variant, label):
     """Exec and TryExec: a browser demo opens Chromium, everything else goes
     through rq_demo_run.sh (or the variant chooser) in a window that stays
     open on an error (rq_hold_on_error.sh)."""
     entry = manifest.get("entrypoint", {})
     if entry.get("type") == "browser" and not desktop.get("terminal", True):
         return f"chromium --password-store=basic {entry['browser_url']}", "chromium"
-    title = f' -t "{desktop["title"]}"' if "title" in desktop else ""
+    title = f' -t "{label}"' if desktop.get("title") else ""
     if desktop.get("chooser"):
         cmd = f"{BIN}/rq_demo_choose.sh {manifest['id']}"
     else:
@@ -68,15 +68,18 @@ def render(name, manifest, desktop, variant):
     """The .desktop text of one launcher."""
     source = variant or manifest
     label = desktop.get("name", source["name"])
-    comment = desktop["comment"]
-    maturity = (variant or {}).get("maturity") or manifest.get("maturity")
-    if maturity == "dev":
+    comment = desktop.get("comment", manifest.get("description", ""))
+    exec_cmd, try_exec = exec_line(manifest, desktop, variant, label)
+    # A launcher of a demo at level dev says so (as rq_demo_maturity in
+    # rq_common.sh: a missing maturity is no mark); rq_demo_level.py takes
+    # the mark out again on beta and prod images
+    level = level_of(manifest.get("maturity"), default="beta")
+    if level_of((variant or {}).get("maturity"), default=level) == "dev":
         label, comment = f"{label} {MARK}", f"{MARK} {comment}"
     icon = desktop.get("icon") or manifest.get("icon", {}).get("path", "applications-science")
     keywords = desktop.get("keywords", manifest.get("keywords", []))
-    exec_cmd, try_exec = exec_line(manifest, desktop, variant)
     lines = [
-        HEADER.format(manifest=name).rstrip("\n"),
+        HEADER.format(manifest=name),
         "[Desktop Entry]",
         "Version=1.1",
         f"Name={label}",
@@ -133,9 +136,11 @@ def main():
             os.chmod(path, 0o755)
     # A generated launcher whose manifest entry is gone
     for path in glob.glob(os.path.join(BOOKMARKS, "*.desktop")):
+        if os.path.basename(path) in launchers_now:
+            continue
         with open(path, encoding="utf-8") as f:
-            ours = f.readline().startswith("# Generated from demo-manifests/")
-        if ours and os.path.basename(path) not in launchers_now:
+            ours = f.readline().startswith(GENERATED)
+        if ours:
             stale.append(os.path.basename(path))
             if not args.check:
                 os.remove(path)
@@ -144,7 +149,7 @@ def main():
               + ", ".join(sorted(stale)), file=sys.stderr)
         return 1
     for fname in sorted(stale):
-        print(f"{'differs' if args.check else 'written'}: {fname}")
+        print(f"written: {fname}")
     return 0
 
 

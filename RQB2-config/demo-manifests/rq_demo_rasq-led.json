@@ -38,7 +38,7 @@
     "show": true,
     "terminal": true,
     "comment": "Quantum circuit demo with entanglement patterns on LEDs",
-    "title": "RasQ-LED Demo",
+    "title": true,
     "keywords": [
       "quantum",
       "LED",

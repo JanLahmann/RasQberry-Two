@@ -63,7 +63,7 @@
     "show": true,
     "terminal": true,
     "comment": "Quantum games as Jupyter notebooks, the Fun with Quantum website (games in the browser, works offline) and the Fun with Quantum family: choose from a list",
-    "title": "Fun with Quantum",
+    "title": true,
     "chooser": true,
     "keywords": [
       "quantum",

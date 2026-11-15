@@ -39,7 +39,6 @@
   "desktop": {
     "show": true,
     "terminal": false,
-    "comment": "Design and simulate quantum circuits in your web browser",
     "keywords": [
       "quantum",
       "qiskit",

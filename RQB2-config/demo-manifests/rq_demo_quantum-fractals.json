@@ -38,7 +38,7 @@
     "show": true,
     "terminal": true,
     "comment": "Create animated fractal art using quantum computing circuits and Julia sets",
-    "title": "Quantum Fractals",
+    "title": true,
     "keywords": [
       "quantum",
       "fractals",

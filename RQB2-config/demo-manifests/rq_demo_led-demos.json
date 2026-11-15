@@ -49,7 +49,7 @@
         "file": "led-ibm-demo",
         "name": "IBM LED Demo",
         "comment": "The IBM logo in colour on the LED panel",
-        "title": "IBM LED Demo",
+        "title": true,
         "icon": "/usr/share/icons/rasqberry/led-ibm-demo.svg",
         "keywords": [
           "LED",
@@ -83,7 +83,7 @@
       },
       "desktop": {
         "comment": "Test the LED panel and find its settings with an automatic scan",
-        "title": "LED Test",
+        "title": true,
         "icon": "/usr/share/icons/rasqberry/led-test.svg",
         "keywords": [
           "LED",
@@ -105,7 +105,7 @@
       "desktop": {
         "name": "Clear All LEDs",
         "comment": "Turn off all LEDs on the LED panel",
-        "title": "Clear All LEDs",
+        "title": true,
         "icon": "edit-clear-all",
         "keywords": [
           "LED",
