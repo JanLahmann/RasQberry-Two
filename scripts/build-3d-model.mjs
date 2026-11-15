@@ -3,8 +3,8 @@
  * Builds public/3d-model/rasqberry-two.glb, the model for the 3D viewer on the
  * 3D model page, from the STL files on the 3D-model branch.
  *
- *   node scripts/build-3d-model.mjs <path to the "3D Model" folder> [out.glb]
- *   e.g. node scripts/build-3d-model.mjs ../RasQberry-Two-3D-model/"3D Model"
+ *   node scripts/build-3d-model.mjs <path to the "3D Model/print/originals" folder> [out.glb]
+ *   e.g. node scripts/build-3d-model.mjs ../RasQberry-Two-3D-model/"3D Model/print/originals"
  *
  * Each printed part becomes a named node (extras: label, group, step, explode),
  * placed where it sits in the assembled model; repeated parts (RTE servers,
@@ -25,7 +25,7 @@ import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
 const SRC = process.argv[2];
 const OUT = resolve(process.argv[3] || 'public/3d-model/rasqberry-two.glb');
 if (!SRC) {
-  console.error('usage: node scripts/build-3d-model.mjs <"3D Model" folder> [out.glb]');
+  console.error('usage: node scripts/build-3d-model.mjs <"3D Model/print/originals" folder> [out.glb]');
   process.exit(1);
 }
 
@@ -95,7 +95,8 @@ const WALL_BOLTS = [[47.2, -61.0], [232.5, -61.0]];
 const CRYO_C = [-72.0, -206.1];           // Cryostat centre (its octopus hex hole)
 const CRYO = T(130.0 - CRYO_C[0], 145.4 - CRYO_C[1]); // -> floor hex hole (130, 145.4)
 const ARMS = [0, 120, 240];               // the arm along +Y (to the Wall), then the two front arms
-const CAP = T(-73.3, -122.8, -1);         // hex cap: centre (1.3, -83.3) -> Cryostat centre, rests on the 93.3 mm top
+// hex cap: centred on the Cryostat body (10.96 mm in front of its octopus hole), rim 3 mm in the 93.3 mm top
+const CAP = T(-73.3, -122.8 - 10.96, -1);
 const SOCKETS = [[9.0, -96.9], [9.0, -70.0], [-14.0, -83.2]]; // chandelier sockets under the cap
 const SERVER_Y = [-183.8, -160.5];        // the two servers of the +Y arm (y min), stand-alone one at -137.2
 
@@ -127,7 +128,8 @@ WALL_BOLTS.forEach(([x, y], i) =>
     chain(WALL, T(x, y, 5), rot('x', 180), T(0.2, -34.7, 0)), [0, 60, 130]));
 add('wall-window', 'Window (welding glass, not printed)', 'Wall', 4, null, 'glass', WALL, [0, 10, 30],
   { box: [[19.9, -85.2, 1], [259.9, -84.2, 82]] });
-add('wall-back', 'Wall back', 'Wall', 5, 'wall/R2_Wall-Back.stl', 'wall', chain(WALL, T(5.3, -100, 0)), [0, 130, 30]);
+// the back stands on the base's 3 mm floor, its top flush with the base top (the STL sits at z 8.04)
+add('wall-back', 'Wall back', 'Wall', 5, 'wall/R2_Wall-Back.stl', 'wall', chain(WALL, T(5.3, -100, 3 - 8.04)), [0, 130, 30]);
 add('wall-lid', 'Wall lid', 'Wall', 6, 'wall/R2_Wall-Lid.stl', 'wall', WALL, [0, 60, 120]);
 WALL_BOLTS.forEach(([x, y], i) =>
   add(`wall-nut-${i + 1}`, 'Hex nut', 'Wall', 7, 'wall/R2_Hex_Nut.stl', 'hardware',
@@ -230,7 +232,7 @@ for (const p of parts) {
 
 scene.setExtras({
   model: 'RasQberry Two', units: 'm', up: '+Y', front: '+Z',
-  source: { repo: 'JanLahmann/RasQberry-Two', branch: '3D-model', path: '3D Model', commit: sourceCommit() },
+  source: { repo: 'JanLahmann/RasQberry-Two', branch: '3D-model', path: '3D Model/print/originals', commit: sourceCommit() },
   generator: 'scripts/build-3d-model.mjs',
   note: 'Layout and colours follow the bill of materials and the hardware assembly guide; the window is not a printed part.',
 });
