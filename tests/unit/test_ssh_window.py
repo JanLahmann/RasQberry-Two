@@ -2,7 +2,7 @@
 SSH on a card that still has the published demo password (rq_ssh_window.sh,
 rq_ssh_first_login.sh; Jan 2026-11-14, option d): a window after each start
 with a forced password change, VNC off until the password is changed, keys
-never affected, Imager-customised cards untouched.
+never affected, Imager-customized cards left alone (only their VNC waits).
 """
 
 import os
@@ -20,8 +20,13 @@ def _run(tmp_path, code, demo="yes", boot_env="", stubs=""):
     env = dict(os.environ, RQ_SSHD_DIR=str(tmp_path), RQ_SSH_DROPIN=str(tmp_path / "05-first-login.conf"),
                RQ_BOOT_ENV_FILES=f"{tmp_path / 'none.env'}:{env_file}", RQ_DEMO_PW_STATE=demo,
                RQ_SSH_USER="rasqberry", RQ_SSH_RELOAD="true", RQ_NO_LED="1", RQ_SSH_POLL="0",
-               RQ_SSH_BANNER=str(tmp_path / "banner.txt"), RQ_VNC_MARKER=str(tmp_path / "vnc-marker"))
-    return subprocess.run(["bash", "-c", f'{stubs} . "{_WINDOW}"; {code}'],
+               RQ_SSH_BANNER=str(tmp_path / "banner.txt"), RQ_VNC_MARKER=str(tmp_path / "vnc-marker"),
+               RQ_VNC_WAS_ON=str(tmp_path / "vnc-was-on"), RQ_VNC_CALLS=str(tmp_path / "calls"))
+    # never the real raspi-config (a dev Pi would switch VNC on): it logs its
+    # arguments; get_vnc answers RQ_GET_VNC (default 0 = on)
+    fake = ('raspi-config() { echo "$*" >> "${RQ_VNC_CALLS:-/dev/null}"; '
+            '[ "$2" = get_vnc ] && echo "${RQ_GET_VNC:-0}"; return 0; }; ')
+    return subprocess.run(["bash", "-c", f'{fake}{stubs} . "{_WINDOW}"; {code}'],
                           capture_output=True, text=True, env=env)
 
 
@@ -86,21 +91,43 @@ def test_a_changed_password_ends_it(tmp_path):
     assert _dropin(tmp_path) is None
 
 
+def _calls(tmp_path):
+    f = tmp_path / "calls"
+    return f.read_text().splitlines() if f.exists() else []
+
+
 def test_a_changed_password_switches_vnc_on_without_a_drop_in(tmp_path):
-    # Imager-customised cards never get the drop-in (fresh-card test 2026-11-15):
-    # VNC must still come on once the published password is changed, once
-    stubs = 'raspi-config() { echo "$*" >> "$RQ_VNC_CALLS"; }; '
-    calls = tmp_path / "calls"
-    code = f'RQ_VNC_CALLS="{calls}"; cmd_check'
-    assert _run(tmp_path, code, demo="no", stubs=stubs).returncode == 0
-    assert calls.read_text() == "nonint do_vnc 0\n"
-    assert (tmp_path / "vnc-marker").exists()
-    _run(tmp_path, code, demo="no", stubs=stubs)            # the marker: not again
-    assert calls.read_text() == "nonint do_vnc 0\n"
-    calls.unlink()
-    (tmp_path / "vnc-marker").unlink()
-    _run(tmp_path, code, demo="yes", stubs=stubs)           # still the published one: no
-    assert not calls.exists()
+    # fresh-card test 2026-11-15: an Imager card with keys only kept the
+    # published password, so it has no drop-in; after passwd VNC stayed off
+    (tmp_path / "vnc-was-on").write_text("")
+    assert _run(tmp_path, "cmd_check changed", demo="no").returncode == 0
+    assert _calls(tmp_path) == ["nonint do_vnc 0", "nonint get_vnc"]
+    assert (tmp_path / "vnc-marker").exists() and not (tmp_path / "vnc-was-on").exists()
+    _run(tmp_path, "cmd_check changed", demo="no")                 # once: the marker
+    assert len(_calls(tmp_path)) == 2
+
+
+def test_the_path_unit_check_is_a_password_change():
+    script = open(_WINDOW).read()
+    assert 'check)       ensure_root "$@"; cmd_check changed ;;' in script
+
+
+def test_vnc_not_from_the_boot_time_check_without_a_drop_in(tmp_path):
+    # cmd_window runs cmd_check at every boot of a card with its own password:
+    # VNC stays the desktop login's job there (rasqberry-enable-vnc.sh)
+    _run(tmp_path, "cmd_check", demo="no")
+    assert _calls(tmp_path) == [] and not (tmp_path / "vnc-marker").exists()
+
+
+def test_vnc_marker_only_when_vnc_is_really_on(tmp_path):
+    _run(tmp_path, "cmd_check changed", demo="no", stubs="RQ_GET_VNC=1; ")
+    assert not (tmp_path / "vnc-marker").exists()           # the next login retries
+
+
+def test_no_vnc_while_the_published_password_is_set(tmp_path):
+    _run(tmp_path, "cmd_check changed", demo="yes")
+    _run(tmp_path, "cmd_check changed", demo="unknown")
+    assert _calls(tmp_path) == []
 
 
 def test_vnc_waits_for_the_password_unless_opted_in(tmp_path):
@@ -116,6 +143,9 @@ def test_units_close_before_sshd_and_watch_password_changes():
     assert "Before=ssh.service" in svc and "ExecStartPre=/usr/bin/rq_ssh_window.sh close" in svc
     path = open(os.path.join(sysd, "rasqberry-ssh-window-check.path")).read()
     assert "PathChanged=/etc/shadow" in path
+    # an updated slot: not before the carry-over has copied the VNC choice
+    check = open(os.path.join(sysd, "rasqberry-ssh-window-check.service")).read()
+    assert "After=rasqberry-carry-over.service" in check
     units = open(os.path.join(_ROOT, "RQB2-system", "enabled-units.txt")).read()
     assert "\nrasqberry-ssh-window.service\n" in units and "\nrasqberry-ssh-window-check.path\n" in units
 
