@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
  * Builds public/3d-model/rasqberry-two.glb, the model for the 3D viewer on the
- * 3D model page, from the STL files on the 3D-model branch.
+ * 3D model page, from the new CAD parts on the 3D-model branch: the STLs in
+ * "3D Model/print/generated" placed by complete/RasQberry-Two-standard.layout.json,
+ * which cad/build_plates.py writes for the complete model and the print projects.
  *
- *   node scripts/build-3d-model.mjs <path to the "3D Model/print/originals" folder> [out.glb]
- *   e.g. node scripts/build-3d-model.mjs ../RasQberry-Two-3D-model/"3D Model/print/originals"
+ *   node scripts/build-3d-model.mjs <path to the "3D Model/print/generated" folder> [out.glb]
+ *   e.g. node scripts/build-3d-model.mjs ../RasQberry-Two-3D-model/"3D Model/print/generated"
  *
  * Each printed part becomes a named node (extras: label, group, step, explode),
  * placed where it sits in the assembled model; repeated parts (RTE servers,
@@ -25,7 +27,7 @@ import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
 const SRC = process.argv[2];
 const OUT = resolve(process.argv[3] || 'public/3d-model/rasqberry-two.glb');
 if (!SRC) {
-  console.error('usage: node scripts/build-3d-model.mjs <"3D Model/print/originals" folder> [out.glb]');
+  console.error('usage: node scripts/build-3d-model.mjs <"3D Model/print/generated" folder> [out.glb]');
   process.exit(1);
 }
 
@@ -86,25 +88,10 @@ const tr3 = (A) => [A[0], A[3], A[6], A[1], A[4], A[7], A[2], A[5], A[8]];
 
 // ---------------------------------------------------------------- the layout
 
-// Positions measured from the STLs: the floor's hex holes for the Wall bolts
-// and the Cryostat's octopus, the matching holes in the Wall base and the
-// Cryostat, and the Cryostat's arms (38.1 mm wide, two 23.3 mm servers each).
-const WALL = T(-9.89, 383.26);            // Wall base bolt holes -> floor hex holes (37.3/222.6, 322.3)
-const WALL_BOLTS = [[47.2, -61.0], [232.5, -61.0]];
-const CRYO_C = [-72.0, -206.1];           // Cryostat centre (its octopus hex hole)
-const CRYO = T(130.0 - CRYO_C[0], 145.4 - CRYO_C[1]); // -> floor hex hole (130, 145.4)
-// hex cap: centred on the Cryostat body (10.96 mm in front of its octopus hole), rim 3 mm in the 93.3 mm top
-const CAP = T(-73.3, -122.8 - 10.96, -1);
-const SOCKETS = [[9.0, -96.9], [9.0, -70.0], [-14.0, -83.2]]; // chandelier sockets under the cap
-// The stand-alone cryostat Gamma (Jan's jrl04) with 9 RTE servers, three in a row on each arm wall
-// (back and the two front walls), as in the conjoined cryostat: 0.2 mm off the wall and apart, the
-// first two facing each other like a server pair, the third back to back with the second. Gamma and
-// the jrl02 server STLs are centred on their body (Gamma's centre is the conjoined body's).
-const GAMMA = T(129.954, 134.403);          // Gamma body centre: the conjoined STL's body under CRYO
-const ARM_WALLS = [90, -30, -150];         // outward normals (deg)
-const FLAT = 33.0, ARM_GAP = 0.2, SERVER_DEPTH = 23.24;
-const LID_OFF = T(-19.05, -84.243);         // the lid STL's frame -> the server's
-const JAN = '3D Model - modifications - Jan/October 2025';
+// The wall frame of the original STLs (the layout's wall pieces sit in it): for the parts that are
+// not printed (LED panel, Raspberry Pi) and the filter screen, drawn here as boxes.
+const WALL = T(-9.89, 383.26);
+const LAYOUT = JSON.parse(readFileSync(join(SRC, 'complete/RasQberry-Two-standard.layout.json'), 'utf8'));
 
 const COLOURS = { // as printed (bill of materials): name -> [hex, metallic, roughness, alpha]
   floor: ['#dcdcd8', 0, 0.9, 1],          // White / Rock White
@@ -113,7 +100,6 @@ const COLOURS = { // as printed (bill of materials): name -> [hex, metallic, rou
   clear: ['#f3f5f6', 0, 0.25, 0.62],       // Transparent: lids
   gold: ['#e3a33a', 0.75, 0.32, 1],       // Silk Gold: chandeliers
   screen: ['#2b2c2f', 0.2, 0.35, 1],     // Galaxy Black LED filter screen: opaque, dark (lit LEDs shine through)
-  hardware: ['#4a4a4f', 0.1, 0.6, 1],     // bolts, nuts, octopus (colour not specified)
   vertex: ['#ffffff', 0.3, 0.45, 1],      // parts made of boxes: colour per vertex (BOX_COLOURS)
 };
 const BOX_COLOURS = {                     // vertex colours of the parts made of boxes
@@ -124,22 +110,49 @@ const BOX_COLOURS = {                     // vertex colours of the parts made of
   cooler: '#3a3c40',                      // GPIO header, Active Cooler
 };
 
+const FILAMENT_COLOUR = {                 // layout filament -> colour above
+  'matte black': 'wall', white: 'floor', 'silk silver': 'silver', transparent: 'clear', 'silk gold': 'gold',
+};
+
 const parts = [];
 const add = (id, label, group, step, file, colour, M, explode, extra = {}) =>
   parts.push({ id, label, group, step, file, colour, M, explode, ...extra });
 
-// Floor: six tiles, already laid out in their STLs
+// The printed parts, from the layout: id, label, group, assembly step and explode offset (mm) per part
 const FLOOR_C = [130, 195];
-for (let i = 1; i <= 6; i++) {
-  const f = `floor/R2_Floor-Tile${i}${i === 6 ? 's' : ''}.stl`;
-  add(`floor-${i}`, `Floor tile ${i}`, 'Floor', 1, f, 'floor', T(0, 0), null);
+const CRYO_C = (() => {                     // the cryostat body centre, for the servers' explode direction
+  const m = LAYOUT.pieces.find((p) => p.part.includes('CryoStandaloneGamma')).matrix;
+  return [m[3], m[7]];
+})();
+const VIEW = {
+  'R2_Floor-Tile': (n) => [`floor-${n}`, `Floor tile ${n}`, 'Floor', 1, null],
+  'R2_Floor-CryoPlug': () => ['cryo-plug', 'Cryostat plug', 'Floor', 2, [0, -40, -60]],
+  'R2_Floor-WallPlug': (n) => [`wall-plug-${n}`, 'Wall plug', 'Floor', 2, [0, 60, -60]],
+  'R2_Wall-Base': () => ['wall-base', 'Wall base', 'Wall', 3, [0, 60, 30]],
+  'R2_Wall-Back': () => ['wall-back', 'Wall back', 'Wall', 5, [0, 130, 30]],
+  'R2_Wall-Lid': () => ['wall-lid', 'Wall lid', 'Wall', 6, [0, 60, 120]],
+  'RQB2-R2_CryoStandaloneGamma': () => ['cryostat', 'Cryostat (Gamma)', 'Cryostat', 8, [0, -40, 30]],
+  'R2_NewDoor': () => ['door', 'Door', 'Cryostat', 11, [0, -110, 30]],
+  'R2_ChandelierSingle': (n) => [`chandelier-${n}`, 'Chandelier', 'Cryostat', 13, [0, -40, 110]],
+  'R2_CryoLid-Simple': () => ['cap', 'Cryostat lid', 'Cryostat', 14, [0, -40, 200]],
+  'RQB2-R2_NarrowServerSingle': (n) => [`rte-${n}`, 'RTE server', 'RTE servers', 15, null],
+  'R2_NarrowServerSingleLid': (n) => [`rte-${n}-lid`, 'RTE server lid', 'RTE servers', 16, null],
+};
+const seen = {};
+for (const piece of LAYOUT.pieces) {
+  const key = Object.keys(VIEW).find((k) => piece.part.startsWith(k));
+  if (!key) throw new Error(`no view entry for ${piece.part}`);
+  const n = seen[key] = (seen[key] || 0) + 1;
+  const [id, label, group, step, explode] = VIEW[key](key === 'R2_Floor-Tile' ? piece.part.slice(13, 14) : n);
+  add(id, label, group, step, piece.stl, FILAMENT_COLOUR[piece.filament], piece.matrix, explode);
+}
+// servers and their lids move out along their arm, the outer ones further
+for (const p of parts.filter((p) => p.group === 'RTE servers')) {
+  const [x, y] = [p.M[3] - CRYO_C[0], p.M[7] - CRYO_C[1]];
+  const k = 1 + 12 / Math.hypot(x, y);
+  p.explode = [x * k, y * k - 40, p.id.endsWith('-lid') ? 100 : 30];
 }
 
-// Wall
-add('wall-base', 'Wall base', 'Wall', 2, 'wall/R2_Wall-Base.stl', 'wall', WALL, [0, 60, 30]);
-WALL_BOLTS.forEach(([x, y], i) =>
-  add(`wall-bolt-${i + 1}`, 'Wall bolt', 'Wall', 3, 'wall/R2_Screw.stl', 'hardware',
-    chain(WALL, T(x, y, 5), rot('x', 180), T(0.2, -34.7, 0)), [0, 60, 130]));
 // LED panel: one WS2812 matrix of 24 x 8 LEDs (192, LED_LAYOUT=single-24x8) behind the filter screen,
 // 10 mm pitch (the 240 x 81 mm screen opening); LEDs face the screen.
 const LED = { x0: 139.9 - 115, z0: 41.5 - 35, pitch: 10, front: -84.1 };   // centre of LED (0, 0), wall frame
@@ -171,11 +184,10 @@ const SCREEN = [[19.9, -85.2, 1], [259.9, -84.2, 82]];
 add('wall-window', 'LED filter screen (galaxy black; replaces the welding glass)', 'Wall', 4, null, 'screen', WALL, [0, 10, 30],
   { box: SCREEN, leds: { demo: 'IBM LED demo (rainbow)', pitch: LED.pitch, front: SCREEN[0][1] - 0.5,
     pixels: IBM_LOGO.flatMap((row, k) => [...row].flatMap((ch, c) => ch === '#' ? [[...ledAt(c, 7 - k), RAINBOW[k]]] : [])) } });
-// The back with the Raspberry Pi mount 13 mm higher (the standard in the parts list). It stands on
-// the base's 3 mm floor, its top flush with the base top; its STL lies 12.13 / 380.12 / 18.08 mm
-// off the plain back's, whose STL sits at z 8.04.
+// The frame of the original Back+13 STL, for the Raspberry Pi on its bosses: the back stands on the
+// base's 3 mm floor, its top flush with the base top; that STL lies 12.13 / 380.12 / 18.08 mm off
+// the plain back's, whose STL sits at z 8.04.
 const BACK = chain(WALL, T(5.3, -100, 3 - 8.04), T(-12.13, -380.12, -18.08));
-add('wall-back', 'Wall back', 'Wall', 5, 'wall/R2_Wall-Back+13.stl', 'wall', BACK, [0, 130, 30]);
 
 // Raspberry Pi 5 (simplified), screwed to the four bosses on the inside of the back (holes at
 // x 150.9 / 208.9, z 46.1 / 95.1 in Back+13's STL, Pi 5 pattern 58 x 49 mm); USB and Ethernet
@@ -192,35 +204,6 @@ add('raspberry-pi', 'Raspberry Pi 5 (simplified)', 'Wall', 5, null, 'vertex', BA
     piBox(215.4, 234.4, 80.1, 95.1, 16, 'metal'),                 // USB 2 (2x)
   ],
 });
-add('wall-lid', 'Wall lid', 'Wall', 6, 'wall/R2_Wall-Lid.stl', 'wall', WALL, [0, 60, 120]);
-WALL_BOLTS.forEach(([x, y], i) =>
-  add(`wall-nut-${i + 1}`, 'Hex nut', 'Wall', 7, 'wall/R2_Hex_Nut.stl', 'hardware',
-    chain(WALL, T(x + 0.25, y + 0.45, -6)), [0, 60, -70]));
-
-// Cryostat
-add('cryostat', 'Cryostat (Gamma)', 'Cryostat', 8, `${JAN}/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl`, 'silver', GAMMA, [0, -40, 30]);
-add('octopus', 'Octopus (alignment bolt)', 'Cryostat', 9, 'cryostat/R2_ScrewOctopusAlignment2.stl', 'hardware',
-  chain(CRYO, T(...CRYO_C, 6), rot('y', 180), T(39.96, 6.31, 0)), [0, -40, -40]);
-add('octopus-nut', 'Hex nut', 'Cryostat', 10, 'wall/R2_Hex_Nut.stl', 'hardware',
-  chain(CRYO, T(CRYO_C[0] + 0.25, CRYO_C[1] + 0.45, -6)), [0, -40, -90]);
-add('door', 'Door', 'Cryostat', 11, 'cryostat/R2_NewDoor.stl', 'silver', chain(CRYO, T(-204.05, -134.9, -7)), [0, -110, 30]);
-SOCKETS.forEach(([x, y], i) =>
-  add(`chandelier-${i + 1}`, 'Chandelier', 'Cryostat', 13, 'cryostat/R2_ChandelierSingle.stl', 'gold',
-    chain(CRYO, CAP, T(x, y, 92.3), rot('x', 180), T(-64.24, 2.58, 14.7)), [0, -40, 110]));
-add('cap', 'Cryostat cap', 'Cryostat', 14, 'cryostat/R2_CryoLid-Simple.stl', 'clear', chain(CRYO, CAP), [0, -40, 200]);
-ARM_WALLS.forEach((wall, k) => {
-  const out = apply(rot('z', wall - 90), [0, 1, 0]).map((v) => v * 55);
-  for (let i = 0; i < 3; i++) {
-    const r = FLAT + ARM_GAP + SERVER_DEPTH / 2 + i * (SERVER_DEPTH + ARM_GAP);
-    const M = chain(GAMMA, rot('z', wall - 90), T(0, r), rot('z', i === 1 ? 0 : 180));
-    const n = k * 3 + i + 1;
-    add(`rte-${n}`, 'RTE server', 'RTE servers', 15, `${JAN}/RTE/RQB2-R2_NarrowServerSingle-jrl02.stl`, 'silver',
-      M, [out[0] * (1 + i * 0.4), out[1] * (1 + i * 0.4) - 40, 30]);
-    add(`rte-${n}-lid`, 'RTE server lid', 'RTE servers', 16, 'RTE/R2_NarrowServerSingleLid.stl', 'clear',
-      chain(M, LID_OFF), [out[0] * (1 + i * 0.4), out[1] * (1 + i * 0.4) - 40, 100]);
-  }
-});
-
 // Floor tiles move apart and down
 for (const p of parts.filter((p) => p.group === 'Floor')) {
   const pos = readStl(p.file);
@@ -323,7 +306,7 @@ for (const p of parts) {
 
 scene.setExtras({
   model: 'RasQberry Two', units: 'm', up: '+Y', front: '+Z',
-  source: { repo: 'JanLahmann/RasQberry-Two', branch: '3D-model', path: '3D Model/print/originals', commit: sourceCommit() },
+  source: { repo: 'JanLahmann/RasQberry-Two', branch: '3D-model', path: '3D Model/print/generated', commit: sourceCommit() },
   generator: 'scripts/build-3d-model.mjs',
   note: 'Layout and colours follow the bill of materials and the hardware assembly guide; the LED filter screen is drawn as a plain box.',
 });
