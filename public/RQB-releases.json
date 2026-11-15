@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T19:39:15Z",
+  "generated": "2026-11-15T19:40:00Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,15 +43,17 @@
       "image_download_size": 2064228340,
       "extract_size": 9604956160,
       "extract_sha256": "1ddecd3a7b4d83ffa15ce7ec164839af84e887cfa9042d0767b05c4cc00448b2",
-      "image_sha256": "2ccdc5abccb1322e6c000108e4ae9fb0dc16b45cb45a1899227ff1637eef5d5a",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-200009/rasqberry-development-2026-11-15-200009-ab.img.xz",
       "ab_extract_sha256": "c9431f828d6bf4536e7947b498c92ed5fbd6fde84657b776983f8fa398b2e103",
       "ab_image_sha256": "ebb5eb787594c77d4dea1e089eece8ede1cc847dd2ef2c2eedab5b8d37d67fab",
-      "ab_image_download_size": 2111593356,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2111593356,
       "highlights": [
+        "Bump version to development-2026-11-15-200009",
+        "Merge pull request #409 from JanLahmann/xz-3",
         "CI compression: A/B image starts at the fallback level when the standard one needed it",
-        "CI: development images at xz -3, not -1"
+        "development images at xz -3, not -1",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-11-15-191236"
       ]
     }
   }
