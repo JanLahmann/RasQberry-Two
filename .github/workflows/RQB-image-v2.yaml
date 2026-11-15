@@ -1131,7 +1131,7 @@ jobs:
           echo "Size: $(du -h "$RAW_IMAGE" | cut -f1)"
 
           # Determine compression settings from environment (all builds use xz)
-          COMPRESS_LEVEL="${COMPRESSION_LEVEL:-1}"
+          COMPRESS_LEVEL="${COMPRESSION_LEVEL:-3}"
           COMPRESS_LEVEL_FALLBACK="${COMPRESSION_LEVEL_FALLBACK:-}"
           COMPRESS_EXT="xz"
           CONTENT_TYPE="application/x-xz"
@@ -1310,6 +1310,7 @@ jobs:
             if [ "$SIZE" -gt "$MAX_SIZE_BYTES" ] && [ -n "$FALLBACK" ]; then
               echo "  ⚠️ Image exceeds 2GB limit (${SIZE_MB} MB)"
               echo "  Recompressing with xz -${FALLBACK}..."
+              NEEDED_FALLBACK=yes
               rm -f "$COMPRESSED"
               run_xz -${FALLBACK} -T0 --block-size=128MiB -k "$IMG"
               SIZE=$(stat -c%s "$COMPRESSED")
@@ -1348,9 +1349,16 @@ jobs:
           else
             # Compress standard image (for full and standard-image scopes)
             compress_with_fallback "$STANDARD_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
-            # Compress A/B image if it exists (for full scope)
+            # Compress A/B image if it exists (for full scope). It is the
+            # larger one: if the standard image needed the fallback level,
+            # start the A/B image there instead of compressing it twice
             if [ -f "$AB_IMG" ]; then
-              compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+              AB_LEVEL="$COMPRESS_LEVEL"
+              if [ "${NEEDED_FALLBACK:-}" = yes ] && [ -n "$COMPRESS_LEVEL_FALLBACK" ]; then
+                AB_LEVEL="$COMPRESS_LEVEL_FALLBACK"
+                echo "Standard image needed xz -${AB_LEVEL}: the A/B image starts there"
+              fi
+              compress_with_fallback "$AB_IMG" "$AB_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
             fi
           fi
 
