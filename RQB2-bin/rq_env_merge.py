@@ -32,7 +32,14 @@ RETIRED_KEYS = ("INTERACTIVE", "ASK_TO_REBOOT", "CONFIG", "MARKER_QRT",
                 # The old "Configure Matrix Layout" (Q22): LED_LAYOUT is the
                 # one layout setting now, and nothing reads these any more.
                 "LED_MATRIX_LAYOUT", "LED_MATRIX_WIDTH", "LED_MATRIX_HEIGHT",
-                "LED_MATRIX_Y_FLIP", "LED_MATRIX_PANEL_WIDTH", "LED_MATRIX_PANEL_HEIGHT")
+                "LED_MATRIX_Y_FLIP", "LED_MATRIX_PANEL_WIDTH", "LED_MATRIX_PANEL_HEIGHT",
+                # A demo's source is in its manifest; these were read by nothing.
+                "TEST_LED_INSTALLED", "QUANTUM_FRACTALS_INSTALLED",
+                "GIT_REPO_DEMO_QOFFEE", "QOFFEE_DOCKER_IMAGE",
+                "GIT_REPO_DEMO_QUANTUM_MIXER", "QUANTUM_MIXER_DOCKER_IMAGE",
+                "GIT_REPO_DEMO_FWQ", "GIT_REPO_DEMO_QRT", "PATCH_FILE_QRT",
+                "GIT_REPO_DEMO_QLO", "MARKER_QLO", "PATCH_FILE_QLO",
+                "GIT_REPO_DEMO_GROK_BLOCH", "GIT_REPO_DEMO_PARADOXES")
 
 # A device file from before LED_LAYOUT existed knew its panel only as
 # LED_MATRIX_LAYOUT. Carry that choice into LED_LAYOUT instead of the shipped
