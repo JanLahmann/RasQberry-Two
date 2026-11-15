@@ -53,6 +53,8 @@ WT_MENU_HEIGHT="${WT_MENU_HEIGHT:-12}"
 # Usage: die "Error message"
 die() {
     echo "ERROR: $*" >&2
+    # a script that also logs its errors defines rq_die_hook (rq_update_slot.sh)
+    if declare -F rq_die_hook >/dev/null; then rq_die_hook "$*" || true; fi
     # The RasQberry menu passes a file here (RQB2_menu.sh run_engine_demo), so
     # the reason survives the menu redrawing over this terminal output.
     if [ -n "${RQ_ERROR_FILE:-}" ]; then
@@ -638,6 +640,17 @@ stop_led_holders() {
 # scroll at start-up gives way; a demo on the panel keeps it. The text goes
 # through a root-only file, not the command line (it may hold a password).
 # As root. Returns 1 when nothing scrolls.
+# rq_sshd_first_value DIR KEYWORD: the first value sshd reads for KEYWORD
+# (lower case) from DIR's sshd_config.d/*.conf and sshd_config - sshd keeps the
+# first one, and Debian's sshd_config includes the drop-ins at its top. Stops
+# at the first Match block: what follows applies only to some logins (as in
+# rq_ssh_window.sh's drop-in for the demo password). Prints nothing if unset.
+rq_sshd_first_value() {
+    cat "$1"/sshd_config.d/*.conf "$1/sshd_config" 2>/dev/null \
+        | awk -v key="$2" 'tolower($1) == "match" { exit }
+                           tolower($1) == key { print tolower($2); exit }' || true
+}
+
 rq_wifi_scroll() {
     local unit="$1" seconds="$2" text="$3" py file others
     command -v systemd-run >/dev/null 2>&1 || return 1
@@ -748,8 +761,10 @@ led_clear_quietly() {
 # Docker, which is root by another name). In its own mount namespace the
 # whole home is read-only (rq_led_sandbox_mounts), so it cannot change or add
 # what root or a later login runs; it writes only to its own folder and a few
-# others LED demos use. It keeps the desktop, the network and the user's
-# sound (PipeWire).
+# others LED demos use. Of the user's runtime folder (/run/user/UID) it sees
+# only the display and sound sockets (Wayland, PipeWire, Pulse), and not the
+# system bus. It keeps the network. More isolation (desktop input, separate
+# accounts) belongs with #333 classroom security.
 # It stays a child of the launcher (unshare + setpriv, not a systemd unit), so
 # Enter, Ctrl+C, a closed window and the menu's stop (a signal to the
 # launcher's process group) all reach it as before.
@@ -879,6 +894,31 @@ rq_led_sandbox_mounts() {
 # fails stops the demo; a writable path that is not a directory of its own
 # (missing, a symlink) is left as it is.
 _RQ_LED_MOUNTS='n=$1; shift
+# the system bus: not for LED programs (first, so nothing bound below brings it)
+if [ -S /run/dbus/system_bus_socket ]; then
+    mount --bind /dev/null /run/dbus/system_bus_socket || exit 97
+fi
+# the runtime folder: only the display and sound sockets (RQ_LED_RT_*); a
+# symlink there (the user can make one) is not followed
+rt=${RQ_LED_RT:-}
+if [ -n "$rt" ] && [ -d "$rt" ] && [ ! -L "$rt" ]; then
+    keep="${RQ_RUN_DIR:-/run/rasqberry}/led-sandbox-keep"
+    mkdir -p "$keep" || exit 97
+    mount -t tmpfs -o mode=0700 tmpfs "$keep" || exit 97
+    for f in "$RQ_LED_RT_WAYLAND" pipewire-0 pulse; do
+        [ -e "$rt/$f" ] && [ ! -L "$rt/$f" ] || continue
+        if [ -d "$rt/$f" ]; then mkdir "$keep/$f"; else : > "$keep/$f"; fi
+        mount --bind "$rt/$f" "$keep/$f" || exit 97
+    done
+    # as small as logind makes the real one
+    mount -t tmpfs -o "mode=0700,uid=$RQ_LED_RT_UID,gid=$RQ_LED_RT_GID,size=64m,nr_inodes=4096" tmpfs "$rt" || exit 97
+    for f in "$keep"/*; do
+        [ -e "$f" ] || continue
+        b=${f##*/}
+        if [ -d "$f" ]; then mkdir "$rt/$b"; else : > "$rt/$b"; fi
+        mount --bind "$f" "$rt/$b" || exit 97
+    done
+fi
 for ((i = 0; i < n; i++)); do
     mode=${1%% *}; p=${1#* }; shift
     case "$mode" in
@@ -906,7 +946,7 @@ rq_led_as_user() {
     # needs passed on
     cmd=$(command -v "$1" 2>/dev/null) || cmd="$1"
     shift
-    rt=$(rq_audio_runtime_dir) || rt=""
+    rt=$(rq_audio_runtime_dir) || rt="/run/user/$uid"
     # the device groups only: not sudo, adm or docker
     for g in gpio spi i2c audio video render input dialout plugdev; do
         id -nG "$user_name" | tr ' ' '\n' | grep -qx "$g" && groups="$groups,$g"
@@ -924,6 +964,7 @@ rq_led_as_user() {
     # (setpriv refuses an empty --groups= list)
     local grp_opt="--clear-groups"
     [ -z "$groups" ] || grp_opt="--groups=${groups#,}"
+    RQ_LED_RT="$rt" RQ_LED_RT_UID="$uid" RQ_LED_RT_GID="$gid" RQ_LED_RT_WAYLAND="${WAYLAND_DISPLAY:-wayland-0}" \
     unshare --mount --propagation private -- bash -c "$_RQ_LED_MOUNTS" _ "${#mounts[@]}" "${mounts[@]}" \
         setpriv --reuid="$uid" --regid="$gid" "$grp_opt" \
             --no-new-privs --bounding-set=-all --inh-caps=-all -- \
@@ -931,7 +972,7 @@ rq_led_as_user() {
             PATH="$(dirname "$cmd"):/usr/local/bin:/usr/bin:/bin" \
             LANG="${LANG:-C.UTF-8}" TERM="${TERM:-xterm}" DISPLAY="${DISPLAY:-:0}" \
             ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
-            XDG_RUNTIME_DIR="${rt:-/run/user/$uid}" \
+            XDG_RUNTIME_DIR="$rt" \
             XDG_CACHE_HOME="$cache" MPLCONFIGDIR="$cache/matplotlib" \
             LED_RENDER_MODE="${RQ_LED_USER_MODE:-direct}" \
             RQ_AUDIO_DELAY_MS="$(rq_audio_delay_ms)" \
@@ -2553,6 +2594,13 @@ rq_demo_repo() {
     jq -r '.install.repo_url // .install.source.repo_url // empty' "$mf" 2>/dev/null
 }
 
+# The file that shows a demo is installed (install.marker_file); empty if none
+rq_demo_marker() {
+    local mf
+    mf=$(_rq_demo_mf "$1" "${2:-}") || return 0
+    jq -r '.install.marker_file // empty' "$mf" 2>/dev/null || true
+}
+
 # Record (or, with an empty CHOSEN, drop) a newer version for KEY.
 # Usage: rq_demo_set_version "doqumentation:image" RELEASE_PIN CHOSEN LABEL
 rq_demo_set_version() {
@@ -2572,8 +2620,12 @@ RQ_FEEDBACK_URL="https://github.com/JanLahmann/RasQberry-Two/issues/new?template
 # Feedback without a GitHub account (Jan, 2026-10-08)
 RQ_FEEDBACK_EMAIL="info@rasqberry.org"
 
-# Echo "beta" for a new or less-tested demo (field "maturity"), else nothing.
-# The variant's value wins, then the manifest's, then the catalogue entry's
+# Echo "beta" for a new or less-tested demo, else nothing: one marked demo
+# level dev (field "maturity", rq_demo_level.py; a demo without the field
+# ships only in development images too, but is not marked). Only development
+# images ship dev demos, so only they show the mark, the Beta group and the
+# feedback invitation. The variant's value wins, then the manifest's, then
+# the catalogue entry's
 # (known-demos.json), so a catalogue demo installed before it was marked
 # shows it too - also one installed under an earlier name (the entry's
 # "replaces", e.g. traqmania for racetraq).
@@ -2591,7 +2643,7 @@ rq_demo_maturity() {
             | select(any(.replaces[]?; . == $id))] | .[0].maturity // empty' \
             "$registry" 2>/dev/null)
     fi
-    [ "$m" = "beta" ] && echo beta
+    [ "$m" = dev ] && echo beta
     return 0
 }
 
@@ -2602,7 +2654,7 @@ rq_demo_maturity() {
 # "replaces", goes to that entry's group), else to the group marked
 # "catalogue" (Contributed demos, Jan 2026-10-08) - not to the group its own
 # manifest names. A beta demo (maturity "beta": its manifest's, else its
-# catalogue entry's) goes to the group marked "beta", before anything else:
+# catalogue entry's: demo level dev) goes to the group marked "beta", before anything else:
 # it says clearly what is not ready yet (Jan, 2026-10-24). A shipped demo goes to its manifest's "group", else a
 # guess: an LED panel demo to led-panel, a game or visualization to play,
 # anything else to learn. A value demo-groups.json does not list counts as
@@ -2629,7 +2681,7 @@ rq_demo_group() {
         | ([$entry[].group] | map(select(. as $g | $ids | any(. == $g)))) as $curated
         | ([$grp[0].groups[]? | select(.beta == true) | .id] | .[0]) as $beta
         | ($m.maturity // ([$entry[].maturity | select(. != null)] | .[0])) as $maturity
-        | if $beta != null and $maturity == "beta" then $beta
+        | if $beta != null and $maturity == "dev" then $beta
           elif ($curated | length) > 0 then $curated[0]
           elif (($entry | length) > 0 or ($shipped | not)) and $cat != null then $cat
           elif ($m.group as $g | $ids | any(. == $g)) then $m.group

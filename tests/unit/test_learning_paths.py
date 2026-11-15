@@ -236,7 +236,7 @@ def test_quantum_demos_menu_offers_the_paths_near_the_top():
     menu = open(_MENU, encoding="utf-8").read()
     start = menu.index('"RasQberry: Quantum Demos" "Select a group of demos or an option"')
     items = menu[start:menu.index('"$@"', start)]
-    assert 'PATHS "Learning paths (beta)' in items
+    assert 'PATHS "Learning paths${_lp_mark}' in items
     # first, before the demo groups ("$@")
     assert re.findall(r'^\s+([A-Z]+) "', items, re.M) == ["PATHS"]
     assert 'run_engine_demo "$BIN_DIR/rq_learning_paths.sh" --menu' in menu
@@ -255,8 +255,6 @@ def test_desktop_icon_opens_the_chooser():
     assert entry["Terminal"] == "true"
     # in the RasQberry section of the app menu only, not Education (user test 2026-10-26)
     assert entry["Categories"] == "RasQberry;"
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    assert stage.count("|learning-paths)") == 2
     import sys
     sys.path.insert(0, _BIN)
     import rq_desktop_session as ds  # noqa: E402

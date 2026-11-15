@@ -71,32 +71,12 @@ RasQberry's settings live in `/usr/config/rasqberry_environment.env` (shipped de
 ## Demo-specific configuration
 
 - `RASQ_LED_DISPLAY_TIMEOUT` = `3` **kept**: RasQ-LED Demo timeout in seconds
-- `GIT_REPO_DEMO_QOFFEE` = `https://github.com/JanLahmann/Qoffee-Maker.git`: Qoffee-Maker and Quantum-Mixer: their sources and Docker images are pinned per release in the demo manifests (install.source, entrypoint.docker_image). DEPRECATED: GIT_REPO_DEMO_QOFFEE, QOFFEE_DOCKER_IMAGE, GIT_REPO_DEMO_QUANTUM_MIXER, QUANTUM_MIXER_DOCKER_IMAGE (not read)
-- `QOFFEE_DOCKER_IMAGE` = `ghcr.io/janlahmann/qoffee-maker`
-- `QOFFEE_PORT` = `8887`
-- `GIT_REPO_DEMO_QUANTUM_MIXER` = `https://github.com/JanLahmann/quantum-mixer.git`
-- `QUANTUM_MIXER_DOCKER_IMAGE` = `quantum-mixer:arm64`
-- `GIT_REPO_DEMO_FWQ` = `https://github.com/JanLahmann/fun-with-quantum.git`: Fun-with-Quantum
-- `MARKER_FWQ` = `Quantum-Coin-Game.ipynb`
-- `FWQ_JUPYTER_PORT` = `8888`
-- `GIT_REPO_DEMO_QRT` = `https://github.com/KPRoche/quantum-raspberry-tie.git`: Quantum-Raspberry-Tie
-- `PATCH_FILE_QRT` = `quantum-raspberry-tie.patch`
-- `GIT_REPO_DEMO_QLO` = `https://github.com/Luka-D/Quantum-Lights-Out.git`: Quantum-Lights-Out
-- `MARKER_QLO` = `lights_out.py`
-- `PATCH_FILE_QLO` = `quantum-lights-out.patch`
-- `GIT_REPO_DEMO_GROK_BLOCH` = `https://github.com/JavaFXpert/grok-bloch.git`: Grok-Bloch
-- `MARKER_GROK_BLOCH` = `index.html`
-- `GIT_REPO_DEMO_LED_PAINTER` = `https://github.com/Luka-D/RasQberry-Two-LED-Painter.git`: LED-Painter
-- `MARKER_LED_PAINTER` = `LED_painter.py`
-- `GIT_REPO_DEMO_PARADOXES` = `https://github.com/maria-violaris/quantum-paradoxes`: Quantum-Paradoxes
-- `MARKER_PARADOXES` = `WELCOME.ipynb`
-- `PARADOXES_JUPYTER_PORT` = `8891`
-- `GIT_REPO_DEMO_IBM_LEARNING` = `https://github.com/Qiskit/documentation.git`: IBM Quantum Tutorials & Courses (from Qiskit documentation - CC BY-SA 4.0)
-- `MARKER_IBM_TUTORIALS` = `WELCOME-tutorials.ipynb`: (its pinned commit: install.source.ref in demo-manifests/rq_demo_ibm-courses.json)
-- `MARKER_IBM_COURSES` = `WELCOME-courses.ipynb`
-- `IBM_TUTORIALS_JUPYTER_PORT` = `8889`
+- `QOFFEE_PORT` = `8887`: Qoffee-Maker
+- `FWQ_JUPYTER_PORT` = `8888`: Fun-with-Quantum
+- `PARADOXES_JUPYTER_PORT` = `8891`: Quantum-Paradoxes
+- `IBM_TUTORIALS_JUPYTER_PORT` = `8889`: IBM Quantum Tutorials & Courses (from Qiskit documentation - CC BY-SA 4.0)
 - `IBM_COURSES_JUPYTER_PORT` = `8890`
 
 ## Installed demos (internal)
 
-Flags the demo installers set (true/false), one per demo: `TEST_LED_INSTALLED`, `QUANTUM_LIGHTS_OUT_INSTALLED`, `QUANTUM_RASPBERRY_TIE_INSTALLED`, `GROK_BLOCH_INSTALLED`, `QUANTUM_FRACTALS_INSTALLED`, `LED_PAINTER_INSTALLED`, `QOFFEE_MAKER_INSTALLED`, `QUANTUM_MIXER_INSTALLED`, `FUN_WITH_QUANTUM_INSTALLED`, `QUANTUM_PARADOXES_INSTALLED`, `IBM_TUTORIALS_INSTALLED`, `IBM_COURSES_INSTALLED`.
+Flags the demo installers set (true/false), one per demo: `QUANTUM_LIGHTS_OUT_INSTALLED`, `QUANTUM_RASPBERRY_TIE_INSTALLED`, `GROK_BLOCH_INSTALLED`, `LED_PAINTER_INSTALLED`, `QOFFEE_MAKER_INSTALLED`, `QUANTUM_MIXER_INSTALLED`, `FUN_WITH_QUANTUM_INSTALLED`, `QUANTUM_PARADOXES_INSTALLED`, `IBM_TUTORIALS_INSTALLED`, `IBM_COURSES_INSTALLED`.

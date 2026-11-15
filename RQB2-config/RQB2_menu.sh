@@ -344,6 +344,17 @@ clone_ibm_learning_content() {
         fi
     fi
 
+    # the repository: the same manifest as the pin below
+    _ibm_url=""
+    if command -v rq_demo_repo >/dev/null 2>&1; then
+        _ibm_url=$(rq_demo_repo ibm-courses 2>/dev/null) || _ibm_url=""
+    fi
+    [ -n "$_ibm_url" ] || _ibm_url=$(_rq_ibm_field ibm-courses .install.source.repo_url)
+    if [ -z "$_ibm_url" ]; then
+        echo "ERROR: The ibm-courses manifest names no repository" >&2
+        return 1
+    fi
+
     echo "Downloading IBM Quantum Learning content (sparse checkout). This may take a few minutes..."
     _rq_as_desktop_user mkdir -p "$DEST" || return 1
     # Pin to a reviewed commit instead of tracking main. Qiskit/documentation is a
@@ -358,8 +369,7 @@ clone_ibm_learning_content() {
     if command -v rq_demo_ref >/dev/null 2>&1; then
         _ibm_ref=$(rq_demo_ref ibm-courses 2>/dev/null) || _ibm_ref=""
     fi
-    [ -n "$_ibm_ref" ] || _ibm_ref=$(jq -r '.install.source.ref // empty' \
-        "${RQ_SHIPPED_MANIFESTS:-/usr/config/demo-manifests}/rq_demo_ibm-courses.json" 2>/dev/null) || _ibm_ref=""
+    [ -n "$_ibm_ref" ] || _ibm_ref=$(_rq_ibm_field ibm-courses .install.source.ref)
     if [ -z "$_ibm_ref" ]; then
         _ibm_ref=main
         echo "WARNING: no pinned commit for the IBM Quantum content - falling back to main (unpinned)"
@@ -376,10 +386,10 @@ clone_ibm_learning_content() {
         git remote add origin "$2" &&
         git sparse-checkout set --no-cone /docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /public/learning/images/courses/ /public/docs/images/tutorials/ /public/docs/images/guides/hello-world/ /LICENSE /LICENSE-DOCS &&
         git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 fetch -q --depth=1 origin "$3" &&
-        git checkout -q FETCH_HEAD' _ "$DEST" "$GIT_REPO_DEMO_IBM_LEARNING" "$_ibm_ref" \
+        git checkout -q FETCH_HEAD' _ "$DEST" "$_ibm_url" "$_ibm_ref" \
         || ! _rq_ibm_content_ok "$DEST"; then
         rm -rf "$DEST" 2>/dev/null || sudo -n rm -rf "$DEST" 2>/dev/null
-        echo "ERROR: Failed to download the IBM Quantum content from $GIT_REPO_DEMO_IBM_LEARNING" >&2
+        echo "ERROR: Failed to download the IBM Quantum content from $_ibm_url" >&2
         return 1
     fi
 
@@ -390,6 +400,12 @@ clone_ibm_learning_content() {
     fi
 
     echo "IBM Quantum Learning content downloaded."
+}
+
+# A field of a shipped IBM demo manifest (jq path); empty if missing. Under
+# dash rq_common.sh is not loaded, so jq reads the file directly.
+_rq_ibm_field() {
+    jq -r "$2 // empty" "${RQ_SHIPPED_MANIFESTS:-/usr/config/demo-manifests}/rq_demo_$1.json" 2>/dev/null
 }
 
 # Write the WELCOME notebook (the demo's marker) for "--tutorials"/"--courses"
@@ -403,8 +419,9 @@ _rq_ibm_welcome() {
 # Install IBM Quantum Tutorials
 do_ibm_tutorials_install() {
     DEST="$DEMO_ROOT/ibm-quantum-learning"
+    _ibm_marker=WELCOME-tutorials.ipynb   # written by setup_ibm_tutorials.py
 
-    if [ -f "$DEST/$MARKER_IBM_TUTORIALS" ] && _rq_ibm_content_ok "$DEST"; then
+    if [ -f "$DEST/$_ibm_marker" ] && _rq_ibm_content_ok "$DEST"; then
         return 0
     fi
 
@@ -412,7 +429,7 @@ do_ibm_tutorials_install() {
     clone_ibm_learning_content || return 1
 
     echo "Generating tutorials welcome notebook..."
-    if ! _rq_ibm_welcome --tutorials || [ ! -f "$DEST/$MARKER_IBM_TUTORIALS" ]; then
+    if ! _rq_ibm_welcome --tutorials || [ ! -f "$DEST/$_ibm_marker" ]; then
         echo "ERROR: Could not set up the IBM Quantum Tutorials (no tutorials found in the download)" >&2
         return 1
     fi
@@ -424,8 +441,9 @@ do_ibm_tutorials_install() {
 # Install IBM Quantum Courses
 do_ibm_courses_install() {
     DEST="$DEMO_ROOT/ibm-quantum-learning"
+    _ibm_marker=WELCOME-courses.ipynb   # written by setup_ibm_tutorials.py
 
-    if [ -f "$DEST/$MARKER_IBM_COURSES" ] && _rq_ibm_content_ok "$DEST"; then
+    if [ -f "$DEST/$_ibm_marker" ] && _rq_ibm_content_ok "$DEST"; then
         return 0
     fi
 
@@ -433,7 +451,7 @@ do_ibm_courses_install() {
     clone_ibm_learning_content || return 1
 
     echo "Generating courses welcome notebook..."
-    if ! _rq_ibm_welcome --courses || [ ! -f "$DEST/$MARKER_IBM_COURSES" ]; then
+    if ! _rq_ibm_welcome --courses || [ ! -f "$DEST/$_ibm_marker" ]; then
         echo "ERROR: Could not set up the IBM Quantum Courses (no courses found in the download)" >&2
         return 1
     fi
@@ -1473,9 +1491,14 @@ do_quantum_demo_menu() {
 
     # "tag" "text" pairs, one per line: newlines would end the eval'd command
     eval "set -- $(demo_group_list 2>/dev/null | tr '\n' ' ')"
+    # "(beta)" only on a development image (demo levels, rq_demo_level.py)
+    _lp_mark=" (beta)"
+    if [ -f /etc/rasqberry-demo-level ] && [ "$(cat /etc/rasqberry-demo-level 2>/dev/null)" != dev ]; then
+        _lp_mark=""
+    fi
     FUN=$(show_menu ${_qd_last:+--default-item "$_qd_last"} \
        "RasQberry: Quantum Demos" "Select a group of demos or an option" \
-       PATHS "Learning paths (beta): the demos step by step" \
+       PATHS "Learning paths${_lp_mark}: the demos step by step" \
        "$@" \
        STOP "Stop a running LED demo" \
        MANAGE "Manage demos: download all, add, update, remove") || break
@@ -2844,7 +2867,7 @@ do_hotspot_admin() {
         [ "$_ha_now" = auto ] && _ha_text="$_ha_text\nChange the password (RasQberry > Remote Access & Security) to allow them."
     fi
     _ha_new=$(show_menu --default-item "$_ha_now" "Wi-Fi hotspot: SSH and VNC" \
-        "Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try.\n\n$_ha_text" \
+        "Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try. (The same applies to the setup Wi-Fi a new Pi opens.)\n\n$_ha_text" \
         auto "auto: only once the default password is changed (recommended)" \
         no   "no: never" \
         yes  "yes: always, even with the default password") || return 0

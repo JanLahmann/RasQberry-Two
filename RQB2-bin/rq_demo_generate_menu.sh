@@ -351,11 +351,11 @@ CACHE_HEADER
         items=""
         while IFS=$'\t' read -r vid vname vmaturity; do
             valid_cache_id "$vid" "$file (variant)" || continue
-            [ "$vmaturity" = "beta" ] && vname="$vname (beta)"
+            [ "$vmaturity" = "dev" ] && vname="$vname (beta)"
             vname=$(printf '%s' "$vname" | sed 's/[\\"$`]/\\&/g')
             vname=$(printf '%s' "$vname" | sed "s/'/'\\\\''/g")
             items="$items '\"$vid\" \"$vname\"'"
-        done < <(jq -r '.variants[]? | [.id, .name, (.maturity // "")] | @tsv' "$file")
+        done < <(jq -r '.maturity as $d | .variants[]? | [.id, .name, (.maturity // $d // "")] | @tsv' "$file")
         [ -n "$items" ] && echo "        \"$id\") printf '%s\\n'$items ;;" >> "$cache_file"
     done) || true
 

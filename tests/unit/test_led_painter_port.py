@@ -93,4 +93,5 @@ def test_requirements_drop_pyside6(converter, tmp_path):
     (tmp_path / "requirements.txt").write_text("PySide6\nPySide6_Addons\nshiboken6\nsetuptools==75.5.0\n")
     converter.update_requirements(str(tmp_path))
     active = [l for l in (tmp_path / "requirements.txt").read_text().splitlines() if l and not l.startswith("#")]
-    assert active == ["setuptools==75.5.0"]
+    # setuptools stays as the shared venv has it (rig check 2026-10-16)
+    assert active == []

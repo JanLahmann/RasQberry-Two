@@ -169,7 +169,7 @@ list_paths() {
     n=$(path_count)
     for ((i = 0; i < n; i++)); do
         path_info "$i"
-        echo "$P_TITLE (beta) - $P_AUDIENCE, about $(duration "$P_MINUTES")"
+        echo "$P_TITLE${BETA_MARK} - $P_AUDIENCE, about $(duration "$P_MINUTES")"
         echo "  $P_GOAL"
         [ -z "$P_CREDIT" ] || echo "  $P_CREDIT ($P_CREDIT_URL)"
         for ((s = 0; s < P_STEPS; s++)); do
@@ -254,6 +254,12 @@ pause() {
     echo
     read -rp "${1:-Press Enter to go back.} " _ || true
 }
+
+# "(beta)" only on a development image: beta and prod images mark nothing
+# (demo levels, Jan 2026-11-13; rq_demo_level.py)
+BETA_MARK=" (beta)"
+[ "$(cat "${RQ_DEMO_LEVEL_FILE:-/etc/rasqberry-demo-level}" 2>/dev/null)" = dev ] || \
+    [ ! -f "${RQ_DEMO_LEVEL_FILE:-/etc/rasqberry-demo-level}" ] || BETA_MARK=""
 
 # The invitation every beta demo gives (rq_beta_notice), for the paths
 feedback_notice() {
@@ -512,7 +518,7 @@ walk_path() {
             back="Back to step $s: $(step_info "$i" $((s - 1)); echo "$S_NAME")"
             set -- "$@" back "$back"
         fi
-        choice=$(lp_menu "RasQberry: $P_TITLE (beta)" "$prompt" "Select" "Done" "$default" "$@") || {
+        choice=$(lp_menu "RasQberry: $P_TITLE${BETA_MARK}" "$prompt" "Select" "Done" "$default" "$@") || {
             LAST_STEP[i]=$s
             return 0
         }
@@ -589,7 +595,7 @@ while true; do
         set -- "$@" "$i" "$P_TITLE: $audience, $(duration "$P_MINUTES")"
     done
     set -- "$@" ibm "Continue with IBM Quantum Learning (online)" ladder "Where to go next" feedback "Tell us how it went (GitHub or e-mail)"
-    choice=$(lp_menu "RasQberry: Learning Paths (beta)" \
+    choice=$(lp_menu "RasQberry: Learning Paths${BETA_MARK}" \
         "Short tours through the demos. Each step says what to try and what to notice, and starts the demo for you." \
         "Select" "$CLOSE" "$last" "$@") || break
     last="$choice"

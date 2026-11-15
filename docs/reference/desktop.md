@@ -24,21 +24,20 @@ Starters (also in their group windows):
 
 Demos on the LED panel, or in its on-screen view without a panel.
 
-- **IBM LED Demo**: The IBM logo in colour on the LED panel. Opens `rq_demo_run.sh led-demos ibm-logo`.
-- **Quantum Lights Out**: Watch Grover's search solve Lights Out puzzles on the LED panel. Opens `rq_demo_run.sh quantum-lights-out`.
-- **RasQ-LED Demo**: Quantum circuit demo with entanglement patterns on LEDs. Opens `rq_demo_run.sh rasq-led`.
-- **Quantum Raspberry Tie**: Measured qubits on the LED panel, from a simulator or a real IBM quantum computer. Opens `rq_demo_run.sh quantum-raspberry-tie`.
-- **LED-Painter**: Paint a picture on a canvas, then show it on the LED panel: Display > Display this image on the LEDs. Opens `rq_demo_run.sh led-painter`.
 - **Clear All LEDs**: Turn off all LEDs on the LED panel. Opens `rq_demo_run.sh led-demos clear-leds`.
+- **IBM LED Demo**: The IBM logo in colour on the LED panel. Opens `rq_demo_run.sh led-demos ibm-logo`.
+- **LED-Painter**: Paint a picture on a canvas, then show it on the LED panel: Display > Display this image on the LEDs. Opens `rq_demo_run.sh led-painter`.
+- **Quantum Lights Out**: Watch Grover's search solve Lights Out puzzles on the LED panel. Opens `rq_demo_run.sh quantum-lights-out`.
+- **Quantum Raspberry Tie**: Measured qubits on the LED panel, from a simulator or a real IBM quantum computer. Opens `rq_demo_run.sh quantum-raspberry-tie`.
+- **RasQ-LED Demo**: Quantum circuit demo with entanglement patterns on LEDs. Opens `rq_demo_run.sh rasq-led`.
 
 ### Play
 
 Games and puzzles you play against or with a quantum computer.
 
-- **Quantum Fractals**: Create animated fractal art using quantum computing circuits and Julia sets. Opens `rq_demo_run.sh quantum-fractals`.
-- **Quantum Paradoxes**: Interactive Jupyter notebooks exploring quantum mechanics paradoxes by Maria Violaris. Opens `rq_demo_run.sh quantum-paradoxes`.
 - **Fun with Quantum**: Quantum games as Jupyter notebooks, the Fun with Quantum website (games in the browser, works offline) and the Fun with Quantum family: choose from a list. Opens `rq_demo_choose.sh fun-with-quantum`.
 - **Quantum Coin Game**: Interactive demonstration of quantum superposition and interference using a coin flip game. Opens `rq_demo_run.sh fun-with-quantum coin-game`.
+- **Quantum Fractals**: Create animated fractal art using quantum computing circuits and Julia sets. Opens `rq_demo_run.sh quantum-fractals`.
 
 ### Big projects
 
@@ -51,12 +50,11 @@ Larger builds that show what quantum computing can drive.
 
 Write quantum programs and work through tutorials and courses.
 
-- **My Quantum Programs**: Your own quantum notebooks: JupyterLab in your folder ~/My-Quantum-Programs, starting with the Hello World notebook. Opens `rq_my_programs.sh`.
 - **IBM Quantum Composer**: Design and simulate quantum circuits in your web browser. Opens the browser at https://quantum.cloud.ibm.com/composer.
 - **Grokking the Bloch Sphere**: One qubit as an arrow on a sphere: apply gates and watch the state turn (works offline, with tips on what to try). Opens `rq_demo_run.sh grok-bloch`.
-- **IBM Quantum Tutorials**: Official IBM Quantum tutorials covering algorithms, optimisation, error mitigation (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-tutorials`.
 - **IBM Quantum Courses**: Official IBM Quantum courses on quantum computing (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-courses`.
-- **Qiskit Live (QuBins)**: Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start). Opens `rq_demo_run.sh quantum-lab`.
+- **IBM Quantum Tutorials**: Official IBM Quantum tutorials covering algorithms, optimisation, error mitigation (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-tutorials`.
+- **My Quantum Programs**: Your own quantum notebooks: JupyterLab in your folder ~/My-Quantum-Programs, starting with the Hello World notebook. Opens `rq_my_programs.sh`.
 
 ### Workshops & events
 
@@ -76,9 +74,11 @@ Demos from other projects and partners. Add them with Manage demos > Add demo fr
 
 New and experimental demos: some things may not work yet. Try them and tell us what works and what doesn't.
 
+- **Workshop & Qiskit Server (beta)**: One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation). Opens `rq_demo_run.sh doqumentation`.
 - **Entangible (beta)**: Build quantum circuits with printed gate tiles: a camera reads them, the screen and visitors' phones show the circuit live. Needs a USB webcam or the Pi camera. Opens `rq_demo_run.sh entangible`.
 - **doQumentation (IBM Quantum Learning on this Pi) (beta)**: The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. Opens `rq_demo_run.sh qiskit-tutorials`.
-- **Workshop & Qiskit Server (beta)**: One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation). Opens `rq_demo_run.sh doqumentation`.
+- **Qiskit Live (QuBins) (beta)**: Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start). Opens `rq_demo_run.sh quantum-lab`.
+- **Quantum Paradoxes (beta)**: Interactive Jupyter notebooks exploring quantum mechanics paradoxes by Maria Violaris. Opens `rq_demo_run.sh quantum-paradoxes`.
 - **QuBins (beta)**: JupyterLab with the Qiskit version and the notebooks you choose (Docker, downloaded on first start). Opens `rq_demo_run.sh qubins`.
 - **racetraQ (beta)** *(catalogue demo: its icon comes when it is added)*: quantum reinforcement-learning racing game
 

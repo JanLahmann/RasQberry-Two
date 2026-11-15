@@ -116,6 +116,7 @@ def menu_env(tmp_path):
             "RQ_DEMO_LOG": str(tmp_path / "demo.log"),
             "WT_LOG": str(wt_log),
             "TMPDIR": str(tmp_path),
+            "RQ_SHIPPED_MANIFESTS": os.path.join(_ROOT, "RQB2-config", "demo-manifests"),
         }
         env.update(extra_env or {})
         script = f'. "{_MENU}"\n{code}\n'
@@ -221,11 +222,11 @@ def test_setting_change_keeps_raspi_config_interactive(menu_env):
 
 def test_env_writer_keeps_slash_and_ampersand_literal(menu_env):
     url = "https://example.org/fork/a&b.git"
-    proc = menu_env(f'update_environment_file GIT_REPO_DEMO_QLO "{url}"; echo RC=$?')
+    proc = menu_env(f'update_environment_file RQ_TEST_URL "{url}"; echo RC=$?')
     assert "RC=0" in proc.stdout, proc.stderr
     # in single quotes (review D1): the shell runs nothing after the "&"
-    assert _env_value(menu_env.env_file, "GIT_REPO_DEMO_QLO") == f"'{url}'"
-    loaded = subprocess.run([_DASH, "-c", f'. "{menu_env.env_file}"; printf %s "$GIT_REPO_DEMO_QLO"'],
+    assert _env_value(menu_env.env_file, "RQ_TEST_URL") == f"'{url}'"
+    loaded = subprocess.run([_DASH, "-c", f'. "{menu_env.env_file}"; printf %s "$RQ_TEST_URL"'],
                             capture_output=True, text=True)
     assert loaded.stdout == url and not loaded.stderr, loaded.stderr
 

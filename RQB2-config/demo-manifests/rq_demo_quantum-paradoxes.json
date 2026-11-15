@@ -49,6 +49,16 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
-  }
+    "terminal": true,
+    "comment": "Interactive Jupyter notebooks exploring quantum mechanics paradoxes by Maria Violaris",
+    "keywords": [
+      "quantum",
+      "paradox",
+      "jupyter",
+      "notebook",
+      "qiskit",
+      "education"
+    ]
+  },
+  "maturity": "dev"
 }

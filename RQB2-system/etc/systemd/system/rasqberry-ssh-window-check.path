@@ -1,0 +1,10 @@
+[Unit]
+Description=RasQberry: notice a changed password (SSH window)
+
+[Path]
+# any password change (checklist, menu, passwd) rewrites /etc/shadow
+PathChanged=/etc/shadow
+Unit=rasqberry-ssh-window-check.service
+
+[Install]
+WantedBy=multi-user.target

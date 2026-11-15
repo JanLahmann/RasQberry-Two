@@ -56,6 +56,17 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
-  }
+    "terminal": true,
+    "comment": "Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start)",
+    "keywords": [
+      "quantum",
+      "qiskit",
+      "jupyter",
+      "jupyterlab",
+      "qubins",
+      "course",
+      "docker"
+    ]
+  },
+  "maturity": "dev"
 }

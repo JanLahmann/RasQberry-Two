@@ -228,7 +228,7 @@ def test_picker_lines_fit_without_ids(cat):
 def test_the_shipped_catalogue_fits_one_line_each():
     registry = json.load(open(os.path.join(_CFG, "known-demos.json"), encoding="utf-8"))["demos"]
     for d in registry:
-        name = d["name"] + (" (beta)" if d.get("maturity") == "beta" else "")
+        name = d["name"] + (" (beta)" if d.get("maturity") == "dev" else "")
         label = f"{name} - {d['summary']}"
         assert len(label) <= 66, label           # 78 wide, no tags: nothing is cut
 

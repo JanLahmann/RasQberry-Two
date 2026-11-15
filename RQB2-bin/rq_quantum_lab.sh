@@ -87,7 +87,7 @@ rq_stop_if_card_too_small "Qiskit Live (QuBins)" "$DOCKER_IMAGE"
 ################################################################################
 # The WELCOME notebook marks a finished install; a .git alone may be what an
 # interrupted download left (R-056)
-if [ ! -f "$DOCS_DIR/${MARKER_IBM_COURSES:-WELCOME-courses.ipynb}" ]; then
+if [ ! -f "$DOCS_DIR/WELCOME-courses.ipynb" ]; then
     info "IBM Quantum Learning content not found."
     # Qiskit Live's own question named them ("and the IBM course notebooks
     # if missing"): no second question after the long image download, which

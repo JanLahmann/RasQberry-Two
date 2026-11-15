@@ -222,7 +222,7 @@ esac
 Clone repository with ownership fixing (default shallow clone).
 
 ```bash
-clone_demo "$GIT_REPO_DEMO_QLO" "$DEMO_DIR"
+# the URL comes from the demo manifest: "$(rq_demo_repo demo-id)"
 clone_demo "https://github.com/user/repo.git" "/path/to/dest" 999
 ```
 
@@ -538,7 +538,7 @@ verify_env_vars REPO USER_HOME STD_VENV
 
 DEMO_NAME="Demo-Name"
 DEMO_DIR=$(get_demo_dir "$DEMO_NAME")
-GIT_URL="${GIT_REPO_DEMO_NAME:-https://github.com/user/repo.git}"
+GIT_URL=$(rq_demo_repo demo-id)   # from the demo manifest
 
 # ============================================================================
 # FUNCTIONS
@@ -618,7 +618,7 @@ if ! ensure_demo_dir "LED-Painter" >/dev/null 2>&1; then
     ask_demo_install "LED-Painter" "5MB" "500MB" || exit 0
 
     # Clone repository
-    clone_demo "$GIT_REPO_DEMO_LED_PAINTER" "$DEMO_DIR"
+    clone_demo "$(rq_demo_repo led-painter)" "$DEMO_DIR"
 
     # Install dependencies
     activate_venv

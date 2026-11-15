@@ -21,6 +21,7 @@ pi-gen installs every package listed in `00-packages` (no scripts in this stage)
 | `parted` | A/B partition expansion |
 | `qrencode` | the QR code of the Workshop & Qiskit Server address (the image has only the library, `libqrencode4`) |
 | `fonts-noto-color-emoji` | colour emoji in web pages, e.g. the offline Fun with Quantum portal's game cards (empty boxes without it) |
+| `uhubctl` | switch USB port power: the test rig (tests/rig) power-cycles its camera when the stream hangs; on a Pi 5 it switches all ports at once |
 
 ## Notes
 

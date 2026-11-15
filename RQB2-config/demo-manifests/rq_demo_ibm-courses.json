@@ -54,6 +54,18 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
-  }
+    "terminal": true,
+    "file": "ibm-quantum-courses",
+    "comment": "Official IBM Quantum courses on quantum computing (CC BY-SA 4.0)",
+    "keywords": [
+      "quantum",
+      "ibm",
+      "qiskit",
+      "course",
+      "learning",
+      "education",
+      "jupyter"
+    ]
+  },
+  "maturity": "beta"
 }

@@ -33,20 +33,26 @@ jobs:
 
       - name: Run Basic Validation
         id: basic
+        # bash = bash -eo pipefail: the step fails when the check does, not only tee
+        shell: bash
         run: |
           chmod +x tests/test_basic_validation.sh
           ./tests/test_basic_validation.sh | tee /tmp/basic_validation.log
-        continue-on-error: false
+        continue-on-error: true   # all checks run; "Fail if validation failed" fails the job
 
       - name: Run Advanced Pattern Detection
         id: advanced
+        # bash = bash -eo pipefail: the step fails when the check does, not only tee
+        shell: bash
         run: |
           chmod +x tests/test_common_library_usage.sh
           ./tests/test_common_library_usage.sh | tee /tmp/advanced_validation.log
-        continue-on-error: false
+        continue-on-error: true   # all checks run; "Fail if validation failed" fails the job
 
       - name: Validate Demo Manifests
         id: manifests
+        # bash = bash -eo pipefail: the step fails when the check does, not only tee
+        shell: bash
         run: |
           # Schema checks plus the pin policy: any demo checked out from a repo
           # owner we do not control (RQB2-config/trusted-repo-owners.txt) must pin
@@ -55,7 +61,7 @@ jobs:
           # patches written against it (issue #37).
           chmod +x RQB2-bin/rq_demo_validate.sh
           ./RQB2-bin/rq_demo_validate.sh | tee /tmp/manifest_validation.log
-        continue-on-error: false
+        continue-on-error: true   # all checks run; "Fail if validation failed" fails the job
 
       - name: RasQberry menu inside raspi-config
         id: menu
@@ -292,11 +298,12 @@ jobs:
           python -m pip install --quiet pytest pytest-timeout
 
       - name: Generated pages are up to date
-        # The tester page and the reference docs are generated from the code:
+        # The tester page, the reference docs and the demo launchers are generated:
         # run the generator after changing menus, manifests, settings or commands.
         run: |
           python docs/testing/tester_missions.py --check
           python docs/reference/reference_docs.py --check
+          python RQB2-bin/rq_demo_generate_desktop.py --check
 
       - name: Whole unit suite
         # About 10 minutes. A hung test fails after 5 minutes with its

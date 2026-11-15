@@ -164,7 +164,8 @@ registry_label() {
     name=$(registry_field "$id" "name")
     summary=$(registry_field "$id" "summary")
     [ -n "$summary" ] || summary=$(registry_field "$id" "note")
-    [ "$(registry_field "$id" "maturity")" = "beta" ] && name="${name:-$id} (beta)"
+    # marked demo level dev: only development images list these
+    [ "$(registry_field "$id" "maturity")" = "dev" ] && name="${name:-$id} (beta)"
     is_new_entry "$id" && name="New: ${name:-$id}"
     needs_newer "$id" && summary="needs a newer RasQberry"
     fit_line "${name:-$id}${summary:+ - $summary}"
@@ -285,7 +286,7 @@ install_pip_extras() {
 }
 
 # Write ~/Desktop/rq-ext-<id>.desktop from the manifest when desktop.show is
-# true (#287). Shipped demos keep their icons in desktop-bookmarks/.
+# true (#287). Shipped demos' icons are in desktop-bookmarks/ (generated from their manifests).
 write_desktop_entry() {
     local id="$1" manifest_file="$2" dest="$3"
     DESKTOP_ICON=0

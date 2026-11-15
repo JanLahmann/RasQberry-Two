@@ -59,6 +59,8 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
-  }
+    "terminal": true,
+    "comment": "Quantum-controlled coffee maker using Home Connect API and Docker"
+  },
+  "maturity": "beta"
 }

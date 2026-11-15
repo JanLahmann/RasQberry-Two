@@ -189,3 +189,23 @@ def test_requirements_go_into_the_venv_as_its_owner():
     assert 'run_as_user "$venv/bin/pip3" install -r "$DEMO_DIR/requirements.txt"' in fn
     assert 'sudo "$venv_pip"' not in fn and '"$venv_pip" install' not in fn
     assert 'chown -R "$owner:$owner" "$venv"' in fn
+
+
+def test_requirements_keep_the_venvs_setuptools(tmp_path):
+    # Rig check 2026-10-16: the painter's setuptools==75.5.0 pin downgraded
+    # setuptools 84 -> 75.5 in the shared RQB2 venv; the painter does not need it
+    import importlib.util
+    path = os.path.join(os.path.dirname(_BIN), "RQB2-config", "demo-patches",
+                        "led-painter-convert-to-pwm.py")
+    spec = importlib.util.spec_from_file_location("painter_convert", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    req = tmp_path / "requirements.txt"
+    req.write_text("PySide6\nPySide6_Addons\nadafruit-circuitpython-neopixel-spi==1.0.0\n"
+                   "setuptools==75.5.0\nsetuptools-scm\n")
+    assert mod.update_requirements(str(tmp_path))
+    active = [l.strip() for l in req.read_text().splitlines()
+              if l.strip() and not l.strip().startswith("#")]
+    assert not any(l.lower().startswith(("setuptools==", "pyside6")) for l in active)
+    assert "setuptools-scm" in active
+    assert "adafruit-circuitpython-neopixel>=6.3.0" in active

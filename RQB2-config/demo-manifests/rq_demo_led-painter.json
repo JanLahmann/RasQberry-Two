@@ -49,6 +49,18 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
-  }
+    "terminal": true,
+    "comment": "Paint a picture on a canvas, then show it on the LED panel: Display > Display this image on the LEDs",
+    "keywords": [
+      "LED",
+      "painter",
+      "graphics",
+      "draw",
+      "canvas",
+      "neopixel",
+      "art",
+      "display"
+    ]
+  },
+  "maturity": "beta"
 }

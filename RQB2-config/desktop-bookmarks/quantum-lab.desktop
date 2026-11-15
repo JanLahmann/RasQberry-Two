@@ -1,7 +1,8 @@
+# Generated from demo-manifests/rq_demo_quantum-lab.json by RQB2-bin/rq_demo_generate_desktop.py - edit the manifest
 [Desktop Entry]
 Version=1.1
-Name=Qiskit Live (QuBins)
-Comment=Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start)
+Name=Qiskit Live (QuBins) (beta)
+Comment=(beta) Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start)
 Icon=/usr/share/icons/rasqberry/quantum-lab.svg
 Type=Application
 Categories=RasQberry;
@@ -12,3 +13,4 @@ Keywords=quantum;qiskit;jupyter;jupyterlab;qubins;course;docker;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false
+X-RasQberry-Demo=quantum-lab

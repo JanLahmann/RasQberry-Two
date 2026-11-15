@@ -54,6 +54,20 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
-  }
+    "terminal": true,
+    "file": "ibm-quantum-tutorials",
+    "comment": "Official IBM Quantum tutorials covering algorithms, optimisation, error mitigation (CC BY-SA 4.0)",
+    "keywords": [
+      "quantum",
+      "ibm",
+      "qiskit",
+      "tutorial",
+      "grover",
+      "shor",
+      "vqe",
+      "education",
+      "jupyter"
+    ]
+  },
+  "maturity": "beta"
 }

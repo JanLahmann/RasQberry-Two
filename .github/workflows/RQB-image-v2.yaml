@@ -58,7 +58,7 @@
 # Pi-gen-config Variables (centralized configuration file):
 #
 # 1. Build Quality Settings:
-#    - COMPRESSION_LEVEL_DEV / COMPRESSION_LEVEL_PROD: Image compression (1 dev, 9 prod)
+#    - COMPRESSION_LEVEL_DEV / COMPRESSION_LEVEL_PROD: Image compression (3 dev, 9 prod)
 #    - COMPRESSION_LEVEL_DEV_FALLBACK: Higher level if dev image exceeds 2GB (6)
 #    - SKIP_INITRAMFS: Initramfs generation control (1 for every stream)
 #
@@ -132,6 +132,16 @@ on:
           - default
           - verbose
           - splash
+      demo_level:
+        description: 'Demos in the image (default=by branch: main prod, beta beta, else dev; beta = test a beta selection on a dev build)'
+        required: false
+        default: 'default'
+        type: choice
+        options:
+          - default
+          - dev
+          - beta
+          - prod
       runner_type:
         description: 'Runner architecture (default=arm64 native, x64=QEMU emulated)'
         required: false
@@ -799,7 +809,7 @@ jobs:
             COMPRESSION_FORMAT_DEV=$(grep "^COMPRESSION_FORMAT_DEV=" pi-gen-config | cut -d'=' -f2)
             COMPRESSION_FORMAT_DEV="${COMPRESSION_FORMAT_DEV:-xz}"
             COMPRESSION_LEVEL_DEV=$(grep "^COMPRESSION_LEVEL_DEV=" pi-gen-config | cut -d'=' -f2)
-            COMPRESSION_LEVEL_DEV="${COMPRESSION_LEVEL_DEV:-1}"
+            COMPRESSION_LEVEL_DEV="${COMPRESSION_LEVEL_DEV:-3}"
             COMPRESSION_LEVEL_DEV_FALLBACK=$(grep "^COMPRESSION_LEVEL_DEV_FALLBACK=" pi-gen-config | cut -d'=' -f2)
             COMPRESSION_LEVEL_DEV_FALLBACK="${COMPRESSION_LEVEL_DEV_FALLBACK:-6}"
             echo "COMPRESSION_FORMAT=${COMPRESSION_FORMAT_DEV}" >> "$GITHUB_ENV"
@@ -852,6 +862,12 @@ jobs:
 
           sed -i "s|^CONSOLE_TYPE=.*|CONSOLE_TYPE=${CONSOLE_TYPE}|" pi-gen-config
           sed -i "s|^BOOT_VERBOSITY=.*|BOOT_VERBOSITY=${BOOT_VERBOSITY}|" pi-gen-config
+          DEMO_LEVEL_INPUT="${{ inputs.demo_level }}"
+          case "$DEMO_LEVEL_INPUT" in
+            # appended, not committed in pi-gen-config: its hash keys the stage cache
+            dev|beta|prod) echo "RQB_DEMO_LEVEL=${DEMO_LEVEL_INPUT}" >> pi-gen-config ;;
+          esac
+          echo "Demo level: ${DEMO_LEVEL_INPUT:-default} (default: by branch)"
           echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
 
           # Set custom IMG_FILENAME based on VERSION file
@@ -1115,7 +1131,7 @@ jobs:
           echo "Size: $(du -h "$RAW_IMAGE" | cut -f1)"
 
           # Determine compression settings from environment (all builds use xz)
-          COMPRESS_LEVEL="${COMPRESSION_LEVEL:-1}"
+          COMPRESS_LEVEL="${COMPRESSION_LEVEL:-3}"
           COMPRESS_LEVEL_FALLBACK="${COMPRESSION_LEVEL_FALLBACK:-}"
           COMPRESS_EXT="xz"
           CONTENT_TYPE="application/x-xz"
@@ -1294,6 +1310,7 @@ jobs:
             if [ "$SIZE" -gt "$MAX_SIZE_BYTES" ] && [ -n "$FALLBACK" ]; then
               echo "  ⚠️ Image exceeds 2GB limit (${SIZE_MB} MB)"
               echo "  Recompressing with xz -${FALLBACK}..."
+              NEEDED_FALLBACK=yes
               rm -f "$COMPRESSED"
               run_xz -${FALLBACK} -T0 --block-size=128MiB -k "$IMG"
               SIZE=$(stat -c%s "$COMPRESSED")
@@ -1332,9 +1349,16 @@ jobs:
           else
             # Compress standard image (for full and standard-image scopes)
             compress_with_fallback "$STANDARD_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
-            # Compress A/B image if it exists (for full scope)
+            # Compress A/B image if it exists (for full scope). It is the
+            # larger one: if the standard image needed the fallback level,
+            # start the A/B image there instead of compressing it twice
             if [ -f "$AB_IMG" ]; then
-              compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+              AB_LEVEL="$COMPRESS_LEVEL"
+              if [ "${NEEDED_FALLBACK:-}" = yes ] && [ -n "$COMPRESS_LEVEL_FALLBACK" ]; then
+                AB_LEVEL="$COMPRESS_LEVEL_FALLBACK"
+                echo "Standard image needed xz -${AB_LEVEL}: the A/B image starts there"
+              fi
+              compress_with_fallback "$AB_IMG" "$AB_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
             fi
           fi
 
