@@ -6,7 +6,7 @@ image, and working on the software.
 ## 3D model
 
 Some STL files I changed for my printer or for a variant of the model are in the
-[3D Model modifications folder](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/3D%20Model%20-%20modifications%20-%20Jan).
+[3D Model modifications folder](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/originals/3D%20Model%20-%20modifications%20-%20Jan).
 
 ### Standalone model
 
@@ -20,7 +20,7 @@ it uses the small ones, with four magnets each (two on each side).
 Instead of cutting a welding shield, you can print the screen in front of the
 LEDs. Most black filaments absorb too much light, but 0.6 mm of Prusament PLA
 Galaxy Grey works well:
-[STL file](https://github.com/JanLahmann/RasQberry-Two/blob/3D-model/3D%20Model/3D%20Model%20-%20modifications%20-%20Jan/October%202025/wall/RQB2-WallPanel-jrl02-2.stl).
+[STL file](https://github.com/JanLahmann/RasQberry-Two/blob/3D-model/3D%20Model/print/originals/3D%20Model%20-%20modifications%20-%20Jan/October%202025/wall/RQB2-WallPanel-jrl02-2.stl).
 
 ## LED panel: one 8×32 panel, cut to 8×24
 
