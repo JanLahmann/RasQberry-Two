@@ -9,6 +9,9 @@ and the cryostat are printed without their holes (the no-floor alternatives).
 - `print/generated/complete/RasQberry-Two-{standard,no-floor}.3mf`: every
   part in its place in the assembled model, in its filament color (one
   object, one named part per printed piece), to see what goes where.
+- `print/generated/complete/RasQberry-Two-standard.layout.json`: the
+  standard assembly as a list of STL files and their placements (for the
+  website's 3D viewer, so both use one layout).
 - `print/generated/plates/`: PrusaSlicer projects for the Prusa Core One with
   as many beds as needed (PrusaSlicer 2.9 multiple beds), parts turned the
   right way up and laid out, with the printer, print and filament presets
@@ -32,6 +35,7 @@ Usage:  python build_plates.py [--prusaslicer PATH] [--vendor DIR]
 """
 import argparse
 import functools
+import json
 import math
 import os
 import re
@@ -282,7 +286,44 @@ def write_complete(variant):
     path = OUTPUT / "complete" / f"RasQberry-Two-{variant}.3mf"
     path.parent.mkdir(parents=True, exist_ok=True)
     write_3mf(path, out)
+    if variant == "standard":   # what the website's 3D viewer shows
+        write_layout(path.with_suffix(".layout.json"), pieces)
     return path
+
+
+# the bodies of the two-color part, as the single parts they are made of
+BODY_PARTS = {"lid": "R2_CryoLid-Simple", "chandelier": "R2_ChandelierSingle"}
+
+
+def stl_pieces(part, m):
+    """[(part, filament, 4x4)]: `part` placed by `m` as STL parts; the
+    two-color part as its lid and chandeliers (turned over, as in it), each
+    aligned to its body (x/y center and top) and checked against it."""
+    if part != TWO_COLOR:
+        return [(part, part_filament(part), m)]
+    out, turn = [], rot([0, 1, 0], 180)
+    for name, fil, (v, t) in bodies(part):
+        single = BODY_PARTS[name.split()[0]]
+        g = trimesh.transform_points(mesh(single).vertices, turn)
+        lo, hi = v.min(0), v.max(0)
+        shift = [(lo[0] + hi[0] - g[:, 0].min() - g[:, 0].max()) / 2,
+                 (lo[1] + hi[1] - g[:, 1].min() - g[:, 1].max()) / 2, hi[2] - g[:, 2].max()]
+        placed = T(*shift) @ turn
+        q = trimesh.proximity.ProximityQuery(trimesh.Trimesh(v, t, process=False))
+        sample = trimesh.transform_points(mesh(single).vertices[::50], placed)
+        if np.median(np.abs(q.signed_distance(sample))) > 0.2:
+            raise ValueError(f"{single} does not match the {name} of {part}")
+        out.append((single, fil, m @ placed))
+    return out
+
+
+def write_layout(path, pieces):
+    """The assembly as JSON: per printed piece its part, STL (relative to
+    print/generated), filament and 4x4 placement (row-major, mm, z up)."""
+    rows = [{"part": part, "stl": f"{PARTS[part]}.stl", "filament": fil,
+             "matrix": [round(float(x), 5) for x in mm.ravel()]}
+            for p, m in pieces for part, fil, mm in stl_pieces(p, m)]
+    path.write_text(json.dumps({"units": "mm", "up": "+z", "pieces": rows}, indent=1) + "\n")
 
 # ---------------------------------------------------------------- beds
 
