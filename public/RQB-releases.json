@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T11:15:39Z",
+  "generated": "2026-11-15T11:16:22Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,16 +43,17 @@
       "image_download_size": 1862354160,
       "extract_size": 9604956160,
       "extract_sha256": "26bcfd41e8d35c3196b107eb1ecda6bd716799d9d196d1734db88693ee841596",
-      "image_sha256": "030d15b5b56ab915a63dd63900e1f02efcc3e194b69648b0df55939d35b468f7",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-113015/rasqberry-development-2026-11-15-113015-ab.img.xz",
       "ab_extract_sha256": "5e8f88c3f564b5c5b327c82452d47f75bfddda581e6fcd071f979806a4b3457b",
       "ab_image_sha256": "e837f60b2cfb46866264a808529fae63163c910846e83e45ba24d17f4ee8953e",
-      "ab_image_download_size": 1917425016,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1917425016,
       "highlights": [
+        "Bump version to development-2026-11-15-113015",
+        "Merge pull request #395 from JanLahmann/desktop-order",
         "Desktop launcher list: flat desktop starts with Setup again; skip unreadable files",
         "Desktop launcher list: simpler, read once next to the other constants",
-        "Desktop: the launcher list comes from desktop-bookmarks/"
+        "the launcher list comes from desktop-bookmarks/"
       ]
     }
   }
