@@ -49,6 +49,8 @@ fi
 
 sleep "${RQ_VNC_WAIT:-15}"
 for attempt in 1 2 3 4 5; do
+    # the login and a password change can both get here: the first one wins
+    [ -e "$MARKER" ] && exit 0
     out=$(sudo -n raspi-config nonint do_vnc 0 2>&1)
     if vnc_on; then
         log "VNC enabled (attempt $attempt) - once; it stays off if switched off later"

@@ -126,9 +126,13 @@ demo_password_state() {
         hash=$(sudo -n getent shadow "$user" 2>/dev/null | cut -d: -f2) || hash=""
     fi
     case "$hash" in
-        '')       echo unknown; return 0 ;;
-        '!'*|'*'*) echo no; return 0 ;;
+        '')  echo unknown; return 0 ;;
+        '*'*) echo no; return 0 ;;
     esac
+    # locked (usermod -L, passwd -l): the hash is still there after the "!",
+    # and an unlock brings it back - it counts as what it is underneath
+    hash="${hash#"${hash%%[!!]*}"}"
+    [ -n "$hash" ] || { echo no; return 0; }
     command -v perl >/dev/null 2>&1 || { echo unknown; return 0; }
     if RQ_PW="$DEMO_PASSWORD" RQ_HASH="$hash" perl -e \
         'my $c = crypt($ENV{RQ_PW}, $ENV{RQ_HASH}); exit((defined $c && $c eq $ENV{RQ_HASH}) ? 0 : 1)' \

@@ -38,7 +38,7 @@ set -euo pipefail
 # Environment (tests): RQ_SSHD_DIR, RQ_SSH_DROPIN, RQ_BOOT_ENV_FILES (colon-separated),
 #   RQ_DEMO_PW_STATE (yes|no|unknown instead of asking rq_remote_access.sh),
 #   RQ_SSH_USER, RQ_SSH_RELOAD (command), RQ_SSH_POLL (seconds), RQ_NO_LED=1,
-#   RQ_SSH_BANNER, RQ_VNC_MARKER, RQ_VNC_WAS_ON
+#   RQ_SSH_BANNER, RQ_ENABLE_VNC
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -49,8 +49,7 @@ BOOT_ENV_FILES="${RQ_BOOT_ENV_FILES:-/boot/firmware/rasqberry_boot.env:/boot/con
 BANNER="${RQ_SSH_BANNER:-/run/rasqberry/ssh-password-closed.txt}"
 FIRST_LOGIN=/usr/bin/rq_ssh_first_login.sh
 POLL="${RQ_SSH_POLL:-5}"
-VNC_MARKER="${RQ_VNC_MARKER:-/var/lib/rasqberry/vnc-auto-enabled}"
-VNC_WAS_ON="${RQ_VNC_WAS_ON:-/var/lib/rasqberry/vnc-was-on}"
+ENABLE_VNC="${RQ_ENABLE_VNC:-/usr/local/bin/rasqberry-enable-vnc.sh}"
 SCROLL_UNIT="rasqberry-ssh-window-scroll"
 
 # A setting from rasqberry_boot.env (the last file that has it wins: CONFIG
@@ -192,34 +191,28 @@ cmd_window() {
     led_message 60 "SSH closed - restart to reopen"
 }
 
-# VNC waited for the new password (rasqberry-enable-vnc.sh): on now, once, as
-# at a first login; the marker only once get_vnc confirms it (else the next
-# desktop login tries again)
+# VNC waited for the new password: on now, once, by the same routine as at a
+# desktop login (rasqberry-enable-vnc.sh: its own password check, retries,
+# the marker only once VNC is confirmed on)
 vnc_once() {
-    [ -e "$VNC_MARKER" ] && return 0
-    raspi-config nonint do_vnc 0 >/dev/null 2>&1 || true
-    if [ "$(raspi-config nonint get_vnc 2>/dev/null)" = 0 ]; then
-        mkdir -p "$(dirname "$VNC_MARKER")" && date '+%F %T' > "$VNC_MARKER"
-        rm -f "$VNC_WAS_ON"
-        info "rq_ssh_window: the demo password is changed: VNC on."
-    else
-        info "rq_ssh_window: VNC could not be switched on now; the next desktop login tries again."
-    fi
+    [ -x "$ENABLE_VNC" ] || return 0
+    RQ_VNC_WAIT="${RQ_VNC_WAIT:-2}" "$ENABLE_VNC" >/dev/null 2>&1 \
+        || info "rq_ssh_window: VNC could not be switched on now; the next desktop login tries again."
 }
 
-# CHANGED: run by rasqberry-ssh-window-check.path, so the password has just
-# changed. A card customized in Imager that kept the published password has no
-# drop-in (keys only), but its VNC waited for the new password all the same.
+# The demo password is gone: no more first-login step. Run by the path unit
+# with "changed" (the password has just changed). A card customized in Imager
+# that kept the published password has no drop-in (keys only), but its VNC
+# waited for the new password all the same; at boot (cmd_window) VNC stays the
+# desktop login's job unless a drop-in was there.
 cmd_check() {
-    local changed="${1:-}" dropin=no
     [ "$(demo_password)" = no ] || return 0
     if [ -e "$DROPIN" ]; then
         remove_dropin
         reload_sshd
-        dropin=yes
         info "rq_ssh_window: the demo password is changed: no more first-login step."
-    fi
-    if [ "$dropin" = yes ] || [ "$changed" = changed ]; then
+        vnc_once
+    elif [ "${1:-}" = changed ]; then
         vnc_once
     fi
 }

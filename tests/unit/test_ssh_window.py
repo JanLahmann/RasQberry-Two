@@ -21,11 +21,15 @@ def _run(tmp_path, code, demo="yes", boot_env="", stubs=""):
                RQ_BOOT_ENV_FILES=f"{tmp_path / 'none.env'}:{env_file}", RQ_DEMO_PW_STATE=demo,
                RQ_SSH_USER="rasqberry", RQ_SSH_RELOAD="true", RQ_NO_LED="1", RQ_SSH_POLL="0",
                RQ_SSH_BANNER=str(tmp_path / "banner.txt"), RQ_VNC_MARKER=str(tmp_path / "vnc-marker"),
-               RQ_VNC_WAS_ON=str(tmp_path / "vnc-was-on"), RQ_VNC_CALLS=str(tmp_path / "calls"))
-    # never the real raspi-config (a dev Pi would switch VNC on): it logs its
-    # arguments; get_vnc answers RQ_GET_VNC (default 0 = on)
-    fake = ('raspi-config() { echo "$*" >> "${RQ_VNC_CALLS:-/dev/null}"; '
-            '[ "$2" = get_vnc ] && echo "${RQ_GET_VNC:-0}"; return 0; }; ')
+               RQ_ENABLE_VNC=str(tmp_path / "enable-vnc"), RQ_VNC_CALLS=str(tmp_path / "calls"))
+    # never the real VNC switch (a dev Pi would turn VNC on): a fake
+    # rasqberry-enable-vnc.sh that logs each run
+    fake_vnc = tmp_path / "enable-vnc"
+    fake_vnc.write_text('#!/bin/sh\necho run >> "$RQ_VNC_CALLS"\n')
+    fake_vnc.chmod(0o755)
+    # main checks for root: after sourcing (rq_common.sh defines it), not as root here
+    fake = ''
+    code = code.replace("main ", "ensure_root() { :; }; main ")
     return subprocess.run(["bash", "-c", f'{fake}{stubs} . "{_WINDOW}"; {code}'],
                           capture_output=True, text=True, env=env)
 
@@ -92,42 +96,45 @@ def test_a_changed_password_ends_it(tmp_path):
 
 
 def _calls(tmp_path):
+    """Runs of the fake rasqberry-enable-vnc.sh."""
     f = tmp_path / "calls"
     return f.read_text().splitlines() if f.exists() else []
 
 
 def test_a_changed_password_switches_vnc_on_without_a_drop_in(tmp_path):
-    # fresh-card test 2026-11-15: an Imager card with keys only kept the
-    # published password, so it has no drop-in; after passwd VNC stayed off
-    (tmp_path / "vnc-was-on").write_text("")
-    assert _run(tmp_path, "cmd_check changed", demo="no").returncode == 0
-    assert _calls(tmp_path) == ["nonint do_vnc 0", "nonint get_vnc"]
-    assert (tmp_path / "vnc-marker").exists() and not (tmp_path / "vnc-was-on").exists()
-    _run(tmp_path, "cmd_check changed", demo="no")                 # once: the marker
-    assert len(_calls(tmp_path)) == 2
-
-
-def test_the_path_unit_check_is_a_password_change():
-    script = open(_WINDOW).read()
-    assert 'check)       ensure_root "$@"; cmd_check changed ;;' in script
+    """Fresh-card test 2026-11-15: an Imager card with keys only kept the
+    published password, so it has no drop-in; after passwd VNC stayed off."""
+    assert _run(tmp_path, "main check", demo="no").returncode == 0
+    assert _calls(tmp_path) == ["run"]
 
 
 def test_vnc_not_from_the_boot_time_check_without_a_drop_in(tmp_path):
-    # cmd_window runs cmd_check at every boot of a card with its own password:
-    # VNC stays the desktop login's job there (rasqberry-enable-vnc.sh)
+    """cmd_window runs cmd_check at every boot of a card with its own password:
+    VNC stays the desktop login's job there."""
     _run(tmp_path, "cmd_check", demo="no")
-    assert _calls(tmp_path) == [] and not (tmp_path / "vnc-marker").exists()
+    assert _calls(tmp_path) == []
 
 
-def test_vnc_marker_only_when_vnc_is_really_on(tmp_path):
-    _run(tmp_path, "cmd_check changed", demo="no", stubs="RQ_GET_VNC=1; ")
-    assert not (tmp_path / "vnc-marker").exists()           # the next login retries
+def test_vnc_with_the_drop_in_removed_at_boot(tmp_path):
+    """The password came in since "close" (carry-over, Imager): the drop-in goes
+    and VNC comes on, as before."""
+    _run(tmp_path, "cmd_close")
+    _run(tmp_path, "cmd_check", demo="no")
+    assert _dropin(tmp_path) is None and _calls(tmp_path) == ["run"]
 
 
 def test_no_vnc_while_the_published_password_is_set(tmp_path):
-    _run(tmp_path, "cmd_check changed", demo="yes")
-    _run(tmp_path, "cmd_check changed", demo="unknown")
+    """The published or an unknown password: nothing."""
+    _run(tmp_path, "main check", demo="yes")
+    _run(tmp_path, "main check", demo="unknown")
     assert _calls(tmp_path) == []
+
+
+def test_the_login_routine_stops_if_another_run_switched_vnc_on():
+    """The login and a password change can both run it: the marker ends the loop."""
+    vnc = open(os.path.join(_ROOT, "RQB2-system", "usr", "local", "bin", "rasqberry-enable-vnc.sh")).read()
+    loop = vnc[vnc.index("for attempt in"):]
+    assert loop.index('[ -e "$MARKER" ] && exit 0') < loop.index("do_vnc 0")
 
 
 def test_vnc_waits_for_the_password_unless_opted_in(tmp_path):
