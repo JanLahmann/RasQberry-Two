@@ -60,7 +60,6 @@ const rot = (axis, deg) => {
   if (axis === 'y') return [c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1];
   return [c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 };
-const about = ([x, y], deg) => chain(T(x, y), rot('z', deg), T(-x, -y));
 const apply = (M, [x, y, z]) => [0, 1, 2].map((r) => M[r * 4] * x + M[r * 4 + 1] * y + M[r * 4 + 2] * z + M[r * 4 + 3]);
 
 // STL (mm, Z up) -> glTF (m, Y up): (x, y, z) -> (x, z, -y) / 1000
@@ -94,11 +93,18 @@ const WALL = T(-9.89, 383.26);            // Wall base bolt holes -> floor hex h
 const WALL_BOLTS = [[47.2, -61.0], [232.5, -61.0]];
 const CRYO_C = [-72.0, -206.1];           // Cryostat centre (its octopus hex hole)
 const CRYO = T(130.0 - CRYO_C[0], 145.4 - CRYO_C[1]); // -> floor hex hole (130, 145.4)
-const ARMS = [0, 120, 240];               // the arm along +Y (to the Wall), then the two front arms
 // hex cap: centred on the Cryostat body (10.96 mm in front of its octopus hole), rim 3 mm in the 93.3 mm top
 const CAP = T(-73.3, -122.8 - 10.96, -1);
 const SOCKETS = [[9.0, -96.9], [9.0, -70.0], [-14.0, -83.2]]; // chandelier sockets under the cap
-const SERVER_Y = [-183.8, -160.5];        // the two servers of the +Y arm (y min), stand-alone one at -137.2
+// The stand-alone cryostat Gamma (Jan's jrl04) with 9 RTE servers, three in a row on each arm wall
+// (back and the two front walls), as in the conjoined cryostat: 0.2 mm off the wall and apart, the
+// first two facing each other like a server pair, the third back to back with the second. Gamma and
+// the jrl02 server STLs are centred on their body (Gamma's centre is the conjoined body's).
+const GAMMA = T(129.954, 134.403);          // Gamma body centre: the conjoined STL's body under CRYO
+const ARM_WALLS = [90, -30, -150];         // outward normals (deg)
+const FLAT = 33.0, ARM_GAP = 0.2, SERVER_DEPTH = 23.24;
+const LID_OFF = T(-19.05, -84.243);         // the lid STL's frame -> the server's
+const JAN = '3D Model - modifications - Jan/October 2025';
 
 const COLOURS = { // as printed (bill of materials): name -> [hex, metallic, roughness, alpha]
   floor: ['#dcdcd8', 0, 0.9, 1],          // White / Rock White
@@ -192,25 +198,27 @@ WALL_BOLTS.forEach(([x, y], i) =>
     chain(WALL, T(x + 0.25, y + 0.45, -6)), [0, 60, -70]));
 
 // Cryostat
-add('cryostat', 'Cryostat with six RTE servers', 'Cryostat', 8, 'cryostat/R2_NarrowYCryoConjoined.stl', 'silver', CRYO, [0, -40, 30]);
+add('cryostat', 'Cryostat (Gamma)', 'Cryostat', 8, `${JAN}/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl`, 'silver', GAMMA, [0, -40, 30]);
 add('octopus', 'Octopus (alignment bolt)', 'Cryostat', 9, 'cryostat/R2_ScrewOctopusAlignment2.stl', 'hardware',
   chain(CRYO, T(...CRYO_C, 6), rot('y', 180), T(39.96, 6.31, 0)), [0, -40, -40]);
 add('octopus-nut', 'Hex nut', 'Cryostat', 10, 'wall/R2_Hex_Nut.stl', 'hardware',
   chain(CRYO, T(CRYO_C[0] + 0.25, CRYO_C[1] + 0.45, -6)), [0, -40, -90]);
 add('door', 'Door', 'Cryostat', 11, 'cryostat/R2_NewDoor.stl', 'silver', chain(CRYO, T(-204.05, -134.9, -7)), [0, -110, 30]);
-ARMS.forEach((a, k) => SERVER_Y.forEach((y, j) =>
-  add(`rte-lid-${k * 2 + j + 1}`, 'RTE server lid', 'Cryostat', 12, 'RTE/R2_NarrowServerSingleLid.stl', 'clear',
-    chain(CRYO, about(CRYO_C, a), T(-91.1, y - 72.6, 0)), [0, -40, 70])));
 SOCKETS.forEach(([x, y], i) =>
   add(`chandelier-${i + 1}`, 'Chandelier', 'Cryostat', 13, 'cryostat/R2_ChandelierSingle.stl', 'gold',
     chain(CRYO, CAP, T(x, y, 92.3), rot('x', 180), T(-64.24, 2.58, 14.7)), [0, -40, 110]));
 add('cap', 'Cryostat cap', 'Cryostat', 14, 'cryostat/R2_CryoLid-Simple.stl', 'clear', chain(CRYO, CAP), [0, -40, 200]);
-ARMS.forEach((a, k) => {
-  const out = apply(rot('z', a), [0, 1, 0]).map((v) => v * 55);
-  add(`rte-${k + 1}`, 'RTE server (stand-alone)', 'RTE servers', 15, 'RTE/R2_NarrowServerSingle.stl', 'silver',
-    chain(CRYO, about(CRYO_C, a), T(-91.1, -251.7, 0)), [out[0], out[1] - 40, 30]);
-  add(`rte-${k + 1}-lid`, 'RTE server lid', 'RTE servers', 16, 'RTE/R2_NarrowServerSingleLid.stl', 'clear',
-    chain(CRYO, about(CRYO_C, a), T(-91.1, -137.2 - 72.6, 0)), [out[0], out[1] - 40, 100]);
+ARM_WALLS.forEach((wall, k) => {
+  const out = apply(rot('z', wall - 90), [0, 1, 0]).map((v) => v * 55);
+  for (let i = 0; i < 3; i++) {
+    const r = FLAT + ARM_GAP + SERVER_DEPTH / 2 + i * (SERVER_DEPTH + ARM_GAP);
+    const M = chain(GAMMA, rot('z', wall - 90), T(0, r), rot('z', i === 1 ? 0 : 180));
+    const n = k * 3 + i + 1;
+    add(`rte-${n}`, 'RTE server', 'RTE servers', 15, `${JAN}/RTE/RQB2-R2_NarrowServerSingle-jrl02.stl`, 'silver',
+      M, [out[0] * (1 + i * 0.4), out[1] * (1 + i * 0.4) - 40, 30]);
+    add(`rte-${n}-lid`, 'RTE server lid', 'RTE servers', 16, 'RTE/R2_NarrowServerSingleLid.stl', 'clear',
+      chain(M, LID_OFF), [out[0] * (1 + i * 0.4), out[1] * (1 + i * 0.4) - 40, 100]);
+  }
 });
 
 // Floor tiles move apart and down
