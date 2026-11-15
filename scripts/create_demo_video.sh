@@ -17,7 +17,7 @@ ls "$SRC"/*.png >/dev/null
 
 # The screenshots differ by a few pixels (3830-3846 x 2148-2166); a size change
 # makes ffmpeg rebuild its filters and drop frames. Bring them all to one size
-# (scaled to fit, centred on white) before encoding.
+# (scaled to fit, centered on white) before encoding.
 FRAMES=$(mktemp -d)
 trap 'rm -rf "$FRAMES"' EXIT
 for f in "$SRC"/*.png; do
