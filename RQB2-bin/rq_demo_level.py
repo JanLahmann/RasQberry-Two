@@ -275,6 +275,11 @@ def bookmark_kept(path, kept):
     except OSError:
         return True
     for line in text.splitlines():
+        # a generated launcher names its demo (rq_demo_generate_desktop.py)
+        if line.startswith("X-RasQberry-Demo="):
+            demo, _, variant = line.split("=", 1)[1].partition(" ")
+            return _step_kept({"demo": demo, "variant": variant or None}, kept)
+    for line in text.splitlines():
         if line.startswith("Exec="):
             m = _EXEC.search(line)
             if m:

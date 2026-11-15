@@ -377,9 +377,8 @@
             "description": "As the top-level maturity, for this variant only (without it: the demo's level)"
           },
           "desktop": {
-            "$ref": "#/properties/desktop",
-            "required": ["comment"],
-            "description": "A launcher of its own for this variant (fields as the demo's desktop block)"
+            "description": "A launcher of its own for this variant (fields as the demo's desktop block)",
+            "allOf": [{"$ref": "#/properties/desktop"}, {"required": ["comment"]}]
           },
           "args": {
             "type": "array",

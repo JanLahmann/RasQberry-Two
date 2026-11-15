@@ -13,3 +13,4 @@ Keywords=quantum;ibm;qiskit;course;learning;education;jupyter;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false
+X-RasQberry-Demo=ibm-courses

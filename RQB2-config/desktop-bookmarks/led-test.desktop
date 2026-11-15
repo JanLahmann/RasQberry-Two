@@ -13,4 +13,5 @@ Keywords=LED;test;diagnostic;neopixel;hardware;rasqberry;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false
+X-RasQberry-Demo=led-demos led-test
 X-RasQberry-OnDesktop=false

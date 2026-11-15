@@ -17,10 +17,14 @@ Usage:
 import argparse
 import glob
 import json
+import logging
 import os
 import sys
 
 from rq_demo_level import MARK, level_of
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(os.path.dirname(_HERE), "RQB2-config")
@@ -29,6 +33,10 @@ BOOKMARKS = os.path.join(CONFIG, "desktop-bookmarks")
 BIN = "/usr/bin"
 GENERATED = "# Generated from demo-manifests/"
 HEADER = GENERATED + "{manifest} by RQB2-bin/rq_demo_generate_desktop.py - edit the manifest"
+# Demos that run a server stop with their window (R-106, as rq_demo_desktop_entry.sh)
+SERVER_TYPES = ("web-static", "docker")
+# Not allowed in a label that goes into Exec as the window title
+EXEC_UNSAFE = set('"\\$`%')
 
 
 def shipped_manifests():
@@ -49,19 +57,24 @@ def launchers(manifest):
             yield variant["desktop"], variant
 
 
-def exec_line(manifest, desktop, variant, label):
-    """Exec and TryExec: a browser demo opens Chromium, everything else goes
-    through rq_demo_run.sh (or the variant chooser) in a window that stays
-    open on an error (rq_hold_on_error.sh)."""
-    entry = manifest.get("entrypoint", {})
-    if entry.get("type") == "browser" and not desktop.get("terminal", True):
+def exec_line(manifest, desktop, variant, label, terminal):
+    """Exec and TryExec: a browser demo without a window opens Chromium,
+    everything else goes through rq_demo_run.sh (or the variant chooser),
+    in a window that stays open on an error (rq_hold_on_error.sh)."""
+    entry = (variant or {}).get("entrypoint") or manifest.get("entrypoint", {})
+    if entry.get("type") == "browser" and entry.get("browser_url") and not terminal:
         return f"chromium --password-store=basic {entry['browser_url']}", "chromium"
-    title = f' -t "{label}"' if desktop.get("title") else ""
     if desktop.get("chooser"):
         cmd = f"{BIN}/rq_demo_choose.sh {manifest['id']}"
     else:
         cmd = f"{BIN}/rq_demo_run.sh {manifest['id']}" + (f" {variant['id']}" if variant else "")
-    return f"{BIN}/rq_hold_on_error.sh{title} {cmd}", f"{BIN}/rq_demo_run.sh"
+    if not terminal:
+        return cmd, f"{BIN}/rq_demo_run.sh"
+    if desktop.get("title"):
+        if EXEC_UNSAFE & set(label):
+            sys.exit(f"{manifest['id']}: the window title {label!r} may not contain {''.join(sorted(EXEC_UNSAFE))}")
+        cmd = f'-t "{label}" {cmd}'
+    return f"{BIN}/rq_hold_on_error.sh {cmd}", f"{BIN}/rq_demo_run.sh"
 
 
 def render(name, manifest, desktop, variant):
@@ -69,7 +82,9 @@ def render(name, manifest, desktop, variant):
     source = variant or manifest
     label = desktop.get("name", source["name"])
     comment = desktop.get("comment", manifest.get("description", ""))
-    exec_cmd, try_exec = exec_line(manifest, desktop, variant, label)
+    entry_type = ((variant or {}).get("entrypoint") or manifest.get("entrypoint", {})).get("type")
+    terminal = desktop.get("terminal", True) or entry_type in SERVER_TYPES
+    exec_cmd, try_exec = exec_line(manifest, desktop, variant, label, terminal)
     # A launcher of a demo at level dev says so (as rq_demo_maturity in
     # rq_common.sh: a missing maturity is no mark); rq_demo_level.py takes
     # the mark out again on beta and prod images
@@ -88,13 +103,15 @@ def render(name, manifest, desktop, variant):
         "Type=Application",
         "Categories=RasQberry;",
         f"Exec={exec_cmd}",
-        f"Terminal={'true' if desktop.get('terminal', True) else 'false'}",
+        f"Terminal={'true' if terminal else 'false'}",
         "StartupNotify=true",
         "Keywords=" + "".join(k + ";" for k in keywords),
         "X-GNOME-TextColor=#000000",
         f"TryExec={try_exec}",
         "NoDisplay=false",
     ]
+    # Which demo it starts, for rq_demo_level.py (also for a Chromium launcher)
+    lines.append(f"X-RasQberry-Demo={manifest['id']}" + (f" {variant['id']}" if variant else ""))
     # In the applications menu only, not on the desktop (stage 06)
     if not desktop.get("on_desktop", True):
         lines.append("X-RasQberry-OnDesktop=false")
@@ -129,6 +146,8 @@ def main():
             current = None
         if current == text:
             continue
+        if current is not None and not current.startswith(GENERATED):
+            sys.exit(f"{fname} is hand written: give the demo another desktop.file")
         stale.append(fname)
         if not args.check:
             with open(path, "w", encoding="utf-8") as f:
@@ -145,11 +164,11 @@ def main():
             if not args.check:
                 os.remove(path)
     if args.check and stale:
-        print("Launchers differ from the manifests (run RQB2-bin/rq_demo_generate_desktop.py): "
-              + ", ".join(sorted(stale)), file=sys.stderr)
+        logger.error("Launchers differ from the manifests (run RQB2-bin/rq_demo_generate_desktop.py): %s",
+                     ", ".join(sorted(stale)))
         return 1
     for fname in sorted(stale):
-        print(f"written: {fname}")
+        logger.info("written: %s", fname)
     return 0
 
 

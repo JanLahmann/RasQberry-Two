@@ -13,3 +13,4 @@ Keywords=quantum;qiskit;composer;circuit;IBM;
 X-GNOME-TextColor=#000000
 TryExec=chromium
 NoDisplay=false
+X-RasQberry-Demo=composer

@@ -13,3 +13,4 @@ Keywords=quantum;qiskit;jupyter;jupyterlab;qubins;tutorial;course;docker;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false
+X-RasQberry-Demo=qubins

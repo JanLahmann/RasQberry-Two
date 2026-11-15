@@ -13,3 +13,4 @@ Keywords=quantum;jupyter;notebook;games;education;qiskit;rise;coin;grover;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false
+X-RasQberry-Demo=fun-with-quantum

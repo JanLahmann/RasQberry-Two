@@ -13,3 +13,4 @@ Keywords=quantum;coffee;home-connect;iot;docker;jupyter;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false
+X-RasQberry-Demo=qoffee-maker
