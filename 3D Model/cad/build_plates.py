@@ -9,15 +9,16 @@ and the cryostat are printed without their holes (the no-floor alternatives).
 - `print/generated/complete/RasQberry-Two-{standard,no-floor}.3mf`: every
   part in its place in the assembled model, in its filament color (one
   object, one named part per printed piece), to see what goes where.
-- `print/generated/plates/<printer>/`: PrusaSlicer projects with as many
-  beds as needed (PrusaSlicer 2.9 multiple beds), parts turned the right way
-  up and laid out, with the printer, print and filament presets (Prusament
-  PLA, HF0.4 nozzle) and supports where needed:
-  - one project per filament color (COLOR_FILES), one color per bed; the
-    lid with the chandeliers prints on one nozzle with a filament change at
-    a layer, or as two filaments on an MMU3 or INDX printer (MULTI);
-  - `all-parts.3mf`: every bed except the floor (the floor is the white
-    project), `no-floor-alternatives.3mf`: the two parts without holes.
+- `print/generated/plates/`: PrusaSlicer projects for the Prusa Core One with
+  as many beds as needed (PrusaSlicer 2.9 multiple beds), parts turned the
+  right way up and laid out, with the printer, print and filament presets
+  (Prusament PLA, HF0.4 nozzle) and supports where needed:
+  - one project per filament color (COLOR_FILES), one color per bed, for one
+    nozzle; the lid with the chandeliers gets a filament change at a layer;
+  - `-indx`: the projects with several colors for the Core One INDX 8T
+    (MULTI): `all-parts-indx.3mf` (every bed except the floor),
+    `no-floor-alternatives-indx.3mf` (the two parts without holes) and the
+    lid bed with lid and chandeliers on their own filaments.
 - `print/generated/plates/README.md`: the print list (beds, parts, filament,
   grams and time per bed from PrusaSlicer).
 
@@ -51,23 +52,16 @@ from rqb_cad import FILAMENTS, MODEL_HEAD, OUTPUT, PARTS, part_path, write_3mf, 
 ORIGINALS = OUTPUT.parent / "originals"
 PRUSASLICER = "/Applications/Original Prusa Drivers/PrusaSlicer.app/Contents/MacOS/PrusaSlicer"
 USER_VENDOR = Path.home() / "Library/Application Support/PrusaSlicer/vendor"
-# (printer, print, filament preset) as named in PrusaSlicer's vendor bundle
-MK4S = ("Original Prusa MK4S HF0.4 nozzle", "0.20mm SPEED @MK4S HF0.4", "Prusament PLA @MK4S HF0.4")
-CORE_ONE = ("Prusa CORE One HF0.4 nozzle", "0.20mm SPEED @COREONE HF0.4", "Prusament PLA @COREONE HF0.4")
-PRINTERS = {   # folder: single-nozzle presets, bed x, y (mm), two-filament printers
-    "MK4S": (MK4S, (250, 210), {
-        "mmu3": ("Original Prusa MK4S MMU3 HF0.4 nozzle", *MK4S[1:])}),
-    "CoreOne": (CORE_ONE, (250, 220), {
-        "mmu3": ("Prusa CORE One MMU3 HF0.4 nozzle", *CORE_ONE[1:]),
-        "indx": ("Prusa CORE One INDX 4T HF0.4 nozzle", "0.20mm Balanced ★ @COREONEINDX HF0.4",
-                 "Prusament PLA @COREONEINDX HF0.4")}),
-}
-VENDOR_MODELS = ("MK4S", "MK4SMMU3", "COREONE", "COREONEMMU3", "COREONE_INDX4T")
+# (printer, print, filament preset) as named in PrusaSlicer's vendor bundle:
+# the Core One for the one-color projects, the Core One INDX 8T (8 tools, no
+# wipe tower) for the projects with several colors. Other printers: choose
+# yours in PrusaSlicer and arrange (the projects are small enough to adapt).
+SINGLE = ("Prusa CORE One HF0.4 nozzle", "0.20mm SPEED @COREONE HF0.4", "Prusament PLA @COREONE HF0.4")
+MULTI = ("Prusa CORE One INDX 8T HF0.4 nozzle", "0.20mm Balanced ★ @COREONEINDX HF0.4",
+         "Prusament PLA @COREONEINDX HF0.4")
+VENDOR_MODELS = ("COREONE", "COREONE_INDX8T")
 GAP = 6.0          # mm between parts on a bed
-MARGIN = 2.0       # mm from the bed edge (the wall parts are 245.7 mm long)
-WIPE_STRIP = 80.0  # mm kept free on the right of a bed for the MMU3 wipe tower
-BED_STRIDE = 1.2   # beds of a project stand side by side, 1.2 bed widths apart
-                   # (PrusaSlicer's legacy multi-bed layout, rearranged on load)
+MARGIN = 1.0       # mm from the bed edge (the wall parts are 245.7 mm, the INDX bed 248)
 MAX_BEDS = 9       # PrusaSlicer 2.9
 
 # ---------------------------------------------------------------- print setup
@@ -94,7 +88,7 @@ FLOOR = [("R2_Floor-Tile1", 1), ("R2_Floor-Tile2", 1), ("R2_Floor-Tile3", 1),
 # (project, [(part, count)]): the parts are packed onto as few beds as fit
 COLOR_FILES = [
     ("matte-black", [("R2_Wall-Base-jrl01-2", 1), ("R2_Wall-Back+13", 1), ("R2_Wall-Lid", 1)]),
-    ("galaxy-grey", [("RQB2-WallPanel-jrl02-2", 1)]),
+    ("galaxy-black", [("RQB2-WallPanel-jrl02-2", 1)]),
     ("white-floor", FLOOR),
     ("silk-silver", [("RQB2-R2_CryoStandaloneGamma-jrl04", 1), ("R2_NewDoor", 1),
                      ("RQB2-R2_NarrowServerSingle-jrl02", 9)]),
@@ -251,6 +245,8 @@ def read_3mf_bodies(path):
         tri = t[int(first):int(last) + 1]
         used, inverse = np.unique(tri[:, :3], return_inverse=True)
         out.append((name, mats[tri[0, 3]], (v[used], inverse.reshape(-1, 3).tolist())))
+    if not out or sum(len(b[2][1]) for b in out) != len(t):
+        raise ValueError(f"{path}: not the layout rqb_cad.write_3mf writes")
     return out
 
 
@@ -408,12 +404,27 @@ def blocker(part):
     return box.vertices, box.faces.tolist()
 
 
+def bed_offset(k, bed):
+    """Where PrusaSlicer 2.9 puts bed `k` of a project (MultipleBeds.cpp):
+    in a grid filled ring by ring, (0,0), (1,0), (0,1), (1,1), (2,0), (2,1),
+    (0,2), (1,2), (2,2); beds one bed size plus a gap of 0.3 bed diagonals
+    (at most 100 mm) apart."""
+    x = y = 0
+    if k:
+        n, a = k + 1, 1
+        while (a + 1) ** 2 < n:
+            a += 1
+        n -= a * a
+        x, y = (a, n - 1) if n <= a else (n - a - 1, a)
+    gap = min(100.0, 0.3 * math.hypot(*bed))
+    return x * (bed[0] + gap), y * (bed[1] + gap)
+
+
 def write_project(path, beds, bed, ini, multi):
     """PrusaSlicer project with one bed per entry of `beds`: one object per
     part (one volume per body), one instance per copy. On one nozzle the
     two-color part's bed gets a filament change; on a two-filament printer
     its bodies get their own extruders (`multi`)."""
-    wipe = multi and ini_value(ini, "wipe_tower") == "1"
     parts = list(dict.fromkeys(p for b in beds for p in b))
     fils = filaments(parts) if multi else filaments(parts)[:1]
     if len(fils) > len(ini_value(ini, "extruder_colour").split(";")):
@@ -423,8 +434,8 @@ def write_project(path, beds, bed, ini, multi):
     items = []        # (object index, x, y)
     changes = []      # bed index with the two-color part (one nozzle)
     for k, b in enumerate(beds):
-        dx = k * BED_STRIDE * bed[0]
-        items += [(parts.index(p), x + dx, y) for p, (x, y) in zip(b, arrange(b, usable(b, bed, multi)))]
+        dx, dy = bed_offset(k, bed)
+        items += [(parts.index(p), x + dx, y + dy) for p, (x, y) in zip(b, arrange(b, bed))]
         if TWO_COLOR in b and not multi:
             changes.append(k)
     model = MODEL_HEAD + ["<resources>"]
@@ -477,11 +488,6 @@ def write_project(path, beds, bed, ini, multi):
                   for k in sorted({0, *changes})]
         meta["Metadata/Prusa_Slicer_custom_gcode_per_print_z.xml"] = (
             '<?xml version="1.0" encoding="utf-8"?>\n' + "\n".join(blocks))
-    if wipe:
-        meta["Metadata/Prusa_Slicer_wipe_tower_information.xml"] = (
-            '<?xml version="1.0" encoding="utf-8"?>\n' + "\n".join(
-                f'<wipe_tower_information bed_idx="{k}" position_x="{bed[0] - WIPE_STRIP + 10}" '
-                f'position_y="{MARGIN + 30}" rotation_deg="0"/>' for k in range(len(beds))))
     path.parent.mkdir(parents=True, exist_ok=True)
     zip_3mf(path, model, meta)
 
@@ -529,7 +535,7 @@ def slice_stats(exe, dd, project, tmp):
                         "-o", gcode, project], capture_output=True, text=True)
     if r.returncode or not gcode.exists():
         raise RuntimeError(f"{project.name}: slicing failed\n{r.stdout}{r.stderr}")
-    text = gcode.read_text(errors="ignore")[-80000:]
+    text = gcode.read_text(errors="ignore").split("; prusaslicer_config = begin")[0][-20000:]
     grams = [float(g) for g in re.search(r"; filament used \[g\] = (.+)", text).group(1).split(",")]
     time = re.search(r"; estimated printing time \(normal mode\) = (.+)", text).group(1).strip()
     gcode.unlink()
@@ -542,133 +548,120 @@ class Slicer:
     def __init__(self, exe, dd, tmp):
         self.exe, self.dd, self.tmp, self.cache = exe, dd, tmp, {}
 
-    def stats(self, key, parts, bed, ini, multi):
-        """([grams], time) of one bed of `parts`. PrusaSlicer 2.9.7's CLI
-        crashes on two filaments with a wipe tower (even on two cubes), so
-        such a bed is sliced without it (NO_TOWER)."""
-        k = (key, tuple(sorted(parts)))
+    def stats(self, parts, bed, ini, multi):
+        """([grams], time) of one bed of `parts`."""
+        k = (multi, tuple(sorted(parts)))
         if k not in self.cache:
             p = Path(self.tmp) / "bed.3mf"
-            if multi and ini_value(ini, "wipe_tower") == "1":
-                ini = re.sub(r"^wipe_tower = 1$", "wipe_tower = 0", ini, flags=re.M)
             write_project(p, [parts], bed, ini, multi)
             self.cache[k] = slice_stats(self.exe, self.dd, p, self.tmp)
         return self.cache[k]
 
 # ---------------------------------------------------------------- main
 
-def usable(parts, bed, multi):
-    """The bed area for `parts`: on an MMU3 a bed with two filaments keeps a
-    strip free for the wipe tower (one filament needs no tower)."""
-    if multi == "mmu3" and len(filaments(parts)) > 1:
-        return (bed[0] - WIPE_STRIP, bed[1])
-    return bed
-
-
-def projects(folder, bed):
-    """[(file name, beds, multi)] of a printer folder. The projects with
-    several colors (all-parts, no-floor-alternatives) are for the MMU3, so
-    PrusaSlicer shows each part in its color; each bed has one filament but
-    the lid bed."""
-    def beds(items, multi=None):
-        return pack(items, usable([p for p, _ in items], bed, multi))
-    out = [(f"{n}-{name}.3mf", beds(items), None) for n, (name, items)
-           in enumerate(COLOR_FILES, start=1)]
-    out.append(("all-parts.3mf", [b for name, items in COLOR_FILES if name != FLOOR_FILE
-                                   for b in beds(items, "mmu3")], "mmu3"))
-    out.append(("no-floor-alternatives.3mf",
-                [b for p in NO_FLOOR.values() for b in beds([(p, 1)], "mmu3")], "mmu3"))
-    # the two-color project for each two-filament printer
-    fname, items = next((f"{n}-{name}", items) for n, (name, items) in enumerate(COLOR_FILES, start=1)
-                        if any(p == TWO_COLOR for p, _ in items))
-    out += [(f"{fname}-{multi}.3mf", beds(items, multi), multi) for multi in PRINTERS[folder][2]]
+def projects(bed, multi_bed):
+    """[(file name, beds, multi)]: one project per color (one nozzle), then
+    the projects with several colors for the INDX, so PrusaSlicer shows each
+    part in its color (every bed has one filament but the lid bed)."""
+    out = [(f"{n}-{name}.3mf", pack(items, bed), False)
+           for n, (name, items) in enumerate(COLOR_FILES, start=1)]
+    out.append(("all-parts-indx.3mf", [b for name, items in COLOR_FILES if name != FLOOR_FILE
+                                        for b in pack(items, multi_bed)], True))
+    out.append(("no-floor-alternatives-indx.3mf",
+                [b for p in NO_FLOOR.values() for b in pack([(p, 1)], multi_bed)], True))
+    two = next(f"{n}-{name}" for n, (name, items) in enumerate(COLOR_FILES, start=1)
+               if any(p == TWO_COLOR for p, _ in items))
+    out.append((f"{two}-indx.3mf", pack(dict(COLOR_FILES)[two.split("-", 1)[1]], multi_bed), True))
     return out
 
 
+def bed_size(ini):
+    """(x, y) of the printer's rectangular bed from its bed_shape."""
+    pts = [tuple(map(float, c.split("x"))) for c in ini_value(ini, "bed_shape").split(",")]
+    (x0, y0), (x1, y1) = np.min(pts, 0), np.max(pts, 0)
+    if (x0, y0) != (0, 0):
+        raise ValueError(f"bed does not start at 0,0: {pts}")
+    return (x1, y1)
+
+
 def main():
-    """Complete models, then the projects for each printer, then the print list."""
+    """Complete models, then the projects, then the print list."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--prusaslicer", default=os.environ.get("PRUSASLICER", PRUSASLICER))
     ap.add_argument("--vendor", help="folder with PrusaResearch.ini/.idx (default: PrusaSlicer's own)")
     a = ap.parse_args()
-    for folder in ("complete", "plates"):   # all generated here: nothing stale
-        shutil.rmtree(OUTPUT / folder, ignore_errors=True)
-    for variant in VARIANTS:
-        print("wrote", write_complete(variant).relative_to(OUTPUT))
     bundle = vendor_bundle(a.prusaslicer, a.vendor)
     version = re.search(r"^config_version = (.+)$", (bundle / "PrusaResearch.ini").read_text(), re.M).group(1)
-    report = {}
     with tempfile.TemporaryDirectory() as tmp:
         dd = scratch_datadir(bundle, tmp)
         slicer = Slicer(a.prusaslicer, dd, tmp)
-        for folder, (presets, bed, multis) in PRINTERS.items():
-            inis = {None: resolved(a.prusaslicer, dd, presets, tmp)}
-            inis |= {m: resolved(a.prusaslicer, dd, p, tmp) for m, p in multis.items()}
-            rows = []
-            for fname, beds, multi in projects(folder, bed):
-                path = OUTPUT / "plates" / folder / fname
-                write_project(path, beds, bed, inis[multi], multi)
-                for k, b in enumerate(beds, start=1):
-                    st = slicer.stats((folder, multi), b, bed, inis[multi], multi)
-                    rows.append((fname, k, b, st))
-                    print("wrote", path.relative_to(OUTPUT), f"bed {k}", st)
-            totals = {}
-            for variant in VARIANTS:
-                per = Counter()
-                for _, items in variant_items(variant):
-                    for b in pack(items, bed):
-                        # the two-color bed split as a two-filament printer slices it
-                        multi = next(iter(multis)) if len(filaments(b)) > 1 else None
-                        grams = slicer.stats((folder, multi), b, bed, inis[multi], multi)[0]
-                        per.update(dict(zip(filaments(b), grams)))
-                totals[variant] = per
-            report[folder] = (rows, totals, change_z(inis[None]))
-    write_readme(report, version)
+        inis = {False: resolved(a.prusaslicer, dd, SINGLE, tmp), True: resolved(a.prusaslicer, dd, MULTI, tmp)}
+        beds = {m: bed_size(ini) for m, ini in inis.items()}
+        # PrusaSlicer and its presets work: replace everything generated here
+        for folder in ("complete", "plates"):
+            shutil.rmtree(OUTPUT / folder, ignore_errors=True)
+        for variant in VARIANTS:
+            print("wrote", write_complete(variant).relative_to(OUTPUT))
+        rows = []
+        for fname, project, multi in projects(beds[False], beds[True]):
+            path = OUTPUT / "plates" / fname
+            write_project(path, project, beds[multi], inis[multi], multi)
+            for k, b in enumerate(project, start=1):
+                st = slicer.stats(b, beds[multi], inis[multi], multi)
+                if len(st[0]) < len(filaments(b)):   # one nozzle: grams per color as on the INDX
+                    st = (slicer.stats(b, beds[True], inis[True], True)[0], st[1])
+                rows.append((fname, k, b, st))
+                print("wrote", path.relative_to(OUTPUT), f"bed {k}", st)
+        totals = {}
+        for variant in VARIANTS:
+            per = Counter()
+            for _, items in variant_items(variant):
+                for b in pack(items, beds[False]):
+                    # the two-color bed split as the INDX slices it
+                    multi = len(filaments(b)) > 1
+                    grams = slicer.stats(b, beds[multi], inis[multi], multi)[0]
+                    per.update(dict(zip(filaments(b), grams)))
+            totals[variant] = per
+        write_readme(rows, totals, change_z(inis[False]), version)
 
 
-def write_readme(report, version):
-    """The print list: per printer a table of the projects and their beds
-    (grams and time from PrusaSlicer), then the filament per color."""
+def write_readme(rows, totals, cz, version):
+    """The print list: a table of the projects and their beds (grams and
+    time from PrusaSlicer), then the filament per color."""
     lines = ["# Print plates", "",
              "Generated by `cad/build_plates.py` from the new CAD parts (experimental,",
-             "not fully tested yet). PrusaSlicer projects for PrusaSlicer 2.9 or later,",
-             "with as many beds as needed: open, check each bed, slice and print. Grams",
+             "not fully tested yet). PrusaSlicer projects (2.9 or later) for the Prusa",
+             "Core One, with as many beds as needed: open, check each bed, slice and",
+             "print. For another printer, choose it in PrusaSlicer and arrange. Grams",
              "and times are PrusaSlicer's estimates (Prusament PLA, HF0.4 nozzle, vendor",
              f"profiles {version}).", "",
-             "- One project per filament color, one color per bed. The floor is",
-             "  `3-white-floor.3mf`; `all-parts.3mf` has every other bed, each part in",
-             "  its color: it is set up for an MMU3 (5 filaments). Every bed has one",
-             "  filament except the lid bed, so with a single nozzle choose your printer",
-             "  in PrusaSlicer and change the filament between beds (for the lid bed",
-             "  use `5-transparent+silk-gold.3mf`).",
-             "- **Without floor:** skip the white project and print the two parts of",
-             "  `no-floor-alternatives.3mf` instead of the wall base and the cryostat",
-             "  (the same parts without the holes for the floor plugs).",
+             "- One project per filament color, one color per bed, for one nozzle.",
+             "- `-indx`: the same parts in their colors for the Core One INDX 8T.",
+             "  `all-parts-indx.3mf` has every bed except the floor",
+             "  (`3-white-floor.3mf`); each bed has one filament, except the lid bed.",
+             "- **Without floor:** skip the floor and print the two parts of",
+             "  `no-floor-alternatives-indx.3mf` instead of the wall base and the",
+             "  cryostat (the same parts without the holes for the floor plugs).",
              "- **Lid with chandeliers** (lid transparent, chandeliers silk gold): on one",
-             "  nozzle PrusaSlicer pauses for the filament change at the height given",
-             "  below; `-mmu3` / `-indx` print it with two filaments on an MMU3 or INDX.",
-             "  MMU3 grams and times leave out the wipe tower (PrusaSlicer's command",
-             "  line crashes with it; the projects have it).",
-             "  Supports only above the lid (a support blocker keeps them out of the",
-             "  sockets); they print in silk gold.", "",
+             f"  nozzle PrusaSlicer pauses for the filament change at {cz} mm; on the INDX",
+             "  the lid and the chandeliers have their own filaments. Supports only",
+             "  above the lid (a support blocker keeps them out of the sockets); they",
+             "  print in silk gold.", "",
              "`../complete/` has both versions assembled, in color, to see what goes",
-             "where (without the LED filter screen, which goes in front of the LEDs).", ""]
-    for folder, (rows, totals, cz) in report.items():
-        lines += [f"## {folder}", "", f"Filament change on the lid bed at {cz} mm.", "",
-                  "| Project | Bed | Parts | Filament | Grams | Time |", "|---|---|---|---|---|---|"]
-        for fname, k, parts, (grams, time) in rows:
-            n = Counter(parts)
-            desc = ", ".join(f"{c} x {file_name(p)}" for p, c in n.items())
-            g = " + ".join(f"{x:.0f}" for x in grams)
-            lines.append(f"| {fname} | {k} | {desc} | {' + '.join(filaments(parts))} | {g} g | {time} |")
+             "where (without the LED filter screen, which goes in front of the LEDs).", "",
+             "| Project | Bed | Parts | Filament | Grams | Time |", "|---|---|---|---|---|---|"]
+    for fname, k, parts, (grams, time) in rows:
+        desc = ", ".join(f"{c} x {file_name(p)}" for p, c in Counter(parts).items())
+        g = " + ".join(f"{x:.0f}" for x in grams)
+        lines.append(f"| {fname} | {k} | {desc} | {' + '.join(filaments(parts))} | {g} g | {time} |")
+    lines.append("")
+    for variant in VARIANTS:
+        grams = {f: round(g) for f, g in totals[variant].items()}
+        title = "standard" if variant == "standard" else "without floor"
+        lines.append(f"Filament, {title} (Core One; the lid bed split as on the INDX): "
+                     + ", ".join(f"{f} {g} g" for f, g in grams.items())
+                     + f"; {sum(grams.values())} g in total.")
         lines.append("")
-        for variant in VARIANTS:
-            grams = {f: round(g) for f, g in totals[variant].items()}
-            title = "standard" if variant == "standard" else "without floor"
-            lines.append(f"Filament, {title} (the lid bed split as on {next(iter(PRINTERS[folder][2])).upper()}): "
-                         + ", ".join(f"{f} {g} g" for f, g in grams.items())
-                         + f"; {sum(grams.values())} g in total.")
-            lines.append("")
     (OUTPUT / "plates" / "README.md").write_text("\n".join(lines))
 
 

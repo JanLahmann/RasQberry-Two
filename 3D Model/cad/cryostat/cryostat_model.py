@@ -116,7 +116,7 @@ def jrl01_parts(prof, a=ASSEMBLY):
 
 
 def jrl01_bodies(prof):
-    """[(name, filament, (vertices, triangles))] of jrl01 for a two-colour
+    """[(name, filament, (vertices, triangles))] of jrl01 for a two-color
     3MF: the lid transparent, the chandeliers silk gold."""
     top, chs = jrl01_parts(prof)
     return ([("lid", "transparent", shape_mesh(top))]

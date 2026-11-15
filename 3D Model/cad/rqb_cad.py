@@ -270,7 +270,7 @@ FILAMENTS = {
     "silk silver": "#9EA3AA",
     "silk gold": "#E3A33A",
     "transparent": "#F3F5F6",
-    "galaxy grey": "#5B5E63",    # LED filter screen, 0.6 mm (Jan's corner)
+    "galaxy black": "#3D3E3D",   # LED filter screen, 0.6 mm (Prusament Galaxy Black)
 }
 
 
