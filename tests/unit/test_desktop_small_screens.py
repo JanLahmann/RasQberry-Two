@@ -345,11 +345,22 @@ def test_no_launcher_claims_file_types():
         assert "\nMimeType=" not in open(os.path.join(_BOOKMARKS, name)).read(), name
 
 
-def test_every_desktop_launcher_has_a_place_in_the_layout():
-    # stage 06 puts each launcher on the desktop unless it is for the menu only
-    on_desktop = {name[:-len(".desktop")] for name in os.listdir(_BOOKMARKS) if name.endswith(".desktop")
-                  and "X-RasQberry-OnDesktop=false\n" not in open(os.path.join(_BOOKMARKS, name)).read()}
-    assert on_desktop == set(ds.ICON_ORDER)
+def test_the_layout_knows_the_launchers_stage_06_puts_on_the_desktop():
+    # both read desktop-bookmarks/ and skip the menu-only ones by the same marker
+    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
+    assert "grep -L -x '%s'" % ds.MENU_ONLY in stage
+    assert "led-test" not in ds.ICON_ORDER
+    assert {"rasqberry-setup", "learning-paths", "quantum-lab"} <= set(ds.ICON_ORDER)
+
+
+def test_shipped_launchers_skips_menu_only_and_other_files(tmp_path):
+    (tmp_path / "a.desktop").write_text("[Desktop Entry]\nName=A\n")
+    (tmp_path / "b.desktop").write_text("[Desktop Entry]\n%s\n" % ds.MENU_ONLY)
+    (tmp_path / "README.md").write_text("x")
+    (tmp_path / "c.desktop").write_text("[Desktop Entry]\n")
+    assert ds.shipped_launchers(str(tmp_path)) == ["a", "c"]
+    assert ds.shipped_launchers(str(tmp_path), first=["c", "x"]) == ["c", "a"]
+    assert ds.shipped_launchers(str(tmp_path / "missing")) == []
 
 
 def test_touch_icon_asks_instead_of_logging_out():

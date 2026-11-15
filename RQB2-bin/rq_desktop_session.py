@@ -74,17 +74,6 @@ HOMEPAGE = "https://rasqberry.org/?from=pi&assistant=1"
 VERSION_FILE = "/etc/rasqberry-version"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 
-# Every launcher the image puts on the desktop (stage 06). Where each one
-# goes - loose on the desktop or into a group folder - and the order of the
-# loose ones come from demo-groups.json and the demo manifests.
-ICON_ORDER = [
-    "rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode",
-    "learning-paths", "composer", "grok-bloch", "quantum-fractals",
-    "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
-    "led-painter", "qoffee-maker", "quantum-mixer", "entangible", "quantum-paradoxes",
-    "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
-    "ibm-quantum-courses", "quantum-lab", "qubins", "demo-loop", "clear-leds",
-]
 MORE_DIR = "More"
 MARGIN = 10                # first icon at x=y=10 (bookworm: below the panel)
 CHROMIUM_X = 480           # where the labwc rule puts Chromium on large screens
@@ -104,6 +93,40 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = "/usr/config" if _HERE == "/usr/bin" else os.path.join(os.path.dirname(_HERE), "RQB2-config")
 GROUPS_FILE = os.path.join(CONFIG_DIR, "demo-manifests", "demo-groups.json")
 KNOWN_DEMOS = os.path.join(CONFIG_DIR, "known-demos.json")
+BOOKMARKS_DIR = os.path.join(CONFIG_DIR, "desktop-bookmarks")
+MENU_ONLY = "X-RasQberry-OnDesktop=false"
+
+
+def shipped_launchers(bookmarks=None, first=()):
+    """
+    Every launcher the image puts on the desktop (stage 06 copies the same
+    ones): desktop-bookmarks/ without the applications-menu-only ones.
+    Where each goes - loose or into a group folder - and the order of the
+    loose ones come from demo-groups.json and the demo manifests.
+
+    Args:
+        bookmarks (str): The folder (default: the shipped desktop-bookmarks/).
+        first (list): Names that lead, in this order (the system icons:
+            a flat desktop starts with RasQberry Setup).
+
+    Returns:
+        list: Launcher names: first, then the others by file name.
+    """
+    folder = bookmarks or BOOKMARKS_DIR
+    try:
+        files = sorted(f for f in os.listdir(folder) if f.endswith(".desktop"))
+    except OSError:
+        return []
+    names = []
+    for f in files:
+        try:
+            with open(os.path.join(folder, f), encoding="utf-8") as fh:
+                if MENU_ONLY in fh.read().splitlines():
+                    continue
+        except OSError:
+            continue
+        names.append(f[:-len(".desktop")])
+    return [n for n in first if n in names] + [n for n in names if n not in first]
 
 
 def known_demos_file():
@@ -768,6 +791,9 @@ def load_groups(path=None):
             "system": list(data.get("system") or []),
             "last": list(data.get("last") or []),
             "launchers": dict(data.get("launchers") or {})}
+
+
+ICON_ORDER = shipped_launchers(first=load_groups()["system"])
 
 
 def manifest_dirs(home=None):
