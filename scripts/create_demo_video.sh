@@ -7,13 +7,24 @@ set -euo pipefail
 
 SRC="${1:-public/demo-screenshots/source}"
 OUT="${2:-public/demo-screenshots}"
-WIDTH=1920
-VF="scale=${WIDTH}:-2:flags=lanczos,format=yuv420p"
+WIDTH=1920 HEIGHT=1080
+VF="format=yuv420p"
 # fps=2 + tpad: keep the last frame on screen for its full time too
 vf() { echo "$VF,tpad=stop_mode=clone:stop_duration=$1,fps=2"; }
 
 command -v ffmpeg >/dev/null || { echo "ffmpeg not found" >&2; exit 1; }
 ls "$SRC"/*.png >/dev/null
+
+# The screenshots differ by a few pixels (3830-3846 x 2148-2166); a size change
+# makes ffmpeg rebuild its filters and drop frames. Bring them all to one size
+# (scaled to fit, centred on white) before encoding.
+FRAMES=$(mktemp -d)
+trap 'rm -rf "$FRAMES"' EXIT
+for f in "$SRC"/*.png; do
+  ffmpeg -y -loglevel error -i "$f" -vf "scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:white" \
+    "$FRAMES/$(basename "$f")"
+done
+SRC="$FRAMES"
 
 mp4() { # seconds_per_frame output
   ffmpeg -y -loglevel error -framerate "1/$1" -pattern_type glob -i "$SRC/*.png" \
@@ -26,7 +37,6 @@ mp4 4 "$OUT/rasqberry-demo-slow.mp4"
 ffmpeg -y -loglevel error -framerate 1 -pattern_type glob -i "$SRC/*.png" \
   -vf "$(vf 1)" -c:v libvpx-vp9 -b:v 0 -crf 40 -row-mt 1 -an "$OUT/rasqberry-demo.webm"
 first=$(ls "$SRC"/*.png | head -1)
-ffmpeg -y -loglevel error -i "$first" -vf "scale=${WIDTH}:-2:flags=lanczos" -q:v 4 \
-  "$OUT/rasqberry-demo-poster.jpg"
+ffmpeg -y -loglevel error -i "$first" -q:v 4 "$OUT/rasqberry-demo-poster.jpg"
 
 ls -l "$OUT"/rasqberry-demo*
