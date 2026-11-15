@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T18:57:53Z",
+  "generated": "2026-11-15T19:39:15Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,25 +35,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-15-191236",
-      "name": "rasqberry-development-2026-11-15-191236",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-191236/rasqberry-development-2026-11-15-191236.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-191236",
-      "release_date": "2026-11-15 19:12",
-      "image_download_size": 1861653816,
+      "tag": "development-2026-11-15-200009",
+      "name": "rasqberry-development-2026-11-15-200009",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-200009/rasqberry-development-2026-11-15-200009.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-200009",
+      "release_date": "2026-11-15 20:00",
+      "image_download_size": 2064228340,
       "extract_size": 9604956160,
-      "extract_sha256": "cefd1105f88afa4418c50bbd8d04978287625d4b9801a1c8a4c153b8fb1be9cb",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-191236/rasqberry-development-2026-11-15-191236-ab.img.xz",
-      "ab_extract_sha256": "be43e123d4a7170ba58d34a887b7bba593554dfb6ea4ee2f4500c09e9e92350d",
-      "ab_image_sha256": "199294363766a44c6364e98cfb045f6d66bb9b9db11cf181e5a561620a38ca25",
+      "extract_sha256": "1ddecd3a7b4d83ffa15ce7ec164839af84e887cfa9042d0767b05c4cc00448b2",
+      "image_sha256": "2ccdc5abccb1322e6c000108e4ae9fb0dc16b45cb45a1899227ff1637eef5d5a",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-200009/rasqberry-development-2026-11-15-200009-ab.img.xz",
+      "ab_extract_sha256": "c9431f828d6bf4536e7947b498c92ed5fbd6fde84657b776983f8fa398b2e103",
+      "ab_image_sha256": "ebb5eb787594c77d4dea1e089eece8ede1cc847dd2ef2c2eedab5b8d37d67fab",
+      "ab_image_download_size": 2111593356,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1914085640,
       "highlights": [
-        "Bump version to development-2026-11-15-191236",
-        "Merge pull request #408 from JanLahmann/vnc-needs-desktop",
-        "VNC login routine: re-check the desktop before each attempt; review fixes",
-        "the VNC login-routine tests run inside a desktop session (labwc stub)",
-        "switch it on only inside the desktop session"
+        "CI compression: A/B image starts at the fallback level when the standard one needed it",
+        "CI: development images at xz -3, not -1"
       ]
     }
   }
