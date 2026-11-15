@@ -678,11 +678,10 @@ def desktop_md():
     for path in sorted(glob.glob(os.path.join(BOOKMARKS, "*.desktop"))):
         name = os.path.basename(path)[:-len(".desktop")]
         launchers[name] = (path, desktop_entry(path))
-    # The image puts the ICON_ORDER launchers on the desktop (the stage's list,
-    # test_every_desktop_launcher_has_a_place_in_the_layout); the others are
-    # only in the applications menu (rig mission 2026-10-16: LED Test was
-    # listed in the LED panel folder)
-    order = [n for n in sess.ICON_ORDER if n in launchers]
+    # The image puts the ICON_ORDER launchers on the desktop (stage 06 skips
+    # the same menu-only ones); the others are only in the applications menu
+    # (rig mission 2026-10-16: LED Test was listed in the LED panel folder)
+    order = sorted(sess.ICON_ORDER)  # file-name order, as the group windows show it
     menu_only = sorted(n for n in launchers if n not in sess.ICON_ORDER)
 
     def row(name):

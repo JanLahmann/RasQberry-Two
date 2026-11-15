@@ -76,9 +76,9 @@ No `files/` directory. These entries come from `RQB2-system/`, installed by
 
 ## Notes
 
-- The launcher list for the desktops is a regex in the script; a new
-  `.desktop` file in `desktop-bookmarks/` appears on the desktop only if it is
-  added there and to `ICON_ORDER` in `RQB2-bin/rq_desktop_session.py`. Its
+- Every `.desktop` file in `desktop-bookmarks/` goes on the desktop, except
+  those marked `X-RasQberry-OnDesktop=false` (menu only, from the demo
+  manifest); `rq_desktop_session.py` lays out the same set. A launcher's
   folder is its demo's `group` (the demo id after `rq_demo_run.sh` in `Exec`,
   or `launchers` in `demo-groups.json` for one without a manifest).
 - The icon positions written at build time are for the grouped desktop; the

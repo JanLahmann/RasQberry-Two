@@ -74,17 +74,6 @@ HOMEPAGE = "https://rasqberry.org/?from=pi&assistant=1"
 VERSION_FILE = "/etc/rasqberry-version"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 
-# Every launcher the image puts on the desktop (stage 06). Where each one
-# goes - loose on the desktop or into a group folder - and the order of the
-# loose ones come from demo-groups.json and the demo manifests.
-ICON_ORDER = [
-    "rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode",
-    "learning-paths", "composer", "grok-bloch", "quantum-fractals",
-    "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
-    "led-painter", "qoffee-maker", "quantum-mixer", "entangible", "quantum-paradoxes",
-    "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
-    "ibm-quantum-courses", "quantum-lab", "qubins", "demo-loop", "clear-leds",
-]
 MORE_DIR = "More"
 MARGIN = 10                # first icon at x=y=10 (bookworm: below the panel)
 CHROMIUM_X = 480           # where the labwc rule puts Chromium on large screens
@@ -104,6 +93,45 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = "/usr/config" if _HERE == "/usr/bin" else os.path.join(os.path.dirname(_HERE), "RQB2-config")
 GROUPS_FILE = os.path.join(CONFIG_DIR, "demo-manifests", "demo-groups.json")
 KNOWN_DEMOS = os.path.join(CONFIG_DIR, "known-demos.json")
+BOOKMARKS_DIR = os.path.join(CONFIG_DIR, "desktop-bookmarks")
+MENU_ONLY = "X-RasQberry-OnDesktop=false"
+
+
+# A flat desktop (no usable demo-groups.json) starts with these, as before
+# the groups (R-008); the grouped desktop takes its order from the file
+FLAT_FIRST = ["rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode"]
+
+
+def shipped_launchers(bookmarks=BOOKMARKS_DIR):
+    """
+    Every launcher the image puts on the desktop (stage 06 copies the same
+    ones): desktop-bookmarks/ without the applications-menu-only ones.
+    Where each goes - loose or into a group folder - and the order of the
+    loose ones come from demo-groups.json and the demo manifests.
+
+    Args:
+        bookmarks (str): The folder (default: the shipped desktop-bookmarks/).
+
+    Returns:
+        list: Launcher names: FLAT_FIRST, then the others by file name;
+        an unreadable file is skipped.
+    """
+    try:
+        files = sorted(f for f in os.listdir(bookmarks) if f.endswith(".desktop"))
+    except OSError:
+        return []
+    names = []
+    for f in files:
+        try:
+            with open(os.path.join(bookmarks, f), encoding="utf-8", errors="replace") as fh:
+                if MENU_ONLY not in fh.read().splitlines():
+                    names.append(f[:-len(".desktop")])
+        except OSError as exc:
+            logger.warning("skipping launcher %s: %s", f, exc)
+    return [n for n in FLAT_FIRST if n in names] + [n for n in names if n not in FLAT_FIRST]
+
+
+ICON_ORDER = shipped_launchers()
 
 
 def known_demos_file():
