@@ -36,6 +36,17 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
-  }
+    "terminal": true,
+    "comment": "Quantum circuit demo with entanglement patterns on LEDs",
+    "title": true,
+    "keywords": [
+      "quantum",
+      "LED",
+      "circuit",
+      "entanglement",
+      "qiskit",
+      "rasqberry"
+    ]
+  },
+  "maturity": "beta"
 }

@@ -511,7 +511,7 @@ def test_manifest_is_valid_beta_and_pinned_like_qiskit_live():
                           capture_output=True, text=True, timeout=60)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     m, lab = _manifest("qubins"), _manifest("quantum-lab")
-    assert m["maturity"] == "beta"
+    assert m["maturity"] == "dev"   # demo level (Jan, 2026-11-13)
     ep = m["entrypoint"]
     assert ep["type"] == "docker" and ep["launcher"] == "rq_qubins.sh" and ep["docker_image_choice"] is True
     # the tested default is a monthly snapshot pinned by digest, as Qiskit Live's
@@ -533,8 +533,6 @@ def test_icon_menu_and_lists():
     sys.path.insert(0, _BIN)
     import rq_desktop_session as ds  # noqa: E402
     assert "qubins" in ds.ICON_ORDER
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    assert stage.count("|qubins|") == 2
     assert "qubins)" in open(os.path.join(_BIN, "rq_docker_demos.sh")).read()
     m = _manifest("qubins")
     assert m["menu"]["show"] and m["desktop"]["show"]

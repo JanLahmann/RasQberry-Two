@@ -101,6 +101,12 @@ def test_retired_raspi_config_globals_are_dropped():
         assert key + "=" not in text
 
 
+def test_demo_keys_the_manifests_replaced_are_dropped():
+    cur = "A=1\nGIT_REPO_DEMO_QLO=https://example.org/fork.git\nQUANTUM_FRACTALS_INSTALLED=true\n"
+    text, added, kept, carried = _merge("A=1\n", cur)
+    assert carried == [] and "GIT_REPO_DEMO_QLO" not in text and "QUANTUM_FRACTALS" not in text
+
+
 def test_shipped_defaults_do_not_set_raspi_config_globals():
     env = os.path.join(_ROOT, "RQB2-config", "rasqberry_environment.env")
     keys = rq_env_merge.assignments(open(env, encoding="utf-8").read().splitlines())

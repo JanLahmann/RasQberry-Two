@@ -222,6 +222,16 @@ copy_bin_files() {
     log_message "Copied $count files to $TARGET_BIN"
 }
 
+# Trim the branch's RQB2-config to this image's demo level
+# (/etc/rasqberry-demo-level), with the branch's own rq_demo_level.py
+trim_demo_levels() {
+    local tool="$1/RQB2-bin/rq_demo_level.py"
+    [ -f "$tool" ] || tool="$TARGET_BIN/rq_demo_level.py"
+    [ -f "$tool" ] || return 0
+    python3 "$tool" apply "$1/RQB2-config" 2>&1 | tee -a "$LOG_FILE" \
+        || warn "Could not apply the demo level - all demos of the branch are kept"
+}
+
 copy_config_files() {
     local source_dir="$1/RQB2-config"
 
@@ -348,13 +358,16 @@ install_system_files() {
 reload_environment() {
     log_message "Reloading environment configuration..."
 
-    # Source the environment config to pick up changes
-    if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
-        # shellcheck disable=SC1091
-        . /usr/config/rasqberry_env-config.sh 2>/dev/null || true
+    # Pick up the new environment. The files are installed by now: a reload
+    # that fails is a warning, not a failed update (tried in a subshell first,
+    # as load_rqb2_env stops the script on an error)
+    if ! command -v load_rqb2_env >/dev/null 2>&1; then
+        warn "Environment not reloaded (rq_common.sh not found)"
+    elif ( load_rqb2_env ) >/dev/null 2>&1; then
+        load_rqb2_env
         log_message "Environment reloaded"
     else
-        warn "Environment config file not found"
+        warn "The environment could not be reloaded: restart to use the new settings"
     fi
 }
 
@@ -518,6 +531,10 @@ main() {
     if [ "$skip_backup" != true ]; then
         backup_current
     fi
+
+    # Only the demos of this image's level (rq_demo_level.py): a beta image
+    # does not get the branch's dev demos
+    trim_demo_levels "$WORK_DIR"
 
     # Copy files
     count_changes "$WORK_DIR"

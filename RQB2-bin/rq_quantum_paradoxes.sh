@@ -15,7 +15,8 @@ rq_help_guard "$@"
 
 # Load environment and verify required variables
 load_rqb2_env
-verify_env_vars USER_HOME REPO STD_VENV MARKER_PARADOXES PARADOXES_JUPYTER_PORT
+verify_env_vars USER_HOME REPO STD_VENV PARADOXES_JUPYTER_PORT
+MARKER=$(rq_demo_marker quantum-paradoxes)   # empty: the folder itself
 
 # Without a screen (SSH) the server starts headless and the address and an
 # ssh -L tunnel command are printed instead of opening a browser (Jan, Q19)
@@ -24,7 +25,7 @@ DEMO_DIR="$USER_HOME/$REPO/demos/quantum-paradoxes"
 PORT="${PARADOXES_JUPYTER_PORT:-8891}"
 
 # Check if demo is installed
-if [ ! -f "$DEMO_DIR/$MARKER_PARADOXES" ]; then
+if [ ! -e "$DEMO_DIR/$MARKER" ]; then
     echo "Error: Quantum Paradoxes demo not found at $DEMO_DIR"
     echo "Please install the demo first through the RasQberry menu."
     debug "USER_HOME: $USER_HOME"

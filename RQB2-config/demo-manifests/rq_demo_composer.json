@@ -38,6 +38,14 @@
   },
   "desktop": {
     "show": true,
-    "terminal": false
-  }
+    "terminal": false,
+    "keywords": [
+      "quantum",
+      "qiskit",
+      "composer",
+      "circuit",
+      "IBM"
+    ]
+  },
+  "maturity": "beta"
 }

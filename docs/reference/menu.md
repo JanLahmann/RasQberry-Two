@@ -11,7 +11,7 @@ Values in <angle brackets> change with the Pi's state (for example <on/off>). En
 Quantum demos, setup and settings for this RasQberry Two
 
 - **Quantum Demos** → menu "RasQberry: Quantum Demos": Select a group of demos or an option
-  - Learning paths (beta): the demos step by step
+  - Learning paths${_lp_mark}: the demos step by step
   - **Demo groups**
     - **LED panel**: IBM logo, RasQ-LED, Lights Out, Raspberry Tie, painter → menu "RasQberry: LED panel"
       - IBM LED Demo
@@ -52,10 +52,10 @@ Quantum demos, setup and settings for this RasQberry Two
         - Local simulator with a noise model
         - Real IBM Quantum computer (IBM Quantum account)
       - LED-Painter
-    - **Play**: Fun with Quantum games, paradoxes, fractals → menu "RasQberry: Play"
+    - **Play**: Quantum games and fractals → menu "RasQberry: Play"
       - **Fun with Quantum** → menu "RasQberry: Fun with Quantum": Select an entry
         - Start here: what the games are about (beta)
-        - Quantum Coin Game (beta)
+        - Quantum Coin Game
         - GHZ Game (beta)
         - Hardy's Paradox (beta)
         - Mermin–Peres Magic Square (beta)
@@ -66,7 +66,6 @@ Quantum demos, setup and settings for this RasQberry Two
         - Fun with Quantum website: games in the browser (beta)
         - Fun with Quantum family: related projects (beta)
       - Quantum Coin Game
-      - Quantum Paradoxes
       - Quantum Fractals
     - **Big projects**: Qoffee-Maker, Quantum Mixer → menu "RasQberry: Big projects"
       - Qoffee-Maker [internet, 32 GB]
@@ -76,7 +75,6 @@ Quantum demos, setup and settings for this RasQberry Two
       - **Grokking the Bloch Sphere** → menu "RasQberry: Grokking the Bloch Sphere": Select an entry
         - On this Pi (works offline, with tips)
         - Online version (javafxpert.github.io)
-      - Qiskit Live (QuBins) [internet, 32 GB]
       - IBM Quantum Tutorials
       - IBM Quantum Courses
       - IBM Quantum Composer [internet]
@@ -92,7 +90,9 @@ Quantum demos, setup and settings for this RasQberry Two
     - **Beta: try & tell us**: new demos that may not work yet → menu "RasQberry: Beta: try & tell us"
       - Workshop & Qiskit Server (beta) [internet, 32 GB]
       - doQumentation (IBM Quantum Learning on this Pi) (beta) [32 GB]
+      - Quantum Paradoxes (beta)
       - Entangible (beta)
+      - Qiskit Live (QuBins) (beta) [internet, 32 GB]
       - QuBins (beta) [internet, 32 GB]
       - racetraQ (beta) *(catalogue demo: shown once added)*
   - Stop a running LED demo
@@ -131,7 +131,7 @@ Quantum demos, setup and settings for this RasQberry Two
   - Start at boot: <HOTSPOT_AT_BOOT>
   - Share this Pi's internet (cable or USB Wi-Fi): <HOTSPOT_SHARE_INTERNET>
   - Band: <band>
-  - **SSH/VNC from the hotspot: <auto: on/off, yes or no>** → menu "Wi-Fi hotspot: SSH and VNC": Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try. <text>
+  - **SSH/VNC from the hotspot: <auto: on/off, yes or no>** → menu "Wi-Fi hotspot: SSH and VNC": Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try. (The same applies to the setup Wi-Fi a new Pi opens.) <text>
     - auto: only once the default password is changed (recommended)
     - no: never
     - yes: always, even with the default password

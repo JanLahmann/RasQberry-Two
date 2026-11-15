@@ -64,6 +64,7 @@ exit 0
 ''')
     _exe(d / "sudo", '[ "$1" = -n ] && shift\nexec "$@"\n')
     _exe(d / "logger", "exit 0\n")
+    _exe(d / "pgrep", '[ "$*" = labwc ] && exit 0\nexec /usr/bin/pgrep "$@"\n')   # the desktop session (labwc) runs
     _exe(d / "systemctl", rec + 'case "$1" in is-enabled) [ -e "$STUB_ENABLED" ] ;; *) exit 0 ;; esac\n')
     _exe(d / "id", 'if [ "$1" = -u ]; then echo 0; else exec /usr/bin/id "$@"; fi\n')
     _exe(d / "hostname", 'echo "${STUB_HOSTNAME:-rasqberry}"\n')
@@ -114,25 +115,26 @@ def test_autostart_no_longer_promises_vnc_at_every_login():
                                        "rasqberry-enable-vnc.desktop")).read()
 
 
-@pytest.mark.parametrize("old_vnc_enabled,old_marker,carried", [
-    (False, True, True),     # switched off on the old system: stays off
-    (True, True, False),     # on there: the new system switches it on once
-    (False, False, False),   # a release that always switched it on
+@pytest.mark.parametrize("old_vnc_enabled,old_marker,carried,summary", [
+    (False, True, "vnc-auto-enabled", "VNC off"),  # switched off there: stays off
+    (True, True, "vnc-was-on", "VNC on"),          # on there: stays on
+    (True, False, "vnc-was-on", "VNC on"),         # on, from a release without the marker
+    (False, False, None, None),                    # held off for the password: checked again
 ])
-def test_ab_update_keeps_vnc_off(tmp_path, old_vnc_enabled, old_marker, carried):
+def test_ab_update_keeps_the_vnc_choice(tmp_path, old_vnc_enabled, old_marker, carried, summary):
     old = _slot(tmp_path / "old")
     new = _slot(tmp_path / "new")
-    marker = "var/lib/rasqberry/vnc-auto-enabled"
     if old_marker:
-        (old / marker).write_text("2026-10-01\n")
+        (old / "var/lib/rasqberry/vnc-auto-enabled").write_text("2026-10-01\n")
     if old_vnc_enabled:
         wants = old / "etc/systemd/system/graphical.target.wants"
         wants.mkdir(parents=True)
         os.symlink("/usr/lib/systemd/system/wayvnc.service", wants / "wayvnc.service")
     proc = _carry(new, tmp_path / "data", "pull", str(old))
     assert proc.returncode == 0, proc.stderr
-    assert (new / marker).exists() == carried
-    assert ("VNC off" in proc.stdout) == carried
+    state = new / "var/lib/rasqberry"
+    assert sorted(p.name for p in state.glob("vnc-*")) == ([carried] if carried else [])
+    assert ("VNC o" in proc.stdout) == bool(summary) and (not summary or summary in proc.stdout)
 
 
 # ---------------------------------------------------------------------------
@@ -699,3 +701,15 @@ def test_rq_help_lists_existing_commands_in_80_columns():
 def test_new_terminals_skip_pip_when_qiskit_is_there():
     text = open(os.path.join(_ROOT, "RQB2-config", "setup_qiskit_env.sh")).read()
     assert text.index("qiskit-*.dist-info") < text.index("pip show qiskit")
+
+
+def test_vnc_waits_while_the_published_password_is_set(stubs, tmp_path):
+    # rq_ssh_window.sh vnc-allowed says no (exit 1): VNC stays off, no marker
+    window = tmp_path / "rq_ssh_window.sh"
+    window.write_text("#!/bin/sh\nexit 1\n")
+    window.chmod(0o755)
+    marker = tmp_path / "lib" / "vnc-auto-enabled"
+    env = dict(os.environ, PATH=stubs.path, RQ_VNC_MARKER=str(marker), RQ_SSH_WINDOW=str(window),
+               RQ_VNC_WAIT="0", RQ_VNC_RETRY_WAIT="0")
+    assert subprocess.run(["bash", _VNC], env=env, capture_output=True, text=True, timeout=30).returncode == 0
+    assert "do_vnc 0" not in stubs.logged() and not marker.exists()

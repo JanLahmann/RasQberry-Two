@@ -21,7 +21,9 @@ boot.
 - Usage counts: each run first puts `RQ_UMAMI=0` into the Pi's
   `/usr/config/rasqberry_environment.env`, so rig demo starts, health checks
   and updates do not count in the project's Umami statistics. A freshly
-  flashed rig card counts its first start once, before the first run.
+  written rig card would still count its first start: put an empty file
+  `rasqberry-internal` on its FAT partition (CONFIG on A/B cards, bootfs on
+  standard ones) right after writing it.
 
 ## Running
 
@@ -41,6 +43,26 @@ running (ping-pong) with this checkout's `rq_update_slot.sh`, waits for the new
 slot and its health check, then tests it. The running slot is never written; it
 stays as the way back. The guard's questions are answered yes
 (`--allow-downgrade --force-replace-safe-slot`): the operator chose the release.
+
+The first update to a new release that the Pi itself offers as its latest
+goes the real user's way: the Pi's own lookup (`rq_ab_releases.sh latest`, as
+the menu's release picker uses it), the target slot from `rq_slot_manager.sh
+plan-update`, its own installed `rq_update_slot.sh` with its guard deciding,
+and its own download from GitHub. Once such an update came up, the release
+is listed in `~/.local/share/rasqberry-rig/real-path-done.txt`. That run also
+checks the Imager lists on rasqberry.org for the release against GitHub (URL,
+size, SHA256). `--update latest` takes what the Pi offers.
+
+Later updates to that release use this checkout's updater and a cache:
+`~/.cache/rasqberry-rig/images/` (or `RIG_IMAGE_CACHE`; newest 3 releases),
+downloaded from GitHub once, checked against its SHA256, copied to the Pi
+(`--image-file`). A cached update of a release that never went the real way
+is a WARN.
+
+Each of our GitHub downloads is logged in
+`~/.local/share/rasqberry-rig/own-image-downloads.csv` (date_utc, tag, asset,
+bytes, purpose: `real-path-test` or `rig-update`), for the download statistics
+to subtract. The report's `update-path` row says which way a run went.
 
 The report goes to `results/<timestamp>/report.md`, with a desktop screenshot per
 demo and, for LED demos, the camera frame. Exit status 1 if anything failed.
@@ -111,6 +133,38 @@ sudo /home/rasqberry/RasQberry-Two/venv/RQB2/bin/python /tmp/rigtest/led_fill.py
 Rows and columns where at least 15% of the pixels brighten by 80+ grey levels,
 plus a 0.02 margin, give the crop. Check that each Pi's fill scores 0 in the
 other Pi's crop.
+
+Before a Pi's LED demos, each run checks that this setup still holds (rows
+`led-setup: …` in the report):
+
+- **layout:** the layout the Pi resolves (as the demos do) must map like the
+  `led_layout` given in rig.json (`single-24x8` for the Pi 5 panel,
+  `quad-4x12` for the Pi 4 one); a differently named but identical layout
+  passes. A wrong layout lights the panel but draws in the wrong place
+  (Lights Out's grid in one corner), which the lit score alone does not see.
+- **corners in the panel:** a block in each corner of the logical matrix
+  (3x3 and red at the origin, 2x2 white elsewhere), mapped through the Pi's
+  layout, must light the panel's four corners, the red one top left, with little in
+  between. A crop that no longer frames the panel misses a corner; a layout
+  that doesn't match the wiring puts the blocks elsewhere or the red one in
+  another corner (mirrored, upside down).
+
+It repairs what it can, each repair a WARN row in the report:
+
+- the panel is found from the corner pattern anywhere in the frame (the four
+  brightest blocks, two above two) in every run, and that run's LED demos are
+  judged there: a moved camera needs no new `panel_crop`, which is only the
+  fallback;
+- with the camera, a layout that doesn't map like rig.json's is set to
+  rig.json's (`LED_LAYOUT`; `LED_LAYOUT_VERIFIED` stays as it was), kept only
+  if the panel then looks right, else the old setting is put back.
+  A repaired layout is a WARN, not a pass: a new image that saves the wrong
+  layout shows up there.
+
+What it can't repair turns camera judging off for that Pi's LED demos (they
+would only give wrong results). A panel that stays dark and can't be found
+anywhere is reported, but judging stays on: that is more likely the image's
+LED output, and the demos then fail "panel dark". Frames: `<pi>-setup-*.png`.
 - LED Painter starts with an empty canvas: instead of the camera, the test
   checks that the LED renderer service that drives the panel is running.
 

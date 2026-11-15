@@ -21,10 +21,9 @@ rq_help_guard "$@"
 
 # Load environment and verify required variables
 load_rqb2_env
-verify_env_vars REPO USER_HOME STD_VENV GIT_REPO_DEMO_LED_PAINTER MARKER_LED_PAINTER
+verify_env_vars REPO USER_HOME STD_VENV
 
 DEMO_NAME="LED-Painter"
-MARKER="$MARKER_LED_PAINTER"
 
 # The manifest is the single source of truth for WHERE the demo lives and WHICH
 # upstream commit it is pinned to. This launcher is both a standalone entry point
@@ -45,8 +44,9 @@ manifest_field() {
 # Fall back to the upstream repo name (the demo-directory convention) if the
 # manifest is unreadable, so a broken manifest cannot resurrect the old fork.
 DEMO_DIR=$(get_demo_dir "$(manifest_field '.entrypoint.working_dir' 'RasQberry-Two-LED-Painter')")
-DEMO_REF=$(manifest_field '.install.ref' '')
-DEMO_URL=$(manifest_field '.install.repo_url' "$GIT_REPO_DEMO_LED_PAINTER")
+DEMO_REF=$(rq_demo_ref led-painter "$MANIFEST_FILE" 2>/dev/null) || DEMO_REF=""
+DEMO_URL=$(rq_demo_repo led-painter "$MANIFEST_FILE" 2>/dev/null) || DEMO_URL=""
+MARKER=$(manifest_field '.install.marker_file' 'LED_painter.py')
 
 ################################################################################
 # check_and_install_demo - Install LED Painter with all dependencies
@@ -126,6 +126,7 @@ install_requirements() {
 
 # Fetch the pinned checkout (first install; asks first, one dialog with size)
 fetch_checkout() {
+    [ -n "$DEMO_URL" ] || die "The LED-Painter manifest names no repository"
     rq_require_demo_consent led-painter "$MANIFEST_FILE"
     info "Installing $DEMO_NAME..."
     mkdir -p "$(dirname "$DEMO_DIR")"

@@ -57,6 +57,17 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
-  }
+    "terminal": true,
+    "comment": "Quantum beverage mixer - Qocktails, Qoffee, and Ice demos",
+    "keywords": [
+      "quantum",
+      "cocktail",
+      "coffee",
+      "mixer",
+      "web",
+      "angular",
+      "docker"
+    ]
+  },
+  "maturity": "beta"
 }

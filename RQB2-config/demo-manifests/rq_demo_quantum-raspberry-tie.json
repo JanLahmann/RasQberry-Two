@@ -50,7 +50,15 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
+    "terminal": true,
+    "keywords": [
+      "quantum",
+      "raspberry",
+      "tie",
+      "LED",
+      "visualization",
+      "qiskit"
+    ]
   },
   "variants": [
     {
@@ -78,7 +86,9 @@
       },
       "needs_hw": {
         "network": true
-      }
+      },
+      "maturity": "dev"
     }
-  ]
+  ],
+  "maturity": "beta"
 }

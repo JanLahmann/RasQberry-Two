@@ -4,7 +4,7 @@
   "category": "education",
   "group": "learn",
   "description": "The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network",
-  "maturity": "beta",
+  "maturity": "dev",
   "keywords": [
     "quantum",
     "jupyter",
@@ -46,6 +46,17 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
+    "terminal": true,
+    "comment": "The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi",
+    "keywords": [
+      "quantum",
+      "qiskit",
+      "tutorials",
+      "courses",
+      "guides",
+      "docker",
+      "jupyter",
+      "doqumentation"
+    ]
   }
 }

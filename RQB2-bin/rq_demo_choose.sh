@@ -29,10 +29,10 @@ TAGS=()
 ITEMS=()
 while IFS=$'\t' read -r vid vname vmaturity; do
     [ -n "$vid" ] || continue
-    [ "$vmaturity" = "beta" ] && vname="$vname (beta)"
+    [ "$vmaturity" = "dev" ] && vname="$vname (beta)"   # marked demo level dev
     TAGS+=("$vid")
     ITEMS+=("$vid" "$vname")
-done < <(jq -r '.variants[]? | [.id, .name, (.maturity // "")] | @tsv' "$MANIFEST")
+done < <(jq -r '.maturity as $d | .variants[]? | [.id, .name, (.maturity // $d // "")] | @tsv' "$MANIFEST")
 [ ${#TAGS[@]} -gt 0 ] || exec "$SCRIPT_DIR/rq_demo_run.sh" "$DEMO_ID"
 
 # The window's title: the demo's name (R-135)

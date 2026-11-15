@@ -48,7 +48,8 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
+    "terminal": true,
+    "comment": "Watch Grover's search solve Lights Out puzzles on the LED panel"
   },
   "variants": [
     {
@@ -68,5 +69,6 @@
         "display": "none"
       }
     }
-  ]
+  ],
+  "maturity": "beta"
 }

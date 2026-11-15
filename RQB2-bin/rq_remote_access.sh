@@ -57,14 +57,7 @@ unit_on() { systemctl is-enabled --quiet "$1" 2>/dev/null; }
 ssh_state() { if unit_on ssh.service; then echo on; else echo off; fi; }
 vnc_state() { if unit_on wayvnc.service; then echo on; else echo off; fi; }
 
-# The first value sshd reads for <keyword> (lower case) from its files: sshd
-# keeps the first one, and Debian's sshd_config includes sshd_config.d/*.conf
-# at its top. Stops at the first Match block (what follows is conditional).
-sshd_file_value() {
-    cat "$SSHD_DIR"/sshd_config.d/*.conf "$SSHD_DIR/sshd_config" 2>/dev/null \
-        | awk -v key="$1" 'tolower($1) == "match" { exit }
-                           tolower($1) == key { print tolower($2); exit }' || true
-}
+sshd_file_value() { rq_sshd_first_value "$SSHD_DIR" "$1"; }
 
 # Does SSH accept a password? "no" when it takes keys only: Imager's
 # "public-key authentication only", which an A/B update carries over in
@@ -137,13 +130,16 @@ demo_password_state() {
         '!'*|'*'*) echo no; return 0 ;;
     esac
     command -v perl >/dev/null 2>&1 || { echo unknown; return 0; }
-    if RQ_PW="$DEMO_PASSWORD" RQ_HASH="$hash" perl -e \
-        'my $c = crypt($ENV{RQ_PW}, $ENV{RQ_HASH}); exit((defined $c && $c eq $ENV{RQ_HASH}) ? 0 : 1)' \
-        2>/dev/null; then
-        echo yes
-    else
-        echo no
-    fi
+    # 0 the published one, 1 another, 2 crypt() cannot read the hash: unknown
+    local rc=0
+    RQ_PW="$DEMO_PASSWORD" RQ_HASH="$hash" perl -e \
+        'my $c = crypt($ENV{RQ_PW}, $ENV{RQ_HASH}); exit 2 if !defined $c || $c =~ /^\*/; exit($c eq $ENV{RQ_HASH} ? 0 : 1)' \
+        2>/dev/null || rc=$?
+    case "$rc" in
+        0) echo yes ;;
+        1) echo no ;;
+        *) echo unknown ;;
+    esac
     return 0
 }
 

@@ -428,7 +428,7 @@ def _rules(tmp_path, env=None, iptables_s=""):
 
 
 def test_ssh_and_vnc_from_the_hotspot_are_blocked_by_default(tmp_path):
-    drop = 'iifname "wlan0" tcp dport { 22, 5900 } drop'
+    drop = 'iifname "wlan0" tcp dport { 22, 5900 } reject with tcp reset'
     # auto (the default) with the demo password still on the desktop user
     demo = _accounts(tmp_path, {"rasqberry": YESCRYPT_DEMO})
     ruleset, _ = _rules(tmp_path, demo)
@@ -638,7 +638,9 @@ def test_status_and_menu_say_why(tmp_path):
     assert "admin_effect" in status and "allowed (" in status and "blocked (" in status
     assert "    admin)   admin_effect ;;" in sh
     share = sh[sh.index("share_rules() {"):]
-    assert "if ! admin_allowed; then" in share[:share.index("\n}\n")]
+    assert 'admin_drop_rule "$iface"' in share[:share.index("\n}\n")]
+    rule = sh[sh.index("admin_drop_rule() {"):]
+    assert "admin_allowed ||" in rule[:rule.index("\n}\n")]
 
 
 def test_a_password_change_in_the_menu_applies_to_the_hotspot():

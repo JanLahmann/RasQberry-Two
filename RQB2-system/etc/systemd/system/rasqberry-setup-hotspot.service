@@ -12,6 +12,8 @@ Type=simple
 ExecStart=/usr/bin/rq_setup_hotspot.sh
 # wifi-connect takes its access point down (up to 15 s), then the LED scroll
 TimeoutStopSec=30
+# the SSH/VNC rule for its clients, also after a killed run
+ExecStopPost=-/usr/sbin/nft delete table inet rasqberry_setup_wifi
 
 [Install]
 WantedBy=multi-user.target

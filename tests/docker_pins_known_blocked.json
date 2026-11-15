@@ -1,0 +1,10 @@
+{
+  "_doc": "Registries we know are blocking an image for a while (tests/check_docker_pins.py): an image that starts with a prefix here is reported BLOCKED instead of GONE and does not fail the check until the date in until (YYYY-MM-DD) has passed. Remove the entry once the images are back, and re-pin.",
+  "blocked": [
+    {
+      "prefix": "ghcr.io/qubins/",
+      "reason": "GitHub flagged the QuBins org on 2026-11-09; its images cannot be pulled anonymously. Qiskit Live and QuBins are dev-level demos meanwhile. When it is lifted, pin 2.5-xl-20261103.",
+      "until": "2026-11-27"
+    }
+  ]
+}

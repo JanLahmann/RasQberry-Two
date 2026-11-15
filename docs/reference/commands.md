@@ -62,7 +62,8 @@ migrate: move a name or password from the environment file into their own file
 sync: its firewall rules, Entangible's address, the landing page and its
   DNS follow whether the hotspot runs (NetworkManager hook 91-rasqberry-hotspot)
 iface: the Wi-Fi device the hotspot uses (or would use)
-admin: may devices on the hotspot use SSH and VNC? on|off, then the reason
+admin: may devices on the hotspot (and the first-boot setup Wi-Fi) use
+…
 ```
 
 ## Demos
@@ -388,9 +389,11 @@ Download a RasQberry A/B image and install it into the other slot
 
 ```
 rq_update_slot.sh <download_url> <release_tag> [--slot A|B] [--sha256 SUM]
-                  [--allow-unverified] [--allow-downgrade]
-                  [--force-replace-safe-slot] [--force-old-release]
-rq_update_slot.sh --preflight [--slot A|B]
+                         [--allow-unverified] [--allow-downgrade]
+                         [--force-replace-safe-slot] [--force-old-release]
+                         [--image-file PATH]
+       rq_update_slot.sh --preflight [--slot A|B]
+--image-file: use this local .img.xz instead of downloading (moved in, checked, removed)
 ```
 
 ### rq_ab_releases.sh
@@ -448,4 +451,4 @@ rq_user_rename.sh check NEW     exit 0 when NEW can be used, else why
 
 ## Run by RasQberry itself
 
-Used by the menu, the desktop, services and the image build, not meant to be run by hand: `RasQ-LED-display.py`, `RasQ-LED.py`, `demo_led_ibm_logo.py`, `demo_led_logo_custom.py`, `demo_led_logo_slideshow.py`, `demo_led_rasqberry_logo.py`, `demo_led_text_alert.py`, `demo_led_text_gradient.py`, `demo_led_text_rainbow_scroll.py`, `demo_led_text_rainbow_static.py`, `demo_led_text_scroll_welcome.py`, `demo_led_text_status.py`, `fractals.sh`, `qoffee-maker.sh`, `qoffee-setup.sh`, `quantum-mixer.sh`, `rq_audio_delay_calibrate.py`, `rq_browser_tab.py`, `rq_carry_over.sh`, `rq_carry_ssh_identity.sh`, `rq_catalogue.py`, `rq_common.sh`, `rq_demo_desktop_entry.sh`, `rq_demo_generate_desktop.sh`, `rq_demo_generate_menu.sh`, `rq_demo_run_test.sh`, `rq_desktop_session.py`, `rq_detect_hardware.sh`, `rq_device_settings.sh`, `rq_display_ip.py`, `rq_env_merge.py`, `rq_firmware.py`, `rq_fun_with_quantum.sh`, `rq_fwq.py`, `rq_fwq_family.sh`, `rq_fwq_portal.sh`, `rq_grok_bloch.sh`, `rq_group_window.py`, `rq_health_check.py`, `rq_hold_on_error.sh`, `rq_hotspot_portal.py`, `rq_ibm_courses.sh`, `rq_ibm_tutorials.sh`, `rq_image_versions.py`, `rq_imager_firstrun.sh`, `rq_imager_userconf.sh`, `rq_install_system_files.sh`, `rq_learner_setup.sh`, `rq_led_ibm_demo.sh`, `rq_led_ibm_logo.py`, `rq_led_logo.py`, `rq_led_renderer.py`, `rq_led_simpletest.py`, `rq_led_test.py`, `rq_led_utils.py`, `rq_led_verify_prompt.sh`, `rq_led_virtual.py`, `rq_led_virtual_gui.py`, `rq_led_wizard_infer.py`, `rq_led_wizard_probe.py`, `rq_patch_raspiconfig.sh`, `rq_pip_extras.py`, `rq_quantum_lab.sh`, `rq_quantum_paradoxes.sh`, `rq_qubins.py`, `rq_qubins.sh`, `rq_rasq_led.sh`, `rq_release_notice.py`, `rq_setup_hotspot.sh`, `rq_slot_indicator.py`, `rq_starter_sync.py`, `rq_stream_image.py`, `rq_test_leds.py`, `rq_tryboot_retry.sh`, `rq_umami_event.py`, `rq_update_poller.py`, `rq_wifi_watchdog.sh`, `setup_ibm_tutorials.py`, `setup_quantum_paradoxes.py`, `test_all_led_demos.sh`, `test_virtual_led.py`, `turn_off_LEDs.py`.
+Used by the menu, the desktop, services and the image build, not meant to be run by hand: `RasQ-LED-display.py`, `RasQ-LED.py`, `demo_led_ibm_logo.py`, `demo_led_logo_custom.py`, `demo_led_logo_slideshow.py`, `demo_led_rasqberry_logo.py`, `demo_led_text_alert.py`, `demo_led_text_gradient.py`, `demo_led_text_rainbow_scroll.py`, `demo_led_text_rainbow_static.py`, `demo_led_text_scroll_welcome.py`, `demo_led_text_status.py`, `fractals.sh`, `qoffee-maker.sh`, `qoffee-setup.sh`, `quantum-mixer.sh`, `rq_audio_delay_calibrate.py`, `rq_browser_tab.py`, `rq_carry_over.sh`, `rq_carry_ssh_identity.sh`, `rq_catalogue.py`, `rq_common.sh`, `rq_demo_desktop_entry.sh`, `rq_demo_generate_desktop.py`, `rq_demo_generate_menu.sh`, `rq_demo_level.py`, `rq_demo_run_test.sh`, `rq_desktop_session.py`, `rq_detect_hardware.sh`, `rq_device_settings.sh`, `rq_display_ip.py`, `rq_env_merge.py`, `rq_firmware.py`, `rq_fun_with_quantum.sh`, `rq_fwq.py`, `rq_fwq_family.sh`, `rq_fwq_portal.sh`, `rq_grok_bloch.sh`, `rq_group_window.py`, `rq_health_check.py`, `rq_hold_on_error.sh`, `rq_hotspot_portal.py`, `rq_ibm_courses.sh`, `rq_ibm_tutorials.sh`, `rq_image_versions.py`, `rq_imager_firstrun.sh`, `rq_imager_userconf.sh`, `rq_install_system_files.sh`, `rq_learner_setup.sh`, `rq_led_ibm_demo.sh`, `rq_led_ibm_logo.py`, `rq_led_logo.py`, `rq_led_renderer.py`, `rq_led_simpletest.py`, `rq_led_test.py`, `rq_led_utils.py`, `rq_led_verify_prompt.sh`, `rq_led_virtual.py`, `rq_led_virtual_gui.py`, `rq_led_wizard_infer.py`, `rq_led_wizard_probe.py`, `rq_patch_raspiconfig.sh`, `rq_pip_extras.py`, `rq_quantum_lab.sh`, `rq_quantum_paradoxes.sh`, `rq_qubins.py`, `rq_qubins.sh`, `rq_rasq_led.sh`, `rq_release_notice.py`, `rq_setup_hotspot.sh`, `rq_slot_indicator.py`, `rq_ssh_first_login.sh`, `rq_ssh_window.sh`, `rq_starter_sync.py`, `rq_stream_image.py`, `rq_test_leds.py`, `rq_tryboot_retry.sh`, `rq_umami_event.py`, `rq_update_poller.py`, `rq_wifi_watchdog.sh`, `setup_ibm_tutorials.py`, `setup_quantum_paradoxes.py`, `test_all_led_demos.sh`, `test_virtual_led.py`, `turn_off_LEDs.py`.

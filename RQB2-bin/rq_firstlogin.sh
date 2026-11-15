@@ -238,9 +238,10 @@ task_led_run()     { "$BIN_DIR/rq_led_setup_wizard.sh" --verify; }
 # ---------------------------------------------------------------------------
 # Task (optional, Q16): change the password, or keep the demo password
 # ---------------------------------------------------------------------------
-# Every card starts with the published password, and SSH and VNC accept it
-# (R-013). A booth or a classroom may want to keep it; anyone else should
-# change it. This step only asks; SSH, VNC and the password are all in the
+# Every card starts with the published password (R-013). Until it is changed,
+# SSH takes it only in a window after each start and asks for a new one
+# (rq_ssh_window.sh), and VNC stays off. A booth or a classroom may want to
+# keep it; anyone else should change it. This step only asks; SSH, VNC and the password are all in the
 # menu's Remote Access & Security (rq_remote_access.sh).
 DEMO_PASSWORD='Qiskit1!'
 PASSWORD_KEPT_FILE="$STATE_DIR/demo-password-kept"
@@ -272,7 +273,7 @@ task_password_run() {
     local choice who
     who="${USER:-$(id -un)}"
     choice=$(whiptail --title "Password" --notags --menu \
-"This RasQberry Two uses the published demo password: anyone can look it up on the website and log in with it over SSH or VNC from the same network.
+"This RasQberry Two uses the published demo password: anyone can look it up on the website. Until it is changed, SSH takes it only for a while after each start (15 minutes, unless changed), and VNC stays off.
 
 At a booth or in a classroom you may want to keep it." 15 74 2 \
         change "Change the password now (recommended)" \

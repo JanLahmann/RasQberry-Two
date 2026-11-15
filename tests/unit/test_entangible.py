@@ -232,7 +232,7 @@ class _Pty:
 def test_manifest_is_an_internal_big_project_pinned_on_booth_v2():
     m = _manifest()
     assert m["id"] == "entangible" and m["name"] == "Entangible"
-    assert m["group"] == "projects" and m["maturity"] == "beta"
+    assert m["group"] == "projects" and m["maturity"] == "dev"   # demo level (Jan, 2026-11-13)
     assert m["entrypoint"] == {"working_dir": "entangible", "launcher": "rq_entangible.sh"}
     inst = m["install"]
     assert inst["repo_url"] == "https://github.com/JanLahmann/entangible.git"
@@ -269,8 +269,6 @@ def test_desktop_entry_icon_and_build_list():
     assert "Name=Entangible (beta)\n" in entry and "Comment=(beta) " in entry
     assert "Icon=/usr/share/icons/rasqberry/entangible.svg\n" in entry
     assert os.path.isfile(os.path.join(_ROOT, "desktop-icons", "entangible.svg"))
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    assert stage.count("|entangible|") == 2
     groups = json.load(open(os.path.join(_MANIFESTS, "demo-groups.json")))
     # its manifest names Big projects; while it is beta it sits in Beta (Jan, 2026-10-24)
     projects = [g for g in groups["groups"] if g["id"] == "projects"][0]

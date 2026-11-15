@@ -345,10 +345,27 @@ def test_no_launcher_claims_file_types():
         assert "\nMimeType=" not in open(os.path.join(_BOOKMARKS, name)).read(), name
 
 
-def test_every_desktop_launcher_has_a_place_in_the_layout():
-    script = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    listed = set(re.search(r"\^\(([^)]*)\)\\\.desktop\$", script).group(1).split("|"))
-    assert listed == set(ds.ICON_ORDER)
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash required")
+def test_the_layout_knows_the_launchers_stage_06_puts_on_the_desktop():
+    # stage 06's own command, run on the shipped folder, picks the same set
+    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
+    cmd = re.search(r"mapfile -t DESKTOP_LAUNCHERS < <\((grep [^\n]*\\\n[^\n]*)\)", stage).group(1)
+    out = subprocess.run(["bash", "-c", cmd.replace("\\\n", " ")], env={"CLONE_DIR": _ROOT, "PATH": os.environ["PATH"]},
+                         capture_output=True, text=True).stdout.split()
+    assert sorted(os.path.basename(p)[:-len(".desktop")] for p in out) == sorted(ds.ICON_ORDER)
+    assert "led-test" not in ds.ICON_ORDER and ds.ICON_ORDER[0] == "rasqberry-setup"
+    assert '"%s"' % ds.MENU_ONLY in open(os.path.join(_BIN, "rq_demo_generate_desktop.py")).read()
+
+
+def test_shipped_launchers_skips_menu_only_and_other_files(tmp_path):
+    (tmp_path / "a.desktop").write_text("[Desktop Entry]\nName=A\n")
+    (tmp_path / "b.desktop").write_text("[Desktop Entry]\n%s\n" % ds.MENU_ONLY)
+    (tmp_path / "README.md").write_text("x")
+    (tmp_path / "c.desktop").write_text("[Desktop Entry]\n")
+    (tmp_path / "touch-mode.desktop").write_bytes(b"[Desktop Entry]\nName=Gr\xfc\xdfe\n")
+    (tmp_path / "d.desktop").symlink_to(tmp_path / "gone")
+    assert ds.shipped_launchers(str(tmp_path)) == ["touch-mode", "a", "c"]
+    assert ds.shipped_launchers(str(tmp_path / "missing")) == []
 
 
 def test_touch_icon_asks_instead_of_logging_out():

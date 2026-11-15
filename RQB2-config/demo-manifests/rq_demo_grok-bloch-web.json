@@ -41,5 +41,6 @@
   "desktop": {
     "show": false,
     "terminal": false
-  }
+  },
+  "maturity": "beta"
 }

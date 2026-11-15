@@ -28,3 +28,6 @@ rasqberry-setup-hotspot.service
 rasqberry-led-clear.service
 # Outdated bootloader firmware: System Info, checklist, one desktop notice
 rasqberry-firmware-check.service
+# SSH on a card with the published password: a window after each start (rq_ssh_window.sh)
+rasqberry-ssh-window.service
+rasqberry-ssh-window-check.path

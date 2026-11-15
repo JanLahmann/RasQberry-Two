@@ -1,3 +1,4 @@
+# Generated from demo-manifests/rq_demo_quantum-fractals.json by RQB2-bin/rq_demo_generate_desktop.py - edit the manifest
 [Desktop Entry]
 Version=1.1
 Name=Quantum Fractals
@@ -12,3 +13,4 @@ Keywords=quantum;fractals;julia;art;visualization;qiskit;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false
+X-RasQberry-Demo=quantum-fractals

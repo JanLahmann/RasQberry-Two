@@ -206,10 +206,30 @@ def test_github_digest_is_used_when_the_manifest_has_none(tmp_path):
     assert proc.stdout.strip() == "ab" * 32, proc.stderr
 
 
+def test_an_image_file_is_moved_in_instead_of_downloaded(tmp_path):
+    # the rig test's cached image: no download, and it is used up like one
+    src = tmp_path / "rigtest.img.xz"
+    src.write_bytes(b"xz")
+    proc = subprocess.run(_source(f"""
+        download_image() {{ echo DOWNLOADED; }}
+        parse_arguments --image-file "{src}"
+        stage_image https://x/r-ab.img.xz "{tmp_path}/staged.img.xz"
+    """), capture_output=True, text=True, env=_env(tmp_path))
+    assert proc.returncode == 0, proc.stderr
+    assert "DOWNLOADED" not in proc.stdout
+    assert (tmp_path / "staged.img.xz").read_bytes() == b"xz" and not src.exists()
+
+
+def test_a_missing_image_file_is_refused(tmp_path):
+    proc = subprocess.run(_source(f'parse_arguments --image-file "{tmp_path}/none"'),
+                          capture_output=True, text=True, env=_env(tmp_path))
+    assert proc.returncode != 0 and "no such file" in proc.stderr + proc.stdout
+
+
 def test_an_image_without_any_checksum_is_refused_before_the_download():
     text = open(_SCRIPT).read()
     main = text[text.index("main() {"):]
-    assert main.index('refuse "$RC_UNVERIFIED"') < main.index("download_image ")
+    assert main.index('refuse "$RC_UNVERIFIED"') < main.index("stage_image ")
     assert "--allow-unverified" in text
 
 
@@ -532,7 +552,7 @@ def test_the_guard_runs_before_the_download():
     main = text[text.index("main() {"):]
     assert main.index('preflight_checks "$TARGET_SLOT"') < main.index("enforce_update_guard ")
     assert main.index("enforce_update_guard ") < main.index("resolve_image_sha256 ")
-    assert main.index("enforce_update_guard ") < main.index("download_image ")
+    assert main.index("enforce_update_guard ") < main.index("stage_image ")
 
 
 def test_slot_a_is_not_special_any_more():
