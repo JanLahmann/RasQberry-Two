@@ -115,6 +115,14 @@ def jrl01_parts(prof, a=ASSEMBLY):
     return top, chandeliers
 
 
+def jrl01_bodies(prof):
+    """[(name, filament, (vertices, triangles))] of jrl01 for a two-colour
+    3MF: the lid transparent, the chandeliers silk gold."""
+    top, chs = jrl01_parts(prof)
+    return ([("lid", "transparent", shape_mesh(top))]
+            + [(f"chandelier {i + 1}", "silk gold", shape_mesh(c)) for i, c in enumerate(chs)])
+
+
 GAMMA = dict(
     corner_r=38.103,             # outer hexagon, corners on +/- x
     inner_apothem=30.6,          # inside face of the five walls
@@ -244,11 +252,7 @@ def main():
         print("%s: %.2f x %.2f x %.2f mm, volume %.0f mm3" % (name, *bbox_size(part), vol))
         export_part(part, name, root=a.outdir)
         if name == "RQB2-Cryostat-jrl01":
-            # two colours: transparent lid, gold chandeliers
-            top, chs = jrl01_parts(prof)
-            bodies = [("lid", "transparent", shape_mesh(top))]
-            bodies += [(f"chandelier {i + 1}", "silk gold", shape_mesh(c)) for i, c in enumerate(chs)]
-            write_3mf(part_path(name, root=a.outdir).with_suffix(".3mf"), bodies)
+            write_3mf(part_path(name, root=a.outdir).with_suffix(".3mf"), jrl01_bodies(prof))
             print("  wrote RQB2-Cryostat-jrl01.3mf (lid + 3 chandeliers)")
 
 

@@ -72,12 +72,16 @@ dispatch.
 
 ## Complete models and print plates
 
-`build_plates.py` builds two variants from the new parts: the standard
-(dovetail floor, cryostat and wall held by the plugs) and one without floor,
-with the closed wall base and cryostat (`-no-floor`) and five jrl02 servers.
-`PLAN` lists the plates (one filament each) and how many of each part;
-`ORIENT` how a part lies on the bed; `layout()` where each part sits in the
-assembled model (taken from the website's 3D viewer). The plates are
+`build_plates.py` builds the parts list of discussion #93 from the new
+parts: wall (base `jrl01-2`, `Back+13`, lid, LED filter screen), cryostat
+Gamma `jrl04` with the door, 9 `jrl02` servers with lids (three per arm
+wall) and Jan's lid with chandeliers `jrl01` (two colors, filament change
+at a layer). The standard has the dovetail floor and plugs; without floor
+the floor plates are skipped and two `-no-floor` plates (wall base and
+cryostat without the holes) replace their standard ones. `PLATES` lists the
+plates and how many of each part; `ORIENT` how a part lies on the bed;
+`layout()` where each part sits in the assembled model (wall from the
+website's 3D viewer, cryostat on the floor's cryostat hole). The plates are
 PrusaSlicer projects with the system presets (Prusament PLA, 0.20 mm SPEED,
 HF0.4 nozzle); PrusaSlicer slices each once for the grams and times in
 `print/generated/plates/README.md`.
