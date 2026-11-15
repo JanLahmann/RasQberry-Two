@@ -1,18 +1,18 @@
 # RTE servers and lid (parametric rebuild)
 
 - `narrow_server.py` rebuilds Jan's server
-  `originals/3D Model - modifications - Jan/October 2025/RTE/RQB2-R2_NarrowServerSingle-jrl02.stl`
+  `print/originals/3D Model - modifications - Jan/October 2025/RTE/RQB2-R2_NarrowServerSingle-jrl02.stl`
   (SketchUp, mesh only) as a CAD solid; with `--variant original` the
-  original server `originals/RTE/R2_NarrowServerSingle.stl` (see
+  original server `print/originals/RTE/R2_NarrowServerSingle.stl` (see
   "Original server" below).
 - `server_standalone.py` rebuilds
-  `originals/cryostat/Standalone Version/R2_ServerStandalone.stl`: two
+  `print/originals/cryostat/Standalone Version/R2_ServerStandalone.stl`: two
   original servers joined front to front.
-- `rte_lid.py` rebuilds `originals/RTE/R2_NarrowServerSingleLid.stl`
+- `rte_lid.py` rebuilds `print/originals/RTE/R2_NarrowServerSingleLid.stl`
   (≤ 0.35 mm) and makes its fit adjustable (see "Lid" below).
 
-They write STL / STEP to `print/RTE/` (the original server also to
-`print/cryostat/Standalone Version/`, where the same file sits; the double
+They write STL / STEP to `print/generated/RTE/` (the original server also to
+`print/generated/cryostat/Standalone Version/`, where the same file sits; the double
 server goes there too).
 
 ```bash

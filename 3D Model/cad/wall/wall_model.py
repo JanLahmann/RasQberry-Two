@@ -8,7 +8,7 @@ a parametric "split" feature: each part can be cut into segments joined by
 printable dovetail (puzzle) keys, so the 245.7 mm wide wall fits on
 printers with beds smaller than the one-piece part.
 
-Outputs (written to ../../print/wall/; see rqb_cad.PARTS):
+Outputs (written to ../../print/generated/wall/; see rqb_cad.PARTS):
     <part>.stl / .step / .3mf             one-piece
     <part>.split-A.* / .split-B.*         split segments
 
@@ -213,7 +213,7 @@ def build_part(data, snap, flip_v=False, closed_bottom=False):
 def main():
     import argparse
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--only", help="comma-separated part names")
     a = ap.parse_args()
     profiles = json.load(open(PROFILES))

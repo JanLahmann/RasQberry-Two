@@ -20,11 +20,11 @@ from build123d import (
 # Output layout
 # ---------------------------------------------------------------------------
 
-# Generated files go to ../print/ (`3D Model/print/`), in the same part
-# folders as the originals in ../originals/ and under the same file names.
+# Generated files go to ../print/generated/ (`3D Model/print/generated/`), in the same part
+# folders as the originals in ../print/originals/ and under the same file names.
 # Jan's modifications sit next to the part they modify; the no-floor
 # versions carry a "-no-floor" suffix.
-OUTPUT = Path(__file__).resolve().parent.parent / "print"
+OUTPUT = Path(__file__).resolve().parent.parent / "print" / "generated"
 PARTS = {
     "R2_Wall-Base": "wall/R2_Wall-Base",
     "R2_Wall-Back": "wall/R2_Wall-Back",
@@ -44,12 +44,11 @@ PARTS = {
     "R2_Wall-Back-SolidForStaticModels": "wall/R2_Wall-Back-SolidForStaticModels",
     "R2_Screw": "wall/R2_Screw",
     "R2_Hex_Nut": "wall/R2_Hex_Nut",
-    # the floor with dovetail joints and the plugs; the earlier rebuild
-    # (alignment pins, screws) stays in floor/ unchanged
-    **{f"R2_Floor-{t}": f"floor/Dovetail Version/R2_Floor-{t}"
+    # the floor with dovetail joints and the plugs
+    **{f"R2_Floor-{t}": f"floor/R2_Floor-{t}"
        for t in ("Tile1", "Tile2", "Tile3", "Tile4", "Tile5", "Tile6s", "all", "JointTest",
                  "CryoPlug", "CryoPlugTest", "WallPlug", "WallPlugTest")},
-    **{f"R2_Floor-{t}": f"floor/Dovetail Version/Sign Magnet Indent Version/R2_Floor-{t}"
+    **{f"R2_Floor-{t}": f"floor/Sign Magnet Indent Version/R2_Floor-{t}"
        for t in ("Tile1Mag", "Tile2Mag")},
     # Jan's modifications (originals: 3D Model - modifications - Jan/October 2025[ - no-floor])
     "R2_Wall-Base-jrl01-2": "wall/R2_Wall-Base-jrl01-2",
@@ -65,13 +64,13 @@ PARTS = {
 
 
 def part_path(name, suffix="", root=None):
-    """Path of part `name` under print/ (or `root`), without extension."""
+    """Path of part `name` under print/generated/ (or `root`), without extension."""
     rel = Path(PARTS[name])
     return Path(root or OUTPUT) / rel.parent / (rel.name + suffix)
 
 
 def export_part(solid, name, suffix="", root=None, **kw):
-    """Export part `name` (a key of PARTS) to its place under print/
+    """Export part `name` (a key of PARTS) to its place under print/generated/
     (or under `root`). `suffix` is added to the file name, e.g. ".split-A"."""
     rel = Path(PARTS[name])
     export_all(solid, rel.name + suffix, Path(root or OUTPUT) / rel.parent, **kw)
@@ -212,7 +211,7 @@ def _bare(shape):
 def export_all(solid, stem, outdir, formats=("stl", "step"), color=None,
                stl_tolerance=None, stl_angular_tolerance=None, quiet=False):
     """Write <outdir>/<stem>.stl / .step (/ .3mf when asked; the coloured
-    3MFs in print/ are written by build_print.py). `color` (build123d Color)
+    3MFs in print/generated/ are written by build_print.py). `color` (build123d Color)
     is stored in the 3MF when given. Tolerances default to
     rqb_params.EXPORT; rqb_params.SCALE is applied to the solid."""
     if stl_tolerance is None:

@@ -14,7 +14,7 @@ the rebuilt solids get true cylindrical faces instead of 24-gons.
 
 Usage:
     # fetch the source STLs from the 3D-model branch first, e.g.
-    #   git show origin/3D-model:"3D Model/originals/wall/R2_Wall-Base.stl" > /tmp/R2_Wall-Base.stl
+    #   git show origin/3D-model:"3D Model/print/originals/wall/R2_Wall-Base.stl" > /tmp/R2_Wall-Base.stl
     python3 extract_profiles.py <dir-with-source-stls>
 
 Requires: trimesh, shapely, rtree, numpy  (pip install trimesh shapely rtree numpy)

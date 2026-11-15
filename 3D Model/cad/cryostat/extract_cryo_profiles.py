@@ -15,10 +15,10 @@ Writes cryo_profiles.json next to this script; cryostat_model.py builds the
 solids from it.
 
 Usage:
-    git show "origin/3D-model:3D Model/originals/cryostat/R2_ChandelierSingle.stl" > /tmp/src/R2_ChandelierSingle.stl
-    git show "origin/3D-model:3D Model/originals/cryostat/R2_CryoLid-Simple.stl"   > /tmp/src/R2_CryoLid-Simple.stl
-    git show "origin/3D-model:3D Model/originals/cryostat/Standalone Version/R2_CryoStandaloneGamma.stl" > /tmp/src/R2_CryoStandaloneGamma.stl
-    git show "origin/3D-model:3D Model/originals/3D Model - modifications - Jan/October 2025/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl" > /tmp/src/RQB2-R2_CryoStandaloneGamma-jrl04.stl
+    git show "origin/3D-model:3D Model/print/originals/cryostat/R2_ChandelierSingle.stl" > /tmp/src/R2_ChandelierSingle.stl
+    git show "origin/3D-model:3D Model/print/originals/cryostat/R2_CryoLid-Simple.stl"   > /tmp/src/R2_CryoLid-Simple.stl
+    git show "origin/3D-model:3D Model/print/originals/cryostat/Standalone Version/R2_CryoStandaloneGamma.stl" > /tmp/src/R2_CryoStandaloneGamma.stl
+    git show "origin/3D-model:3D Model/print/originals/3D Model - modifications - Jan/October 2025/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl" > /tmp/src/RQB2-R2_CryoStandaloneGamma-jrl04.stl
     python3 extract_cryo_profiles.py /tmp/src
 """
 import json

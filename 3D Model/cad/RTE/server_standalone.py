@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parametric rebuild of the standalone double server (R2_ServerStandalone).
 
-Rebuilds `3D Model/originals/cryostat/Standalone Version/
+Rebuilds `3D Model/print/originals/cryostat/Standalone Version/
 R2_ServerStandalone.stl` (SketchUp): two original narrow servers
 (narrow_server.py, variant "original") standing front to front, 0.2 mm
 apart, with the two front walls cut away over the cavity width, so they
@@ -56,7 +56,7 @@ def build_pair(p=PARAMS, open_end=False):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
     part = build_pair()

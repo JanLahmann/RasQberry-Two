@@ -5,7 +5,7 @@ Rebuilds `3D Model/3D Model - modifications - Jan/October 2025/wall/
 RQB2-WallPanel-jrl02-2.stl` (Tinkercad): a flat 0.6 mm plate with a narrower
 tab along the top edge. Exact rebuild (the original is 28 triangles).
 
-Usage:  python wall_panel.py [--outdir ROOT]   (default ../../print, see rqb_cad.PARTS)
+Usage:  python wall_panel.py [--outdir ROOT]   (default ../../print/generated, see rqb_cad.PARTS)
 """
 import argparse
 import sys
@@ -35,7 +35,7 @@ def build(p=PARAMS):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     a = ap.parse_args()
     part = build()
     vol = check_solid(part, "WallPanel")

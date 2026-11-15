@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parametric rebuild of the conjoined cryostat (R2_NarrowYCryoConjoined).
 
-Rebuilds `3D Model/originals/cryostat/R2_NarrowYCryoConjoined.stl`
+Rebuilds `3D Model/print/originals/cryostat/R2_NarrowYCryoConjoined.stl`
 (SketchUp, 568k triangles in 113 overlapping bodies): the standalone
 cryostat body (Gamma, cryostat_model.py) with a pair of servers
 (RTE/server_standalone.py) as an arm on three of its walls - the back wall
@@ -88,7 +88,7 @@ def close_slivers(stl_path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
     part = build()

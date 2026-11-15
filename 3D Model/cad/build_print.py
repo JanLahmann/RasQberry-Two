@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Complete `3D Model/print/` and give every STL there a coloured 3MF.
+"""Complete `3D Model/print/generated/` and give every STL there a coloured 3MF.
 
-1. Copies every original (../originals/) that has no rebuilt counterpart
-   yet into print/, in the same folder and under the same name (an
+1. Copies every original (../print/originals/) that has no rebuilt counterpart
+   yet into print/generated/, in the same folder and under the same name (an
    original that is a copy of a rebuilt part gets the rebuild, SAME_AS). Jan's
-   modifications are all rebuilt; the *_repaired copies stay in originals/.
-2. Writes <name>.3mf next to every STL in print/: one body, with the
+   modifications are all rebuilt; the *_repaired copies stay in print/originals/.
+2. Writes <name>.3mf next to every STL in print/generated/: one body, with the
    filament from the bill of materials as its material (FILAMENT below).
    RQB2-Cryostat-jrl01.3mf (two colours) is written by
    cryostat/cryostat_model.py and left alone.
@@ -21,13 +21,13 @@ import trimesh
 
 from rqb_cad import OUTPUT, write_3mf
 
-ORIGINALS = Path(__file__).resolve().parent.parent / "originals"
+ORIGINALS = Path(__file__).resolve().parent.parent / "print" / "originals"
 JAN = "3D Model - modifications - Jan"
 MULTICOLOUR = {"RQB2-Cryostat-jrl01"}
 # originals that are byte-identical copies of a rebuilt part: use the rebuild
 SAME_AS = {"cryostat/R2_NarrowServerSingleLid.stl": "RTE/R2_NarrowServerSingleLid.stl"}
 
-# (test on the path inside print/, filament); the first match wins
+# (test on the path inside print/generated/, filament); the first match wins
 FILAMENT = [
     (lambda p: "Chandelier" in p.name, "silk gold"),
     (lambda p: p.name in ("R2_NarrowServerSingleLid.stl", "R2_CryoLid-Simple.stl"), "transparent"),

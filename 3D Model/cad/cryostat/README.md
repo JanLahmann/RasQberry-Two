@@ -1,27 +1,27 @@
 # Cryostat: lid, chandelier, body, door (parametric rebuild)
 
 `cryostat_model.py` and `new_door.py` rebuild the cryostat parts from the
-SketchUp and Tinkercad STLs in `originals/`. Each part is written to
-`print/cryostat/` under its original file name; Jan's versions sit next to the
+SketchUp and Tinkercad STLs in `print/originals/`. Each part is written to
+`print/generated/cryostat/` under its original file name; Jan's versions sit next to the
 part they modify:
 
 | Output | Original | Deviation |
 |---|---|---|
-| `R2_CryoLid-Simple.*` | `originals/cryostat/R2_CryoLid-Simple.stl` | ≤ 0.03 mm |
-| `R2_ChandelierSingle.*` | `originals/cryostat/R2_ChandelierSingle.stl` | ≤ 0.05 mm |
-| `RQB2-Cryostat-jrl01.*` | `originals/3D Model - modifications - Jan/October 2025/cryostat/RQB2-Cryostat-jrl01.stl` | ≤ 0.34 mm (see below) |
-| `R2_CryoStandaloneGamma.*` | `originals/cryostat/Standalone Version/R2_CryoStandaloneGamma.stl` | shell ≤ 0.05 mm (p99), cups ≤ 1.8 mm (centred, see below) |
-| `R2_CryoStandaloneBeta.*` | `originals/cryostat/Standalone Version/R2_CryoStandaloneBeta.stl` | shell ≤ 0.02 mm (p99), cups ≤ 1.7 mm (centred, as Gamma) |
+| `R2_CryoLid-Simple.*` | `print/originals/cryostat/R2_CryoLid-Simple.stl` | ≤ 0.03 mm |
+| `R2_ChandelierSingle.*` | `print/originals/cryostat/R2_ChandelierSingle.stl` | ≤ 0.05 mm |
+| `RQB2-Cryostat-jrl01.*` | `print/originals/3D Model - modifications - Jan/October 2025/cryostat/RQB2-Cryostat-jrl01.stl` | ≤ 0.34 mm (see below) |
+| `R2_CryoStandaloneGamma.*` | `print/originals/cryostat/Standalone Version/R2_CryoStandaloneGamma.stl` | shell ≤ 0.05 mm (p99), cups ≤ 1.8 mm (centred, see below) |
+| `R2_CryoStandaloneBeta.*` | `print/originals/cryostat/Standalone Version/R2_CryoStandaloneBeta.stl` | shell ≤ 0.02 mm (p99), cups ≤ 1.7 mm (centred, as Gamma) |
 | `RQB2-R2_CryoStandaloneGamma-jrl04.*` | `… modifications - Jan/October 2025/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl` | ≤ 0.65 mm (inserts centred) |
 | `RQB2-R2_CryoStandaloneGamma-jrl04-no-floor.*` | `… October 2025 - no-floor/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl` | ≤ 0.65 mm |
-| `R2_NewDoor.*` (`new_door.py`) | `originals/cryostat/R2_NewDoor.stl` | ≤ 0.05 mm |
-| `R2_ScrewOctopusAlignment2.*` (`screw_octopus.py`) | `originals/cryostat/R2_ScrewOctopusAlignment2.stl` | ≤ 0.24 mm (p99 0.13) |
-| `R2_NarrowYCryoConjoined.*` (`narrow_y_conjoined.py`) | `originals/cryostat/R2_NarrowYCryoConjoined.stl` | p99 0.34 mm, max 1.0 mm (see below) |
+| `R2_NewDoor.*` (`new_door.py`) | `print/originals/cryostat/R2_NewDoor.stl` | ≤ 0.05 mm |
+| `R2_ScrewOctopusAlignment2.*` (`screw_octopus.py`) | `print/originals/cryostat/R2_ScrewOctopusAlignment2.stl` | ≤ 0.24 mm (p99 0.13) |
+| `R2_NarrowYCryoConjoined.*` (`narrow_y_conjoined.py`) | `print/originals/cryostat/R2_NarrowYCryoConjoined.stl` | p99 0.34 mm, max 1.0 mm (see below) |
 
 ```bash
 cd "3D Model/cad/cryostat"
 python3 extract_cryo_profiles.py <dir with the original STLs>  # only to re-measure
-python3 cryostat_model.py                                      # -> print/cryostat/
+python3 cryostat_model.py                                      # -> print/generated/cryostat/
 python3 new_door.py
 python3 screw_octopus.py
 python3 narrow_y_conjoined.py                                  # ~3 min

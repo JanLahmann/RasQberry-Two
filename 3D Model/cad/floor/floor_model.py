@@ -342,7 +342,7 @@ def joint_test(prm=PARAMS, clearances=JOINT_TEST_CLEARANCES):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--only", help="comma-separated tiles, e.g. Tile1,all")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()

@@ -5,11 +5,11 @@ parts of the RasQberry Two 3D model:
 
 | Part | Original STL (branch `3D-model`) | Size (mm) |
 |---|---|---|
-| Base | `originals/wall/R2_Wall-Base.stl` | 245.7 x 60.0 x 83.5 |
-| Back | `originals/wall/R2_Wall-Back.stl` | 245.3 x 9.7 x 80.5 |
-| Back+13 | `originals/wall/R2_Wall-Back+13.stl` (variant of Back) | 245.3 x 9.7 x 80.5 |
-| Lid | `originals/wall/R2_Wall-Lid.stl` | 245.7 x 60.0 x 98.7 |
-| Back, solid | `originals/wall/R2_Wall-Back-SolidForStaticModels.stl` | 245.3 x 9.7 x 80.5 |
+| Base | `print/originals/wall/R2_Wall-Base.stl` | 245.7 x 60.0 x 83.5 |
+| Back | `print/originals/wall/R2_Wall-Back.stl` | 245.3 x 9.7 x 80.5 |
+| Back+13 | `print/originals/wall/R2_Wall-Back+13.stl` (variant of Back) | 245.3 x 9.7 x 80.5 |
+| Lid | `print/originals/wall/R2_Wall-Lid.stl` | 245.7 x 60.0 x 98.7 |
+| Back, solid | `print/originals/wall/R2_Wall-Back-SolidForStaticModels.stl` | 245.3 x 9.7 x 80.5 |
 
 The originals were modelled in SketchUp and are only available as STL
 meshes. This rebuild turns them into true CAD solids and addresses two
@@ -51,7 +51,7 @@ long-standing wishes:
   main parts, and printed in one piece (no split). Its 45 deg side chamfer
   and sloped tabs are sampled in 0.5 mm layers (extra `levels` in
   `extract_profiles.py`): ≤ 0.35 mm (p99 0.13), volume 0.00 % off.
-- Output: `print/wall/` (one-piece `<part>.*` and split
+- Output: `print/generated/wall/` (one-piece `<part>.*` and split
   `<part>.split-A.*`, `<part>.split-B.*`). `--only NAME,...` builds single
   parts.
 
@@ -63,10 +63,10 @@ pip install build123d trimesh shapely rtree numpy
 # fetch the original STLs (only needed to re-run the measurement)
 mkdir -p /tmp/wall-src
 for f in R2_Wall-Base R2_Wall-Back R2_Wall-Lid R2_Wall-Back-SolidForStaticModels; do
-  cp "../../originals/wall/$f.stl" /tmp/wall-src/
+  cp "../../print/originals/wall/$f.stl" /tmp/wall-src/
 done
 python3 extract_profiles.py /tmp/wall-src   # -> wall_profiles.json
-python3 wall_model.py                       # -> print/wall/ …
+python3 wall_model.py                       # -> print/generated/wall/ …
 python3 wall_panel.py
 ```
 

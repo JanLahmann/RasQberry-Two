@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parametric rebuild of the cryostat door (R2_NewDoor).
 
-Rebuilds `3D Model/originals/cryostat/R2_NewDoor.stl` (SketchUp): the door
+Rebuilds `3D Model/print/originals/cryostat/R2_NewDoor.stl` (SketchUp): the door
 that closes the open face of the cryostat body.
 
 Shape:
@@ -113,7 +113,7 @@ def build(p=PARAMS):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
     part = build()
