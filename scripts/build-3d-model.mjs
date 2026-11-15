@@ -106,7 +106,7 @@ const COLOURS = { // as printed (bill of materials): name -> [hex, metallic, rou
   silver: ['#d0d4da', 0.85, 0.26, 1],    // Silk Silver: Cryostat, RTE servers (bright, glossy)
   clear: ['#f3f5f6', 0, 0.25, 0.62],       // Transparent: lids
   gold: ['#e3a33a', 0.75, 0.32, 1],       // Silk Gold: chandeliers
-  glass: ['#1c262e', 0.1, 0.15, 0.55],    // welding glass (cut, not printed)
+  screen: ['#2b2c2f', 0.2, 0.35, 1],     // Galaxy Black LED filter screen: opaque, dark (lit LEDs shine through)
   hardware: ['#4a4a4f', 0.1, 0.6, 1],     // bolts, nuts, octopus (colour not specified)
 };
 
@@ -126,7 +126,7 @@ add('wall-base', 'Wall base', 'Wall', 2, 'wall/R2_Wall-Base.stl', 'wall', WALL, 
 WALL_BOLTS.forEach(([x, y], i) =>
   add(`wall-bolt-${i + 1}`, 'Wall bolt', 'Wall', 3, 'wall/R2_Screw.stl', 'hardware',
     chain(WALL, T(x, y, 5), rot('x', 180), T(0.2, -34.7, 0)), [0, 60, 130]));
-add('wall-window', 'Window (welding glass, not printed)', 'Wall', 4, null, 'glass', WALL, [0, 10, 30],
+add('wall-window', 'LED filter screen (galaxy black; replaces the welding glass)', 'Wall', 4, null, 'screen', WALL, [0, 10, 30],
   { box: [[19.9, -85.2, 1], [259.9, -84.2, 82]] });
 // the back stands on the base's 3 mm floor, its top flush with the base top (the STL sits at z 8.04)
 add('wall-back', 'Wall back', 'Wall', 5, 'wall/R2_Wall-Back.stl', 'wall', chain(WALL, T(5.3, -100, 3 - 8.04)), [0, 130, 30]);
@@ -234,7 +234,7 @@ scene.setExtras({
   model: 'RasQberry Two', units: 'm', up: '+Y', front: '+Z',
   source: { repo: 'JanLahmann/RasQberry-Two', branch: '3D-model', path: '3D Model/print/originals', commit: sourceCommit() },
   generator: 'scripts/build-3d-model.mjs',
-  note: 'Layout and colours follow the bill of materials and the hardware assembly guide; the window is not a printed part.',
+  note: 'Layout and colours follow the bill of materials and the hardware assembly guide; the LED filter screen is drawn as a plain box.',
 });
 
 const before = [...meshes.values()].reduce((s, m) => s + m.triangles, 0);
