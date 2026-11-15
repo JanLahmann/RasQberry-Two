@@ -149,10 +149,12 @@ def main(argv):
 
     merged, added, kept, carried = merge(new_lines, current_lines)
     out_path.write_text("\n".join(merged) + "\n", encoding="utf-8")
+    dropped = [k for k in assignments(current_lines) if k in RETIRED_KEYS]
 
     print(f"env merge: {len(added)} new setting(s), {len(kept)} device value(s) kept, "
           f"{len(carried)} device-only setting(s) carried over")
-    for label, keys in (("new", added), ("kept", kept), ("carried", carried)):
+    for label, keys in (("new", added), ("kept", kept), ("carried", carried),
+                        ("dropped (retired)", dropped)):
         if keys:
             print(f"  {label}: {' '.join(keys)}")
     return 0

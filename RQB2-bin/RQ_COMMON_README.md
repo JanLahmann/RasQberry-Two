@@ -222,7 +222,7 @@ esac
 Clone repository with ownership fixing (default shallow clone).
 
 ```bash
-clone_demo "$DEMO_URL" "$DEMO_DIR"
+# the URL comes from the demo manifest (install.repo_url)
 clone_demo "https://github.com/user/repo.git" "/path/to/dest" 999
 ```
 

@@ -71,7 +71,7 @@ RasQberry's settings live in `/usr/config/rasqberry_environment.env` (shipped de
 ## Demo-specific configuration
 
 - `RASQ_LED_DISPLAY_TIMEOUT` = `3` **kept**: RasQ-LED Demo timeout in seconds
-- `QOFFEE_PORT` = `8887`: Qoffee-Maker
+- `QOFFEE_PORT` = `8887`: A demo's source (repository, pinned commit, Docker image) is in its manifest (demo-manifests/rq_demo_<id>.json: install, entrypoint), not here. Qoffee-Maker
 - `MARKER_FWQ` = `Quantum-Coin-Game.ipynb`: Fun-with-Quantum
 - `FWQ_JUPYTER_PORT` = `8888`
 - `MARKER_GROK_BLOCH` = `index.html`: Grok-Bloch
