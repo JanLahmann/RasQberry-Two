@@ -5,7 +5,7 @@ For each variant in PLAN (the new standard with the dovetail floor, and the
 version without floor with the closed wall base and cryostat):
 
 - `print/generated/complete/RasQberry-Two-<variant>.3mf`: every part in its
-  place in the assembled model, in its filament colour (one object, one named
+  place in the assembled model, in its filament color (one object, one named
   part per printed piece), to see what goes where.
 - `print/generated/plates/<printer>/<variant>/NN-<filament>-<name>.3mf`:
   PrusaSlicer projects, one filament per plate, parts turned the right way up
@@ -19,9 +19,11 @@ plate once for grams and time; the 3MF files are written here. Its CLI only
 knows printers that are installed in its datadir, so a scratch datadir with
 the two printers is made in a temporary folder (yours is not touched).
 
-Usage:  python build_plates.py [--prusaslicer PATH] [--no-slice]
+Usage:  python build_plates.py [--prusaslicer PATH]
 """
 import argparse
+import functools
+from collections import Counter
 import math
 import os
 import re
@@ -90,18 +92,21 @@ PLAN = {
 # ---------------------------------------------------------------- assembly
 
 def T(x, y, z=0.0):
+    """4x4 translation."""
     m = np.eye(4)
     m[:3, 3] = (x, y, z)
     return m
 
 
 def rot(axis, deg):
+    """4x4 rotation by `deg` about `axis` (through the origin)."""
     m = np.eye(4)
     m[:3, :3] = trimesh.transformations.rotation_matrix(math.radians(deg), axis)[:3, :3].round(12)
     return m
 
 
 def about(c, deg):
+    """4x4 rotation by `deg` about the vertical axis through point `c`."""
     return T(*c) @ rot([0, 0, 1], deg) @ T(-c[0], -c[1])
 
 
@@ -120,7 +125,7 @@ SERVER_Y = (-183.8, -160.5)
 # turned 30 deg (locked)
 CRYO_HOLE, WALL_HOLES, PLATE_UNDERSIDE = (130.32, 140.18), ((37.36, 322.27), (222.57, 322.27)), -3.0
 FLANGE = {"R2_Floor-CryoPlug": 2.0, "R2_Floor-WallPlug": 4.0}
-# the generated cryostats (conjoined, Gamma) share one frame: body centred on
+# the generated cryostats (conjoined, Gamma) share one frame: body centered on
 # the origin, flats at y = +-33, door at -y; the jrl02 servers of the
 # no-floor version stand 0.2 mm off the five walls, like the conjoined arms
 FLAT, ARM_GAP, SERVER_HALF = 33.0, 0.2, 11.62
@@ -141,14 +146,17 @@ STANDIN = {   # same frame as the generated part named here
 }
 
 
+@functools.cache
 def mesh(name):
+    """Generated STL of part `name` (cached; never modified in place)."""
     return trimesh.load(f"{part_path(name)}.stl", force="mesh", process=False)
 
 
+@functools.cache
 def to_original(name):
     """Move generated part `name` into its original's frame: the rebuilds
-    keep the shape but were re-centred, so the bounding-box centres are
-    matched (R2_Wall-Back is 2 mm narrower than its original, centred)."""
+    keep the shape but were re-centered, so the bounding-box centers are
+    matched (R2_Wall-Back is 2 mm narrower than its original, centered)."""
     gen = mesh(STANDIN.get(name, name)).bounds
     org = trimesh.load(ORIGINALS / f"{ORIGINAL_OF[name]}.stl", force="mesh").bounds
     if np.abs((gen[1] - gen[0]) - (org[1] - org[0])).max() > 2.5:
@@ -193,26 +201,43 @@ def layout(variant):
 
 
 def counts(plates):
-    n = {}
+    """Copies of each part over all plates of a variant."""
+    n = Counter()
     for _, items in plates:
-        for part, k in items:
-            n[part] = n.get(part, 0) + k
+        n.update(dict(items))
     return n
 
 
+def part_filament(part):
+    """Filament of part `part` (the rule in build_print, by its path)."""
+    return filament(Path(PARTS[part] + ".stl"))
+
+
+def file_name(part):
+    """The part's file name in print/generated/ (what users look for)."""
+    return Path(PARTS[part]).name
+
+
+@functools.cache
+def part_mesh(part):
+    """(vertices as array, triangles) of the part's STL, cached."""
+    v, t = stl_mesh(f"{part_path(part)}.stl")
+    return np.asarray(v), t
+
+
 def write_complete(variant):
+    """The assembled model of `variant` as one colored 3MF; checks that it
+    holds as many of each part as the plates print."""
     pieces = layout(variant)
-    printed = {k: v for k, v in counts(PLAN[variant]).items() if "WallPanel" not in k}
-    placed = {}
-    for part, _ in pieces:
-        placed[part] = placed.get(part, 0) + 1
+    printed = Counter({k: v for k, v in counts(PLAN[variant]).items() if "WallPanel" not in k})
+    placed = Counter(part for part, _ in pieces)
     if placed != printed:
         raise ValueError(f"{variant}: layout {placed} != plan {printed}")
     bodies = []
     for part, m in pieces:
-        v, t = stl_mesh(f"{part_path(part)}.stl")
-        v = trimesh.transform_points(np.asarray(v), m)
-        bodies.append((part, filament(Path(PARTS[part] + ".stl")), (v.tolist(), t)))
+        v, t = part_mesh(part)
+        bodies.append((file_name(part), part_filament(part),
+                       (trimesh.transform_points(v, m).tolist(), t)))
     path = OUTPUT / "complete" / f"RasQberry-Two-{variant}.3mf"
     path.parent.mkdir(parents=True, exist_ok=True)
     write_3mf(path, bodies)
@@ -220,11 +245,11 @@ def write_complete(variant):
 
 # ---------------------------------------------------------------- plates
 
+@functools.cache
 def oriented(part):
-    """(vertices, triangles) of `part` turned for printing, centred in x/y,
+    """(vertices, triangles) of `part` turned for printing, centered in x/y,
     standing on z = 0."""
-    v, t = stl_mesh(f"{part_path(part)}.stl")
-    v = np.asarray(v)
+    v, t = part_mesh(part)
     turn = {"up": np.eye(4), "flip": rot([1, 0, 0], 180), "flat": rot([1, 0, 0], -90)}
     v = trimesh.transform_points(v, turn[ORIENT.get(part, "up")])
     lo, hi = v.min(0), v.max(0)
@@ -233,7 +258,7 @@ def oriented(part):
 
 def arrange(sizes, bed):
     """Rows, largest first: [(x, y)] centres for parts of `sizes` (x, y) on
-    a bed (x, y), the whole block centred."""
+    a bed (x, y), the whole block centered."""
     order = sorted(range(len(sizes)), key=lambda i: (-sizes[i][1], -sizes[i][0]))
     pos, rows, x, y, row_h = {}, [], 0.0, 0.0, 0.0
     for i in order:
@@ -252,7 +277,7 @@ def arrange(sizes, bed):
 
 
 def project_config(base_ini, fil, supports):
-    """Slic3r_PE.config: the resolved presets, with the filament colour and,
+    """Slic3r_PE.config: the resolved presets, with the filament color and,
     where needed, automatic supports from the bed only."""
     from rqb_cad import FILAMENTS
     over = {"filament_colour": FILAMENTS[fil], "extruder_colour": FILAMENTS[fil]}
@@ -264,12 +289,14 @@ def project_config(base_ini, fil, supports):
         key = line.split(" = ", 1)[0]
         if line and not line.startswith("#"):
             lines.append(f"; {key} = {over.pop(key)}" if key in over else f"; {line}")
+    if over:
+        raise ValueError(f"not in the PrusaSlicer presets: {sorted(over)}")
     return "; generated by PrusaSlicer 2.9 presets (build_plates.py)\n\n" + "\n".join(lines) + "\n"
 
 
 def plate_filament(items):
     """The one filament of a plate's parts."""
-    (fil,) = {filament(Path(PARTS[p] + ".stl")) for p, _ in items}
+    (fil,) = {part_filament(p) for p, _ in items}
     return fil
 
 
@@ -281,15 +308,16 @@ def write_plate(path, items, bed, config):
     model = MODEL_HEAD + ["<resources>"]
     cfg = ['<?xml version="1.0" encoding="UTF-8"?>', "<config>"]
     for n, (part, v, t, _) in enumerate(objs, start=1):
-        model.append(f'<object id="{n}" type="model" name={quoteattr(part)}><mesh><vertices>')
+        name = file_name(part)
+        model.append(f'<object id="{n}" type="model" name={quoteattr(name)}><mesh><vertices>')
         model += [f'<vertex x="{x:.4f}" y="{y:.4f}" z="{z:.4f}"/>' for x, y, z in v]
         model.append("</vertices><triangles>")
         model += [f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in t]
         model.append("</triangles></mesh></object>")
         cfg += [f'<object id="{n}" instances_count="{items[n - 1][1]}">',
-                f'<metadata type="object" key="name" value={quoteattr(part)}/>',
+                f'<metadata type="object" key="name" value={quoteattr(name)}/>',
                 f'<volume firstid="0" lastid="{len(t) - 1}">',
-                f'<metadata type="volume" key="name" value={quoteattr(part)}/>',
+                f'<metadata type="volume" key="name" value={quoteattr(name)}/>',
                 "</volume>", "</object>"]
     model += ["</resources>", "<build>"]
     model += [f'<item objectid="{i + 1}" transform="1 0 0 0 1 0 0 0 1 {x:.3f} {y:.3f} 0" '
@@ -304,18 +332,20 @@ def write_plate(path, items, bed, config):
 # ---------------------------------------------------------------- PrusaSlicer
 
 def scratch_datadir(exe, tmp):
-    """A PrusaSlicer datadir with the vendor bundle and both printers installed."""
-    home = Path.home() / "Library/Application Support/PrusaSlicer/vendor"
+    """A PrusaSlicer datadir with the vendor bundle that ships with `exe`
+    (macOS app layout) and both printers installed."""
+    bundle = Path(exe).resolve().parents[1] / "Resources" / "profiles"
     dd = Path(tmp) / "datadir"
     (dd / "vendor").mkdir(parents=True)
     for f in ("PrusaResearch.ini", "PrusaResearch.idx"):
-        shutil.copy(home / f, dd / "vendor" / f)
+        shutil.copy(bundle / f, dd / "vendor" / f)
     (dd / "PrusaSlicer.ini").write_text("[vendor:PrusaResearch]\nmodel:MK4S = HF0.4\n"
                                         "model:COREONE = HF0.4\n")
     return dd
 
 
 def resolved(exe, dd, printer, print_, fil, tmp):
+    """The full config of the three presets, as PrusaSlicer resolves them."""
     out = Path(tmp) / f"{printer}.ini"
     subprocess.run([exe, "--datadir", dd, "--printer-profile", printer, "--print-profile",
                     print_, "--material-profile", fil, "--save", out],
@@ -346,10 +376,12 @@ TITLE = {"standard": "Standard (dovetail floor, plugs)",
 
 
 def main():
+    """Complete models, then the plates for each printer, then the print list."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--prusaslicer", default=os.environ.get("PRUSASLICER", PRUSASLICER))
-    ap.add_argument("--no-slice", action="store_true", help="skip grams/time (README unchanged)")
     a = ap.parse_args()
+    for folder in ("complete", "plates"):   # all generated here: no stale plates
+        shutil.rmtree(OUTPUT / folder, ignore_errors=True)
     for variant in PLAN:
         print("wrote", write_complete(variant).relative_to(OUTPUT))
     stats = {}
@@ -364,23 +396,21 @@ def main():
                             / f"{n:02d}-{fil.replace(' ', '-')}-{name}.3mf")
                     supports = any(p in SUPPORTS for p, _ in items)
                     write_plate(path, items, bed, project_config(ini, fil, supports))
-                    if not a.no_slice:
-                        stats[folder, variant, n] = slice_stats(a.prusaslicer, dd, path, tmp)
+                    stats[folder, variant, n] = slice_stats(a.prusaslicer, dd, path, tmp)
                     print("wrote", path.relative_to(OUTPUT), stats.get((folder, variant, n), ""))
-    if not a.no_slice:
-        write_readme(stats)
+    write_readme(stats)
 
 
 def write_readme(stats):
     """The print list: per variant a table of the plates (MK4S and Core One
-    grams and time), then the filament per colour (MK4S)."""
+    grams and time), then the filament per color (MK4S)."""
     lines = ["# Print plates", "",
              "Generated by `cad/build_plates.py` from the new CAD parts (experimental,",
              "not fully tested yet). One filament per plate: open a plate in",
              "PrusaSlicer 2.9 or later, check, slice and print. Grams and times are",
              "PrusaSlicer's estimates (Prusament PLA, 0.20 mm SPEED, HF0.4 nozzle).",
              "`optional` plates are not needed for the model.", "",
-             "`../complete/` has each variant assembled, in colour, to see what goes",
+             "`../complete/` has each variant assembled, in color, to see what goes",
              "where.", ""]
     for variant, plates in PLAN.items():
         lines += [f"## {TITLE[variant]}", "",
@@ -388,15 +418,15 @@ def write_readme(stats):
         per_filament = {}
         for n, (name, items) in enumerate(plates, start=1):
             fil = plate_filament(items)
-            parts = ", ".join(f"{k} x {p}" for p, k in items)
+            parts = ", ".join(f"{k} x {file_name(p)}" for p, k in items)
             cells = " | ".join(f"{stats[f, variant, n][0]:.0f} g, {stats[f, variant, n][1]}"
                                for f in PRINTERS)
             lines.append(f"| {n:02d} | {name} | {parts} | {fil} | {cells} |")
             if not name.startswith("optional"):
-                per_filament[fil] = per_filament.get(fil, 0) + stats["MK4S", variant, n][0]
+                per_filament[fil] = per_filament.get(fil, 0) + round(stats["MK4S", variant, n][0])
         lines += ["", "Filament (MK4S, without optional plates): "
-                  + ", ".join(f"{f} {g:.0f} g" for f, g in per_filament.items())
-                  + f"; {sum(per_filament.values()):.0f} g in total.", ""]
+                  + ", ".join(f"{f} {g} g" for f, g in per_filament.items())
+                  + f"; {sum(per_filament.values())} g in total.", ""]
     (OUTPUT / "plates" / "README.md").write_text("\n".join(lines))
 
 
