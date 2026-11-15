@@ -33,6 +33,14 @@ mark_done() {
 # Done once: from now on, on or off is the user's choice
 [ -e "$MARKER" ] && exit 0
 
+# Only inside the desktop session: raspi-config picks wayvnc only while labwc
+# runs, and before that it switches on the X11 VNC server instead (an A/B
+# update's first boot, 2026-11-15). Without labwc the login does it later.
+if ! pgrep -x labwc >/dev/null 2>&1; then
+    log "no desktop session yet: VNC is switched on at the desktop login"
+    exit 0
+fi
+
 
 if vnc_on; then
     mark_done
