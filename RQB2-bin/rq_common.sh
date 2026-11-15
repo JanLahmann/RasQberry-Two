@@ -2293,17 +2293,6 @@ EOF
     return 1
 }
 
-# Echo a field of a demo's manifest (a jq path, e.g. .install.marker_file);
-# with no value there, DEFAULT if given, else nothing and status 1
-rq_manifest_field() {
-    local mf val=""
-    mf=$(rq_find_manifest "$(rq_shipped_manifest_dir)" "$1") \
-        && val=$(jq -r "$2 // empty" "$mf" 2>/dev/null)
-    val="${val:-${3:-}}"
-    [ -n "$val" ] || return 1
-    echo "$val"
-}
-
 # List every manifest file across the search path, deduped by id with shipped
 # precedence. Emits one path per line on stdout; warns (stderr) when a user
 # manifest is shadowed by a shipped id.

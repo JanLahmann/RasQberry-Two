@@ -17,7 +17,7 @@ rq_help_guard "$@"
 # Load environment and verify required variables
 load_rqb2_env
 verify_env_vars USER_HOME REPO
-MARKER=$(rq_manifest_field grok-bloch .install.marker_file) || die "The grok-bloch manifest names no marker file"
+# rq_demo_run.sh, which starts this launcher, has checked the manifest's marker file
 
 # Without a screen (SSH) the server starts all the same and the address and
 # an ssh -L tunnel command are printed, as for the notebook demos (#17)
@@ -26,7 +26,7 @@ DEMO_DIR="$USER_HOME/$REPO/demos/grok-bloch"
 PORT=8080
 
 # Check if demo is installed
-if [ ! -f "$DEMO_DIR/$MARKER" ]; then
+if [ ! -d "$DEMO_DIR" ]; then
     echo "Error: Grok Bloch demo not found at $DEMO_DIR"
     echo "Please install the demo first through the RasQberry menu."
     debug "USER_NAME: $(get_user_name)"

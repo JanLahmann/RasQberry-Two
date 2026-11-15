@@ -413,8 +413,7 @@ _rq_ibm_welcome() {
 # Install IBM Quantum Tutorials
 do_ibm_tutorials_install() {
     DEST="$DEMO_ROOT/ibm-quantum-learning"
-    _ibm_marker=$(_rq_ibm_field ibm-tutorials .install.marker_file)
-    _ibm_marker=${_ibm_marker:-WELCOME-tutorials.ipynb}
+    _ibm_marker=WELCOME-tutorials.ipynb   # written by setup_ibm_tutorials.py
 
     if [ -f "$DEST/$_ibm_marker" ] && _rq_ibm_content_ok "$DEST"; then
         return 0
@@ -436,8 +435,7 @@ do_ibm_tutorials_install() {
 # Install IBM Quantum Courses
 do_ibm_courses_install() {
     DEST="$DEMO_ROOT/ibm-quantum-learning"
-    _ibm_marker=$(_rq_ibm_field ibm-courses .install.marker_file)
-    _ibm_marker=${_ibm_marker:-WELCOME-courses.ipynb}
+    _ibm_marker=WELCOME-courses.ipynb   # written by setup_ibm_tutorials.py
 
     if [ -f "$DEST/$_ibm_marker" ] && _rq_ibm_content_ok "$DEST"; then
         return 0

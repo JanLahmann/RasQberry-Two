@@ -45,7 +45,7 @@ manifest_field() {
 # manifest is unreadable, so a broken manifest cannot resurrect the old fork.
 DEMO_DIR=$(get_demo_dir "$(manifest_field '.entrypoint.working_dir' 'RasQberry-Two-LED-Painter')")
 DEMO_REF=$(manifest_field '.install.ref' '')
-DEMO_URL=$(manifest_field '.install.repo_url' '')
+DEMO_URL=$(rq_demo_repo led-painter "$MANIFEST_FILE")
 MARKER=$(manifest_field '.install.marker_file' 'LED_painter.py')
 [ -n "$DEMO_URL" ] || die "The LED-Painter manifest names no repository"
 

@@ -19,7 +19,7 @@ rq_help_guard "$@"
 # Load environment and verify required variables
 load_rqb2_env
 verify_env_vars USER_HOME REPO STD_VENV IBM_COURSES_JUPYTER_PORT
-MARKER=$(rq_manifest_field ibm-courses .install.marker_file) || die "The ibm-courses manifest names no marker file"
+# rq_demo_run.sh, which starts this launcher, has checked the manifest's marker file
 
 # Without a screen (SSH) the server starts headless and the address and an
 # ssh -L tunnel command are printed instead of opening a browser (Jan, Q19)
@@ -28,7 +28,7 @@ DEMO_DIR="$USER_HOME/$REPO/demos/ibm-quantum-learning"
 PORT="${IBM_COURSES_JUPYTER_PORT:-8890}"
 
 # Check if demo is installed
-if [ ! -f "$DEMO_DIR/$MARKER" ]; then
+if [ ! -d "$DEMO_DIR" ]; then
     echo "Error: IBM Quantum Courses not found at $DEMO_DIR"
     echo "Please install the demo first through the RasQberry menu."
     debug "USER_HOME: $USER_HOME"

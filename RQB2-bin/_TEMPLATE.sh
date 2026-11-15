@@ -28,7 +28,7 @@ verify_env_vars REPO USER_HOME STD_VENV
 # Demo-specific configuration
 DEMO_NAME="[Demo-Name]"
 DEMO_DIR=$(get_demo_dir "$DEMO_NAME")
-GIT_URL=$(rq_manifest_field demo-id .install.repo_url) || die "No repository in the demo manifest"
+GIT_URL=$(rq_demo_repo demo-id)   # from the demo manifest
 
 # Script-specific variables
 VARIABLE_NAME="value"
