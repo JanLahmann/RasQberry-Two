@@ -10,7 +10,7 @@
  *
  * Each printed part becomes a named node (extras: label, group, step, explode),
  * placed where it sits in the assembled model; repeated parts (RTE servers,
- * lids, chandeliers, bolts) share one mesh. Meshes are simplified and
+ * lids, chandeliers, plugs) share one mesh. Meshes are simplified and
  * meshopt-compressed; the commit of the STL folder goes into the scene extras.
  *
  * Coordinates below are in the STLs' frame (mm, Z up, the Wall at +Y); the
@@ -56,12 +56,6 @@ const mul = (A, B) => A.map((_, i) => {
 });
 const chain = (...ms) => ms.reduce((a, b) => mul(a, b));
 const T = (x, y, z = 0) => [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1];
-const rot = (axis, deg) => {
-  const a = (deg * Math.PI) / 180, c = Math.round(Math.cos(a) * 1e12) / 1e12, s = Math.round(Math.sin(a) * 1e12) / 1e12;
-  if (axis === 'x') return [1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1];
-  if (axis === 'y') return [c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1];
-  return [c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-};
 const apply = (M, [x, y, z]) => [0, 1, 2].map((r) => M[r * 4] * x + M[r * 4 + 1] * y + M[r * 4 + 2] * z + M[r * 4 + 3]);
 
 // STL (mm, Z up) -> glTF (m, Y up): (x, y, z) -> (x, z, -y) / 1000
@@ -120,9 +114,15 @@ const add = (id, label, group, step, file, colour, M, explode, extra = {}) =>
 
 // The printed parts, from the layout: id, label, group, assembly step and explode offset (mm) per part
 const FLOOR_C = [130, 195];
+const bboxCentre = (file) => {             // centre of an STL's bounding box
+  const pos = readStl(file), lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < pos.length; i++) { lo[i % 3] = Math.min(lo[i % 3], pos[i]); hi[i % 3] = Math.max(hi[i % 3], pos[i]); }
+  return lo.map((v, i) => (v + hi[i]) / 2);
+};
 const CRYO_C = (() => {                     // the cryostat body centre, for the servers' explode direction
-  const m = LAYOUT.pieces.find((p) => p.part.includes('CryoStandaloneGamma')).matrix;
-  return [m[3], m[7]];
+  const p = LAYOUT.pieces.find((q) => q.part.startsWith('RQB2-R2_CryoStandaloneGamma'));
+  if (!p) throw new Error('no Gamma cryostat in the layout');
+  return apply(p.matrix, bboxCentre(p.stl));
 })();
 const VIEW = {
   'R2_Floor-Tile': (n) => [`floor-${n}`, `Floor tile ${n}`, 'Floor', 1, null],
@@ -143,12 +143,15 @@ for (const piece of LAYOUT.pieces) {
   const key = Object.keys(VIEW).find((k) => piece.part.startsWith(k));
   if (!key) throw new Error(`no view entry for ${piece.part}`);
   const n = seen[key] = (seen[key] || 0) + 1;
-  const [id, label, group, step, explode] = VIEW[key](key === 'R2_Floor-Tile' ? piece.part.slice(13, 14) : n);
-  add(id, label, group, step, piece.stl, FILAMENT_COLOUR[piece.filament], piece.matrix, explode);
+  const [id, label, group, step, explode] = VIEW[key](key === 'R2_Floor-Tile' ? piece.part.slice(key.length).match(/^\d+/)[0] : n);
+  const colour = FILAMENT_COLOUR[piece.filament];
+  if (!colour) throw new Error(`no colour for filament ${piece.filament} (${piece.part})`);
+  add(id, label, group, step, piece.stl, colour, piece.matrix, explode);
 }
 // servers and their lids move out along their arm, the outer ones further
 for (const p of parts.filter((p) => p.group === 'RTE servers')) {
-  const [x, y] = [p.M[3] - CRYO_C[0], p.M[7] - CRYO_C[1]];
+  const c = apply(p.M, bboxCentre(p.file));
+  const [x, y] = [c[0] - CRYO_C[0], c[1] - CRYO_C[1]];
   const k = 1 + 12 / Math.hypot(x, y);
   p.explode = [x * k, y * k - 40, p.id.endsWith('-lid') ? 100 : 30];
 }
@@ -205,10 +208,10 @@ add('raspberry-pi', 'Raspberry Pi 5 (simplified)', 'Wall', 5, null, 'vertex', BA
   ],
 });
 // Floor tiles move apart and down
-for (const p of parts.filter((p) => p.group === 'Floor')) {
+for (const p of parts.filter((p) => p.id.startsWith('floor-'))) {
   const pos = readStl(p.file);
   let cx = 0, cy = 0;
-  for (let i = 0; i < pos.length; i += 3) { cx += pos[i]; cy += pos[i + 1]; }
+  for (let i = 0; i < pos.length; i += 3) { const [x, y] = apply(p.M, [pos[i], pos[i + 1], pos[i + 2]]); cx += x; cy += y; }
   cx /= pos.length / 3; cy /= pos.length / 3;
   p.explode = [(cx - FLOOR_C[0]) * 0.45, (cy - FLOOR_C[1]) * 0.45, -60];
 }
@@ -308,7 +311,7 @@ scene.setExtras({
   model: 'RasQberry Two', units: 'm', up: '+Y', front: '+Z',
   source: { repo: 'JanLahmann/RasQberry-Two', branch: '3D-model', path: '3D Model/print/generated', commit: sourceCommit() },
   generator: 'scripts/build-3d-model.mjs',
-  note: 'Layout and colours follow the bill of materials and the hardware assembly guide; the LED filter screen is drawn as a plain box.',
+  note: 'The new CAD parts (dovetail floor and plugs instead of bolts, nuts and octopus) in the layout of the complete model (cad/build_plates.py); the LED panel, filter screen and Raspberry Pi are drawn as boxes.',
 });
 
 const before = [...meshes.values()].reduce((s, m) => s + m.triangles, 0);
