@@ -36,7 +36,17 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
+    "terminal": true,
+    "comment": "Create animated fractal art using quantum computing circuits and Julia sets",
+    "title": "Quantum Fractals",
+    "keywords": [
+      "quantum",
+      "fractals",
+      "julia",
+      "art",
+      "visualization",
+      "qiskit"
+    ]
   },
   "maturity": "beta"
 }

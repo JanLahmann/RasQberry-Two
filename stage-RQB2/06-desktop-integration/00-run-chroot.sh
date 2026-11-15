@@ -83,12 +83,16 @@ else
     echo "WARNING: Desktop bookmarks directory not found"
 fi
 
+# Every launcher goes on the desktop too, except those for the applications
+# menu only (X-RasQberry-OnDesktop=false, from the demo manifest)
+on_desktop() { ! grep -qx 'X-RasQberry-OnDesktop=false' "$1"; }
+
 # Install to new user template (so new users get desktop shortcuts)
 mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
-for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|entangible|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|quantum-lab|qubins|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
+for desktop_file in "${CLONE_DIR}/RQB2-config/desktop-bookmarks"/*.desktop; do
+    if [ -f "$desktop_file" ] && on_desktop "$desktop_file"; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -100,8 +104,8 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     USER_DESKTOP="/home/${FIRST_USER_NAME}/Desktop"
     mkdir -p "$USER_DESKTOP"
     
-    for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|entangible|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|quantum-lab|qubins|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
+    for desktop_file in "${CLONE_DIR}/RQB2-config/desktop-bookmarks"/*.desktop; do
+        if [ -f "$desktop_file" ] && on_desktop "$desktop_file"; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"

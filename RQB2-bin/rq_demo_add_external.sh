@@ -286,7 +286,7 @@ install_pip_extras() {
 }
 
 # Write ~/Desktop/rq-ext-<id>.desktop from the manifest when desktop.show is
-# true (#287). Shipped demos keep their icons in desktop-bookmarks/.
+# true (#287). Shipped demos' icons are in desktop-bookmarks/ (generated from their manifests).
 write_desktop_entry() {
     local id="$1" manifest_file="$2" dest="$3"
     DESKTOP_ICON=0

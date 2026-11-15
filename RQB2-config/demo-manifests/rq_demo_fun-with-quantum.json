@@ -61,7 +61,21 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
+    "terminal": true,
+    "comment": "Quantum games as Jupyter notebooks, the Fun with Quantum website (games in the browser, works offline) and the Fun with Quantum family: choose from a list",
+    "title": "Fun with Quantum",
+    "chooser": true,
+    "keywords": [
+      "quantum",
+      "jupyter",
+      "notebook",
+      "games",
+      "education",
+      "qiskit",
+      "rise",
+      "coin",
+      "grover"
+    ]
   },
   "variants": [
     {
@@ -86,7 +100,21 @@
       },
       "args": [
         "Quantum-Coin-Game.ipynb"
-      ]
+      ],
+      "desktop": {
+        "file": "quantum-coin-game",
+        "comment": "Interactive demonstration of quantum superposition and interference using a coin flip game",
+        "icon": "/usr/share/icons/rasqberry/Coin-Zahl-Kante.png",
+        "keywords": [
+          "quantum",
+          "coin",
+          "game",
+          "superposition",
+          "interference",
+          "jupyter",
+          "notebook"
+        ]
+      }
     },
     {
       "id": "ghz-game",

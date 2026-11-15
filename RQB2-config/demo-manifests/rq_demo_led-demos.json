@@ -5,16 +5,19 @@
   "group": "led-panel",
   "maturity": "beta",
   "description": "Tests, text, logos and colour effects on the LED panel",
-  "keywords": ["led", "demo", "animation", "display", "matrix"],
-
+  "keywords": [
+    "led",
+    "demo",
+    "animation",
+    "display",
+    "matrix"
+  ],
   "entrypoint": {
     "type": "script"
   },
-
   "install": {
     "preinstalled": true
   },
-
   "needs_hw": {
     "leds": true,
     "display": "none"
@@ -23,47 +26,96 @@
   "browser_based": false,
   "loop_ok": true,
   "timeout": 15,
-
   "icon": {
     "type": "system",
     "path": "video-display"
   },
-
   "menu": {
     "show": true,
     "parent": "led-menu",
     "order": 10
   },
-
   "desktop": {
     "show": false
   },
-
   "variants": [
     {
       "id": "ibm-logo",
       "name": "IBM Logo",
-      "entrypoint": {"launcher": "rq_led_ibm_demo.sh"}
+      "entrypoint": {
+        "launcher": "rq_led_ibm_demo.sh"
+      },
+      "desktop": {
+        "file": "led-ibm-demo",
+        "name": "IBM LED Demo",
+        "comment": "The IBM logo in colour on the LED panel",
+        "title": "IBM LED Demo",
+        "icon": "/usr/share/icons/rasqberry/led-ibm-demo.svg",
+        "keywords": [
+          "LED",
+          "IBM",
+          "demo",
+          "neopixel",
+          "hardware",
+          "rasqberry"
+        ]
+      }
     },
     {
       "id": "text-display",
       "name": "Text Display",
-      "entrypoint": {"launcher": "rq_led_display_text.sh"}
+      "entrypoint": {
+        "launcher": "rq_led_display_text.sh"
+      }
     },
     {
       "id": "logo-display",
       "name": "Logo Display",
-      "entrypoint": {"launcher": "rq_led_display_logo.sh"}
+      "entrypoint": {
+        "launcher": "rq_led_display_logo.sh"
+      }
     },
     {
       "id": "led-test",
       "name": "LED Test",
-      "entrypoint": {"launcher": "rq_led_test.sh"}
+      "entrypoint": {
+        "launcher": "rq_led_test.sh"
+      },
+      "desktop": {
+        "comment": "Test the LED panel and find its settings with an automatic scan",
+        "title": "LED Test",
+        "icon": "/usr/share/icons/rasqberry/led-test.svg",
+        "keywords": [
+          "LED",
+          "test",
+          "diagnostic",
+          "neopixel",
+          "hardware",
+          "rasqberry"
+        ],
+        "on_desktop": false
+      }
     },
     {
       "id": "clear-leds",
       "name": "Clear LEDs",
-      "entrypoint": {"launcher": "rq_clear_leds.sh"}
+      "entrypoint": {
+        "launcher": "rq_clear_leds.sh"
+      },
+      "desktop": {
+        "name": "Clear All LEDs",
+        "comment": "Turn off all LEDs on the LED panel",
+        "title": "Clear All LEDs",
+        "icon": "edit-clear-all",
+        "keywords": [
+          "LED",
+          "clear",
+          "off",
+          "neopixel",
+          "hardware",
+          "rasqberry"
+        ]
+      }
     }
   ]
 }

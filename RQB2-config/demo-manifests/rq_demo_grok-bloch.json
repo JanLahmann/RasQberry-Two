@@ -49,7 +49,16 @@
   },
   "desktop": {
     "show": true,
-    "terminal": true
+    "terminal": true,
+    "comment": "One qubit as an arrow on a sphere: apply gates and watch the state turn (works offline, with tips on what to try)",
+    "keywords": [
+      "quantum",
+      "bloch",
+      "sphere",
+      "visualization",
+      "education",
+      "qubit"
+    ]
   },
   "variants": [
     {

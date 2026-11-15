@@ -7,7 +7,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # Description: Write a .desktop file for one demo manifest so an externally
 #   added demo gets a desktop icon like the shipped ones (issue #287).
 #   Everything dispatches through the universal launcher rq_demo_run.sh <id>.
-#   Shipped demos keep their hand-maintained icons in desktop-bookmarks/; this
+#   Shipped demos' icons in desktop-bookmarks/ are generated from their
+#   manifests at commit time (rq_demo_generate_desktop.py); this
 #   is only for manifests that arrive at runtime via rq_demo_add_external.sh.
 # Usage: rq_demo_desktop_entry.sh <manifest.json> <output.desktop> [demo-dir]
 #   demo-dir resolves a relative icon.path for icon.type "custom".

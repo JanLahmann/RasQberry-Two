@@ -298,11 +298,12 @@ jobs:
           python -m pip install --quiet pytest pytest-timeout
 
       - name: Generated pages are up to date
-        # The tester page and the reference docs are generated from the code:
+        # The tester page, the reference docs and the demo launchers are generated:
         # run the generator after changing menus, manifests, settings or commands.
         run: |
           python docs/testing/tester_missions.py --check
           python docs/reference/reference_docs.py --check
+          python RQB2-bin/rq_demo_generate_desktop.py --check
 
       - name: Whole unit suite
         # About 10 minutes. A hung test fails after 5 minutes with its

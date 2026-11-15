@@ -38,7 +38,15 @@
   },
   "desktop": {
     "show": true,
-    "terminal": false
+    "terminal": false,
+    "comment": "Design and simulate quantum circuits in your web browser",
+    "keywords": [
+      "quantum",
+      "qiskit",
+      "composer",
+      "circuit",
+      "IBM"
+    ]
   },
   "maturity": "beta"
 }
