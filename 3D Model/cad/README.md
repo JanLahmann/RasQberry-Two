@@ -76,14 +76,17 @@ dispatch.
 parts: wall (base `jrl01-2`, `Back+13`, lid, LED filter screen), cryostat
 Gamma `jrl04` with the door, 9 `jrl02` servers with lids (three per arm
 wall) and Jan's lid with chandeliers `jrl01` (two colors, filament change
-at a layer). The standard has the dovetail floor and plugs; without floor
-the floor plates are skipped and two `-no-floor` plates (wall base and
-cryostat without the holes) replace their standard ones. `PLATES` lists the
-plates and how many of each part; `ORIENT` how a part lies on the bed;
-`layout()` where each part sits in the assembled model (wall from the
-website's 3D viewer, cryostat on the floor's cryostat hole). The plates are
-PrusaSlicer projects with the system presets (Prusament PLA, 0.20 mm SPEED,
-HF0.4 nozzle); PrusaSlicer slices each once for the grams and times in
+at a layer, or two filaments on an MMU3 / INDX). The standard has the
+dovetail floor and plugs; without floor the floor is skipped and the wall
+base and cryostat without the holes (`no-floor-alternatives.3mf`) replace
+their standard ones. `COLOR_FILES` lists one PrusaSlicer project per
+filament color and its parts, packed onto as many beds as needed (multiple
+beds, PrusaSlicer 2.9); `all-parts.3mf` has every bed except the floor.
+`ORIENT` says how a part lies on the bed; `layout()` where each part sits in
+the assembled model (wall from the website's 3D viewer, cryostat on the
+floor's cryostat hole). The projects carry the system presets (Prusament
+PLA, HF0.4 nozzle) from the vendor bundle PrusaSlicer has installed;
+PrusaSlicer slices each bed once for the grams and times in
 `print/generated/plates/README.md`.
 
 ## Regenerating
