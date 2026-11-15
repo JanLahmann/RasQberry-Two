@@ -25,8 +25,8 @@ cad/           this code
                    writes a coloured 3MF for every STL there
   build_plates.py  print/generated/complete/ (each variant assembled, in color, + its
                    layout as JSON for the website's 3D viewer)
-                   and print/generated/plates/ (ready PrusaSlicer plates for
-                   MK4S and Core One, with the print list)
+                   and print/generated/plates/ (ready PrusaSlicer projects for
+                   the Core One and Core One INDX 8T, with the print list)
   wall/ floor/ RTE/ cryostat/   one folder per part family
 ```
 
