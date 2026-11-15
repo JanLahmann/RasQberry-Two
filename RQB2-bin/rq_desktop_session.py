@@ -97,6 +97,11 @@ BOOKMARKS_DIR = os.path.join(CONFIG_DIR, "desktop-bookmarks")
 MENU_ONLY = "X-RasQberry-OnDesktop=false"
 
 
+# A flat desktop (no usable demo-groups.json) starts with these, as before
+# the groups (R-008); the grouped desktop takes its order from the file
+FLAT_FIRST = ["rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode"]
+
+
 def shipped_launchers(bookmarks=BOOKMARKS_DIR):
     """
     Every launcher the image puts on the desktop (stage 06 copies the same
@@ -108,19 +113,22 @@ def shipped_launchers(bookmarks=BOOKMARKS_DIR):
         bookmarks (str): The folder (default: the shipped desktop-bookmarks/).
 
     Returns:
-        list: Launcher names, by file name (none if the folder is missing).
+        list: Launcher names: FLAT_FIRST, then the others by file name;
+        an unreadable file is skipped.
     """
-    names = []
     try:
-        for f in sorted(os.listdir(bookmarks)):
-            if not f.endswith(".desktop"):
-                continue
-            with open(os.path.join(bookmarks, f), encoding="utf-8") as fh:
-                if MENU_ONLY not in fh.read().splitlines():
-                    names.append(f[:-len(".desktop")])
+        files = sorted(f for f in os.listdir(bookmarks) if f.endswith(".desktop"))
     except OSError:
         return []
-    return names
+    names = []
+    for f in files:
+        try:
+            with open(os.path.join(bookmarks, f), encoding="utf-8", errors="replace") as fh:
+                if MENU_ONLY not in fh.read().splitlines():
+                    names.append(f[:-len(".desktop")])
+        except OSError as exc:
+            logger.warning("skipping launcher %s: %s", f, exc)
+    return [n for n in FLAT_FIRST if n in names] + [n for n in names if n not in FLAT_FIRST]
 
 
 ICON_ORDER = shipped_launchers()

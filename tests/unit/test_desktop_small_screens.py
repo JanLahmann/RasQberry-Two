@@ -20,9 +20,6 @@ _ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
 _BIN = os.path.join(_ROOT, "RQB2-bin")
 sys.path.insert(0, _BIN)
 import rq_desktop_session as ds  # noqa: E402
-# a flat desktop (no demo-groups.json) as these tests lay it out: system icons first
-_SYSTEM = ds.load_groups()["system"]
-_FLAT = _SYSTEM + [n for n in ds.ICON_ORDER if n not in _SYSTEM]
 
 _TOUCH = os.path.join(_BIN, "rq_touch_mode.sh")
 _BOOKMARKS = os.path.join(_ROOT, "RQB2-config", "desktop-bookmarks")
@@ -61,7 +58,7 @@ def test_small_screens(size, small):
                                             (800, 480, True, 72), (1920, 1080, True, 72),
                                             (1280, 720, True, 72), (720, 1280, True, 72)])
 def test_every_icon_is_on_screen_or_in_more(w, h, touch, icon):
-    pos, overflow = ds.plan_layout(_FLAT, w, h, touch=touch, icon=icon)
+    pos, overflow = ds.plan_layout(ds.ICON_ORDER, w, h, touch=touch, icon=icon)
     panel = 64 if touch else 36
     placed = [n for n in pos if n != ds.MORE_DIR]
     assert sorted(placed + overflow) == sorted(ds.ICON_ORDER)
@@ -76,7 +73,7 @@ def test_every_icon_is_on_screen_or_in_more(w, h, touch, icon):
 def test_large_screen_keeps_setup_first_and_icons_left_of_chromium():
     # R-008: the Setup icon sat at x=450, under Chromium (x=480)
     for touch, icon in ((False, 48), (True, 72)):
-        pos, overflow = ds.plan_layout(_FLAT, 1920, 1080, touch=touch, icon=icon)
+        pos, overflow = ds.plan_layout(ds.ICON_ORDER, 1920, 1080, touch=touch, icon=icon)
         assert pos["rasqberry-setup"] == (10, 10) and not overflow
         grid = sorted({x for x, _ in pos.values()})
         cell = grid[1] - grid[0] - 10
@@ -85,13 +82,13 @@ def test_large_screen_keeps_setup_first_and_icons_left_of_chromium():
 
 def test_seven_inch_screen_fits_all_icons_without_touch_mode():
     # R-035: row 5 used to be off-screen at 800x480
-    pos, overflow = ds.plan_layout(_FLAT, 800, 480)
+    pos, overflow = ds.plan_layout(ds.ICON_ORDER, 800, 480)
     assert not overflow and len(pos) == len(ds.ICON_ORDER)
 
 
 def test_seven_inch_touch_mode_uses_the_more_folder_for_the_last_icons():
-    pos, overflow = ds.plan_layout(_FLAT, 800, 480, touch=True, icon=72)
-    assert overflow == _FLAT[-len(overflow):]
+    pos, overflow = ds.plan_layout(ds.ICON_ORDER, 800, 480, touch=True, icon=72)
+    assert overflow == ds.ICON_ORDER[-len(overflow):]
     assert "touch-mode" in pos and "rasqberry-setup" in pos
 
 
@@ -348,13 +345,16 @@ def test_no_launcher_claims_file_types():
         assert "\nMimeType=" not in open(os.path.join(_BOOKMARKS, name)).read(), name
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash required")
 def test_the_layout_knows_the_launchers_stage_06_puts_on_the_desktop():
-    # both read desktop-bookmarks/ and skip the menu-only ones by the same marker
+    # stage 06's own command, run on the shipped folder, picks the same set
     stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    assert "grep -L -x '%s'" % ds.MENU_ONLY in stage
+    cmd = re.search(r"mapfile -t DESKTOP_LAUNCHERS < <\((grep [^\n]*\\\n[^\n]*)\)", stage).group(1)
+    out = subprocess.run(["bash", "-c", cmd.replace("\\\n", " ")], env={"CLONE_DIR": _ROOT, "PATH": os.environ["PATH"]},
+                         capture_output=True, text=True).stdout.split()
+    assert sorted(os.path.basename(p)[:-len(".desktop")] for p in out) == sorted(ds.ICON_ORDER)
+    assert "led-test" not in ds.ICON_ORDER and ds.ICON_ORDER[0] == "rasqberry-setup"
     assert '"%s"' % ds.MENU_ONLY in open(os.path.join(_BIN, "rq_demo_generate_desktop.py")).read()
-    assert "led-test" not in ds.ICON_ORDER
-    assert {"rasqberry-setup", "learning-paths", "quantum-lab"} <= set(ds.ICON_ORDER)
 
 
 def test_shipped_launchers_skips_menu_only_and_other_files(tmp_path):
@@ -362,7 +362,9 @@ def test_shipped_launchers_skips_menu_only_and_other_files(tmp_path):
     (tmp_path / "b.desktop").write_text("[Desktop Entry]\n%s\n" % ds.MENU_ONLY)
     (tmp_path / "README.md").write_text("x")
     (tmp_path / "c.desktop").write_text("[Desktop Entry]\n")
-    assert ds.shipped_launchers(str(tmp_path)) == ["a", "c"]
+    (tmp_path / "touch-mode.desktop").write_bytes(b"[Desktop Entry]\nName=Gr\xfc\xdfe\n")
+    (tmp_path / "d.desktop").symlink_to(tmp_path / "gone")
+    assert ds.shipped_launchers(str(tmp_path)) == ["touch-mode", "a", "c"]
     assert ds.shipped_launchers(str(tmp_path / "missing")) == []
 
 

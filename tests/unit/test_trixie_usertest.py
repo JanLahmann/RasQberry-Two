@@ -35,9 +35,6 @@ _BIN = os.path.join(_ROOT, "RQB2-bin")
 _COMMON = os.path.join(_BIN, "rq_common.sh")
 sys.path.insert(0, _BIN)
 import rq_desktop_session as ds  # noqa: E402
-# a flat desktop (no demo-groups.json) as these tests lay it out: system icons first
-_SYSTEM = ds.load_groups()["system"]
-_FLAT = _SYSTEM + [n for n in ds.ICON_ORDER if n not in _SYSTEM]
 
 needs_bash = pytest.mark.skipif(shutil.which("bash") is None, reason="bash required")
 
@@ -123,7 +120,7 @@ def test_trixie_rows_start_below_the_panel_and_do_not_overlap(touch, icon):
     top = ds.layout_top(touch, "default")
     assert top == panel and ds.layout_top(touch, "LXDE-pi") == 0
     label = ds.LABEL_HEIGHT_NUNITO
-    pos, overflow = ds.plan_layout(_FLAT, 1920, 1080, touch=touch, icon=icon,
+    pos, overflow = ds.plan_layout(ds.ICON_ORDER, 1920, 1080, touch=touch, icon=icon,
                                    label=label, top=top)
     assert not overflow
     # pcmanfm-pi counts from the top of the screen: the first row clears the panel

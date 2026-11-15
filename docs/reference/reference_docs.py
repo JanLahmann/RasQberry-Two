@@ -681,7 +681,7 @@ def desktop_md():
     # The image puts the ICON_ORDER launchers on the desktop (stage 06 skips
     # the same menu-only ones); the others are only in the applications menu
     # (rig mission 2026-10-16: LED Test was listed in the LED panel folder)
-    order = list(sess.ICON_ORDER)
+    order = sorted(sess.ICON_ORDER)  # file-name order, as the group windows show it
     menu_only = sorted(n for n in launchers if n not in sess.ICON_ORDER)
 
     def row(name):
