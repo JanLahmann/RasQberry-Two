@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T14:58:55Z",
+  "generated": "2026-11-15T14:59:26Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,13 +43,14 @@
       "image_download_size": 1861717292,
       "extract_size": 9604956160,
       "extract_sha256": "035a1f4ae058c9605df6b9f260d0949676575f02258bb140526c72b89d287968",
-      "image_sha256": "7327ce3e33e64442f6678d1a58ba7b0d2a6e87be0965e3611324b2a38954fd87",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-151802/rasqberry-development-2026-11-15-151802-ab.img.xz",
       "ab_extract_sha256": "01d6254340a5f08cd9e1508a7640bcf316f6d12d9a0f863a25ce972e7ac4fef2",
       "ab_image_sha256": "a07de0d0d036122fbd6a3ce617d935adc0c5f521025ffb1119fc63d3655fb4f0",
-      "ab_image_download_size": 1911939792,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1911939792,
       "highlights": [
+        "Bump version to development-2026-11-15-151802",
+        "Merge pull request #398 from JanLahmann/demo-keys",
         "Demo keys: launchers check the manifest's marker; review fixes",
         "Demo keys: reuse rq_demo_repo; the engine checks the marker",
         "Demo scripts read marker files and repositories from the manifests"
