@@ -116,6 +116,7 @@ def menu_env(tmp_path):
             "RQ_DEMO_LOG": str(tmp_path / "demo.log"),
             "WT_LOG": str(wt_log),
             "TMPDIR": str(tmp_path),
+            "RQ_SHIPPED_MANIFESTS": os.path.join(_ROOT, "RQB2-config", "demo-manifests"),
         }
         env.update(extra_env or {})
         script = f'. "{_MENU}"\n{code}\n'

@@ -2594,6 +2594,13 @@ rq_demo_repo() {
     jq -r '.install.repo_url // .install.source.repo_url // empty' "$mf" 2>/dev/null
 }
 
+# The file that shows a demo is installed (install.marker_file); empty if none
+rq_demo_marker() {
+    local mf
+    mf=$(_rq_demo_mf "$1" "${2:-}") || return 0
+    jq -r '.install.marker_file // empty' "$mf" 2>/dev/null || true
+}
+
 # Record (or, with an empty CHOSEN, drop) a newer version for KEY.
 # Usage: rq_demo_set_version "doqumentation:image" RELEASE_PIN CHOSEN LABEL
 rq_demo_set_version() {

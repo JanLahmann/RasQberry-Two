@@ -95,7 +95,7 @@ def test_over_ssh_it_prints_a_tunnel_instead_of_refusing(tmp_path):
     (home / "RasQberry-Two" / "demos" / "grok-bloch").mkdir(parents=True)
     (home / "RasQberry-Two" / "demos" / "grok-bloch" / "index.html").write_text("bloch")
     env_config = tmp_path / "env-config.sh"
-    env_config.write_text(f'USER_HOME="{home}"\nREPO=RasQberry-Two\nMARKER_GROK_BLOCH=index.html\n')
+    env_config.write_text(f'USER_HOME="{home}"\nREPO=RasQberry-Two\n')
     env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(home), "USER": "rasqberry",
            "RQ_CONFIG_FILE": str(env_config)}
     log = "/tmp/grok_server.log"            # the launcher's own (it writes there on the Pi)

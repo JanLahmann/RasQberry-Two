@@ -39,7 +39,11 @@ RETIRED_KEYS = ("INTERACTIVE", "ASK_TO_REBOOT", "CONFIG", "MARKER_QRT",
                 "GIT_REPO_DEMO_QUANTUM_MIXER", "QUANTUM_MIXER_DOCKER_IMAGE",
                 "GIT_REPO_DEMO_FWQ", "GIT_REPO_DEMO_QRT", "PATCH_FILE_QRT",
                 "GIT_REPO_DEMO_QLO", "MARKER_QLO", "PATCH_FILE_QLO",
-                "GIT_REPO_DEMO_GROK_BLOCH", "GIT_REPO_DEMO_PARADOXES")
+                "GIT_REPO_DEMO_GROK_BLOCH", "GIT_REPO_DEMO_PARADOXES",
+                # repositories and marker files the scripts now read from the manifests
+                "GIT_REPO_DEMO_LED_PAINTER", "GIT_REPO_DEMO_IBM_LEARNING",
+                "MARKER_FWQ", "MARKER_GROK_BLOCH", "MARKER_LED_PAINTER", "MARKER_PARADOXES",
+                "MARKER_IBM_TUTORIALS", "MARKER_IBM_COURSES")
 
 # A device file from before LED_LAYOUT existed knew its panel only as
 # LED_MATRIX_LAYOUT. Carry that choice into LED_LAYOUT instead of the shipped

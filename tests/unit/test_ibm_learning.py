@@ -233,7 +233,8 @@ def test_the_pair_shares_one_pin_in_its_manifests():
 def _menu_ref(tmp_path, prelude=""):
     menu = _read(_MENU)
     body = re.search(r"^    _ibm_ref=\"\"\n.*?\(unpinned\)\"\n    fi\n", menu, re.S | re.M).group(0)
-    script = f'{prelude}\nf() {{\n{body}    echo "$_ibm_ref"\n}}\nf'
+    helper = re.search(r"^_rq_ibm_field\(\) \{\n.*?^\}\n", menu, re.S | re.M).group(0)
+    script = f'{prelude}\n{helper}f() {{\n{body}    echo "$_ibm_ref"\n}}\nf'
     env = dict(os.environ, RQ_SHIPPED_MANIFESTS=os.path.join(_CFG, "demo-manifests"))
     return subprocess.run(["sh", "-c", script], capture_output=True, text=True, env=env).stdout.strip()
 
