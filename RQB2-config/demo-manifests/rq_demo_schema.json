@@ -338,7 +338,22 @@
           "type": "boolean",
           "default": true,
           "description": "Run in terminal window"
-        }
+        },
+        "comment": {
+          "type": "string",
+          "description": "Tooltip (default: description). A shipped demo's launcher is written from this block by rq_demo_generate_desktop.py"
+        },
+        "file": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Launcher file name without .desktop (default: the demo's or variant's id)"
+        },
+        "name": {"type": "string", "description": "Label under the icon (default: the demo's or variant's name)"},
+        "keywords": {"type": "array", "items": {"type": "string"}, "description": "Search words (default: the demo's keywords)"},
+        "icon": {"type": "string", "description": "Icon file or theme name (default: icon.path)"},
+        "title": {"type": "boolean", "description": "Give its terminal window the label as title"},
+        "chooser": {"type": "boolean", "description": "Open the list of variants (rq_demo_choose.sh) instead of the demo"},
+        "on_desktop": {"type": "boolean", "default": true, "description": "false: in the applications menu only, not on the desktop"}
       }
     },
     "variants": {
@@ -360,6 +375,10 @@
             "type": "string",
             "enum": ["dev", "beta", "prod", "stable"],
             "description": "As the top-level maturity, for this variant only (without it: the demo's level)"
+          },
+          "desktop": {
+            "description": "A launcher of its own for this variant (fields as the demo's desktop block)",
+            "allOf": [{"$ref": "#/properties/desktop"}, {"required": ["comment"]}]
           },
           "args": {
             "type": "array",

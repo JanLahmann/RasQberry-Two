@@ -210,8 +210,6 @@ def test_raspi_config_icon_says_what_it_opens():
     entry = _desktop("rasqberry-menu.desktop")
     assert entry["Name"] == "RasQberry Configuration (raspi-config)"
     assert entry["NoDisplay"] == "false"
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    assert "|rasqberry-menu|" in stage
 
 
 def test_one_bloch_sphere_entry():

@@ -533,8 +533,6 @@ def test_icon_menu_and_lists():
     sys.path.insert(0, _BIN)
     import rq_desktop_session as ds  # noqa: E402
     assert "qubins" in ds.ICON_ORDER
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    assert stage.count("|qubins|") == 2
     assert "qubins)" in open(os.path.join(_BIN, "rq_docker_demos.sh")).read()
     m = _manifest("qubins")
     assert m["menu"]["show"] and m["desktop"]["show"]

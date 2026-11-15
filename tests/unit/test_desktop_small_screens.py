@@ -346,9 +346,10 @@ def test_no_launcher_claims_file_types():
 
 
 def test_every_desktop_launcher_has_a_place_in_the_layout():
-    script = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    listed = set(re.search(r"\^\(([^)]*)\)\\\.desktop\$", script).group(1).split("|"))
-    assert listed == set(ds.ICON_ORDER)
+    # stage 06 puts each launcher on the desktop unless it is for the menu only
+    on_desktop = {name[:-len(".desktop")] for name in os.listdir(_BOOKMARKS) if name.endswith(".desktop")
+                  and "X-RasQberry-OnDesktop=false\n" not in open(os.path.join(_BOOKMARKS, name)).read()}
+    assert on_desktop == set(ds.ICON_ORDER)
 
 
 def test_touch_icon_asks_instead_of_logging_out():
