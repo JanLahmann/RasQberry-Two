@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-14T13:28:01Z",
+  "generated": "2026-11-15T09:11:14Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,25 +35,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-14-134511",
-      "name": "rasqberry-development-2026-11-14-134511",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-134511/rasqberry-development-2026-11-14-134511.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-14-134511",
-      "release_date": "2026-11-14 13:45",
-      "image_download_size": 1861705440,
+      "tag": "development-2026-11-15-093005",
+      "name": "rasqberry-development-2026-11-15-093005",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-093005/rasqberry-development-2026-11-15-093005.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-093005",
+      "release_date": "2026-11-15 09:30",
+      "image_download_size": 1861810284,
       "extract_size": 9604956160,
-      "extract_sha256": "bdb8ca2f1c7c1d83f59eb7a6f10a034b43b3a42a30a62a4d142d7f2bff3b5fff",
-      "image_sha256": "bb3d54d1443433a565f560006674dc341a9eb90b0be9180990733064379cd01c",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-14-134511/rasqberry-development-2026-11-14-134511-ab.img.xz",
-      "ab_extract_sha256": "d724a42a1cf3843e10ea341481acf630d6a1a2eb6bcb8331dde442cdc8b52a43",
-      "ab_image_sha256": "b70f5b3f7ef825d0de140fb5bedc7279f04a2f02d12f841553f4e5c984f8929d",
-      "ab_image_download_size": 1922899240,
+      "extract_sha256": "88b5be7863d50cf7f8f6276018041b0cddf23c90e18c6e83339f92c3f2856517",
+      "image_sha256": "2680103f95dd45cbed6923b2aff23be43f91bb4aba7c6d575a72933296ca4440",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-093005/rasqberry-development-2026-11-15-093005-ab.img.xz",
+      "ab_extract_sha256": "ae866187dbbd257c31d552348c329beff9d7f4a86e6cf010af963a9a14a1db69",
+      "ab_image_sha256": "ab8b8e97a25b7f733b5b2f084b414ebe12d125bbc9708453fac9464712af405d",
+      "ab_image_download_size": 1908653648,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "LED sandbox runtime folder: no symlinks, the session's display, sized",
-        "LED sandbox: only the display and sound sockets of the runtime folder",
-        "SSH first login: scoped to the user, no forwarding, safe on errors",
-        "SSH: first-login password step for headless setups"
+        "Demo launchers: review fixes",
+        "Demo launchers: simpler manifest fields, one list in stage 06",
+        "Demo launchers: generated from the manifests"
       ]
     }
   }
