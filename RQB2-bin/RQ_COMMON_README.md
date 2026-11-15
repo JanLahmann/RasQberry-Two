@@ -218,6 +218,10 @@ esac
 
 ### 5. Git Operations
 
+#### `rq_manifest_field demo-id jq-path [default]`
+A field of a demo's manifest, e.g. `rq_manifest_field grok-bloch .install.marker_file`.
+Status 1 when it is empty and no default is given.
+
 #### `clone_demo "url" "dest_dir" [depth]`
 Clone repository with ownership fixing (default shallow clone).
 
@@ -538,7 +542,7 @@ verify_env_vars REPO USER_HOME STD_VENV
 
 DEMO_NAME="Demo-Name"
 DEMO_DIR=$(get_demo_dir "$DEMO_NAME")
-GIT_URL="${GIT_REPO_DEMO_NAME:-https://github.com/user/repo.git}"
+GIT_URL=$(rq_manifest_field demo-id .install.repo_url) || die "No repository in the demo manifest"
 
 # ============================================================================
 # FUNCTIONS
@@ -618,7 +622,7 @@ if ! ensure_demo_dir "LED-Painter" >/dev/null 2>&1; then
     ask_demo_install "LED-Painter" "5MB" "500MB" || exit 0
 
     # Clone repository
-    clone_demo "$GIT_REPO_DEMO_LED_PAINTER" "$DEMO_DIR"
+    clone_demo "$(rq_manifest_field led-painter .install.repo_url)" "$DEMO_DIR"
 
     # Install dependencies
     activate_venv

@@ -21,10 +21,9 @@ rq_help_guard "$@"
 
 # Load environment and verify required variables
 load_rqb2_env
-verify_env_vars REPO USER_HOME STD_VENV GIT_REPO_DEMO_LED_PAINTER MARKER_LED_PAINTER
+verify_env_vars REPO USER_HOME STD_VENV
 
 DEMO_NAME="LED-Painter"
-MARKER="$MARKER_LED_PAINTER"
 
 # The manifest is the single source of truth for WHERE the demo lives and WHICH
 # upstream commit it is pinned to. This launcher is both a standalone entry point
@@ -46,7 +45,9 @@ manifest_field() {
 # manifest is unreadable, so a broken manifest cannot resurrect the old fork.
 DEMO_DIR=$(get_demo_dir "$(manifest_field '.entrypoint.working_dir' 'RasQberry-Two-LED-Painter')")
 DEMO_REF=$(manifest_field '.install.ref' '')
-DEMO_URL=$(manifest_field '.install.repo_url' "$GIT_REPO_DEMO_LED_PAINTER")
+DEMO_URL=$(manifest_field '.install.repo_url' '')
+MARKER=$(manifest_field '.install.marker_file' 'LED_painter.py')
+[ -n "$DEMO_URL" ] || die "The LED-Painter manifest names no repository"
 
 ################################################################################
 # check_and_install_demo - Install LED Painter with all dependencies

@@ -71,18 +71,10 @@ RasQberry's settings live in `/usr/config/rasqberry_environment.env` (shipped de
 ## Demo-specific configuration
 
 - `RASQ_LED_DISPLAY_TIMEOUT` = `3` **kept**: RasQ-LED Demo timeout in seconds
-- `QOFFEE_PORT` = `8887`: A demo's source (repository, pinned commit, Docker image) is in its manifest (demo-manifests/rq_demo_<id>.json: install, entrypoint), not here. Qoffee-Maker
-- `MARKER_FWQ` = `Quantum-Coin-Game.ipynb`: Fun-with-Quantum
-- `FWQ_JUPYTER_PORT` = `8888`
-- `MARKER_GROK_BLOCH` = `index.html`: Grok-Bloch
-- `GIT_REPO_DEMO_LED_PAINTER` = `https://github.com/Luka-D/RasQberry-Two-LED-Painter.git`: LED-Painter
-- `MARKER_LED_PAINTER` = `LED_painter.py`
-- `MARKER_PARADOXES` = `WELCOME.ipynb`: Quantum-Paradoxes
-- `PARADOXES_JUPYTER_PORT` = `8891`
-- `GIT_REPO_DEMO_IBM_LEARNING` = `https://github.com/Qiskit/documentation.git`: IBM Quantum Tutorials & Courses (from Qiskit documentation - CC BY-SA 4.0)
-- `MARKER_IBM_TUTORIALS` = `WELCOME-tutorials.ipynb`: (its pinned commit: install.source.ref in demo-manifests/rq_demo_ibm-courses.json)
-- `MARKER_IBM_COURSES` = `WELCOME-courses.ipynb`
-- `IBM_TUTORIALS_JUPYTER_PORT` = `8889`
+- `QOFFEE_PORT` = `8887`: A demo's source (repository, pinned commit, Docker image) and marker file are in its manifest (demo-manifests/rq_demo_<id>.json: install, entrypoint); only the ports are set here. Qoffee-Maker
+- `FWQ_JUPYTER_PORT` = `8888`: Fun-with-Quantum
+- `PARADOXES_JUPYTER_PORT` = `8891`: Quantum-Paradoxes
+- `IBM_TUTORIALS_JUPYTER_PORT` = `8889`: IBM Quantum Tutorials & Courses (from Qiskit documentation - CC BY-SA 4.0)
 - `IBM_COURSES_JUPYTER_PORT` = `8890`
 
 ## Installed demos (internal)
