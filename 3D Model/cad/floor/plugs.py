@@ -28,7 +28,7 @@ flange; wall plug 6.2 mm between wings and hexagon (6.0-5.8 was too tight).
 
 The `...Test` prints add 3 mm plates with the holes to try the fit on
 another printer. The outlines are measured from the rebuilt parts in
-print/ (Floor-all, NarrowYCryoConjoined, Wall-Base; under --outdir when
+print/generated/ (Floor-all, NarrowYCryoConjoined, Wall-Base; under --outdir when
 given), so build those first.
 
 Usage:  python plugs.py [--outdir ROOT] [--only CryoPlug,WallPlug,...]
@@ -82,7 +82,7 @@ CENTRE_TOL = 0.05
 
 @functools.cache
 def load(root, name):
-    """Mesh of built part `name`, back in unscaled mm (the STLs in print/
+    """Mesh of built part `name`, back in unscaled mm (the STLs in print/generated/
     have rqb_params.SCALE applied, and export_part applies it to the plugs)."""
     m = trimesh.load(f"{part_path(name, root=root)}.stl", force="mesh")
     return m.apply_scale(1 / rqb_params.SCALE)
@@ -177,9 +177,9 @@ def with_plates(plug, plates, prm=PARAMS):
 
 
 def main():
-    """Build the plugs named in --only from the parts under --outdir (or print/)."""
+    """Build the plugs named in --only from the parts under --outdir (or print/generated/)."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--only", default="CryoPlug,CryoPlugTest,WallPlug,WallPlugTest")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()

@@ -20,7 +20,7 @@ The lid's cross-sections and the chandelier's two free-form outlines (stem,
 column) come from cryo_profiles.json (see extract_cryo_profiles.py); the rest
 is built from the numbers in CHANDELIER below.
 
-Usage:  python cryostat_model.py [--outdir ROOT] [--only NAME,...]   (default ../../print)
+Usage:  python cryostat_model.py [--outdir ROOT] [--only NAME,...]   (default ../../print/generated)
 """
 import argparse
 import json
@@ -227,7 +227,7 @@ def gamma(prof, cups=False, inserts=False, floor_disc=False, cup_walls=None, g=G
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--only", help="comma-separated part names")
     a = ap.parse_args()
     prof = json.loads(PROFILES.read_text())

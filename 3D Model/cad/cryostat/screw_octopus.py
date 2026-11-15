@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parametric rebuild of the octopus alignment screw (R2_ScrewOctopusAlignment2).
 
-Rebuilds `3D Model/originals/cryostat/R2_ScrewOctopusAlignment2.stl`
+Rebuilds `3D Model/print/originals/cryostat/R2_ScrewOctopusAlignment2.stl`
 (SketchUp, mesh only).
 
 Shape, from the bottom:
@@ -88,7 +88,7 @@ def build(p=PARAMS):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
     part = build()

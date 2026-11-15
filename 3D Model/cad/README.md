@@ -2,27 +2,28 @@
 
 RasQberry parts rebuilt as code from the SketchUp and Tinkercad STLs, so
 they can be changed by editing numbers instead of meshes. The scripts write
-`3D Model/print/`.
+`3D Model/print/generated/`.
 
 ## Layout of `3D Model/`
 
 ```
-print/       what to print: STL + 3MF (with the filament colour) + STEP,
-             per part folder (wall/ floor/ cryostat/ RTE/). Generated:
-             rebuilt parts from cad/, the rest copied from originals/.
-originals/   the SketchUp/Tinkercad STLs and Jan's modifications, untouched
-             (*_repaired.stl: mesh repairs made by CI)
-cad/         this code
+print/
+  generated/   what to print: STL + 3MF (with the filament colour) + STEP,
+               per part folder (wall/ floor/ cryostat/ RTE/). Generated:
+               rebuilt parts from cad/, the rest copied from originals/.
+  originals/   the SketchUp/Tinkercad STLs and Jan's modifications, untouched
+               (*_repaired.stl: mesh repairs made by CI)
+cad/           this code
   rqb_params.py    values shared by all parts (scale, body height, fits, export)
   rqb_cad.py       shared helpers (export, dovetail split, 3MF writer,
                    FILAMENTS) and PARTS, the table of where each part is written
-  build_print.py   copies the not-yet-rebuilt originals into print/ and
+  build_print.py   copies the not-yet-rebuilt originals into print/generated/ and
                    writes a coloured 3MF for every STL there
   wall/ floor/ RTE/ cryostat/   one folder per part family
 ```
 
-In `print/`, Jan's modifications sit next to the part they modify, and the
-versions without floor end in `-no-floor` (in `originals/` they are in
+In `print/generated/`, Jan's modifications sit next to the part they modify, and the
+versions without floor end in `-no-floor` (in `print/originals/` they are in
 `3D Model - modifications - Jan/October 2025[ - no-floor]/`).
 
 ## Parts
@@ -34,8 +35,8 @@ versions without floor end in `-no-floor` (in `originals/` they are in
 - **[`floor/`](floor/README.md)**: the six floor tiles with dovetail
   joints, the two magnet versions, `R2_Floor-all` and `R2_Floor-JointTest`,
   plus `R2_Floor-CryoPlug` and `R2_Floor-WallPlug`, which replace screw,
-  nut and ScrewOctopus; all in `print/floor/Dovetail Version/` (the earlier
-  rebuild with pins stays in `print/floor/`).
+  nut and ScrewOctopus; all in `print/generated/floor/Dovetail Version/` (the earlier
+  rebuild with pins stays in `print/generated/floor/`).
 - **[`RTE/`](RTE/README.md)**: the server `R2_NarrowServerSingle`
   (`--variant original`), Jan's `RQB2-R2_NarrowServerSingle-jrl02`,
   `R2_ServerStandalone` (two servers back to back) and the lid `R2_NarrowServerSingleLid`, with the fit adjustable per axis.
@@ -45,7 +46,7 @@ versions without floor end in `-no-floor` (in `originals/` they are in
   `RQB2-Cryostat-jrl01` (lid with chandeliers, two-colour 3MF) and
   `RQB2-R2_CryoStandaloneGamma-jrl04` (+ no-floor).
 
-Every STL in `print/` is now rebuilt from code; `build_print.py` copies an
+Every STL in `print/generated/` is now rebuilt from code; `build_print.py` copies an
 original only for a part that has no script yet.
 
 ## 3MF colours
@@ -58,8 +59,8 @@ carries its filament name and an extruder number (PrusaSlicer's 3MF
 metadata, also read by Bambu Studio and OrcaSlicer). Checked in PrusaSlicer
 2.9: every 3MF loads as a manifold object, jrl01 with 4 parts.
 
-CI (`stl-analysis.yml`) checks every STL in `print/` on each push and PR
-and fails on any mesh problem; `originals/` is only analysed on manual
+CI (`stl-analysis.yml`) checks every STL in `print/generated/` on each push and PR
+and fails on any mesh problem; `print/originals/` is only analysed on manual
 dispatch.
 
 ## Regenerating
@@ -131,7 +132,7 @@ print("volume", round(body.volume / 1000, 2), "cm3")
 
 Conventions to keep: mm units; one script (or module) per part family, in the folder of that family;
 add the part to `rqb_cad.PARTS` and export with `export_part()`;
-parameter block at the top; commit the generated `print/` files together
+parameter block at the top; commit the generated `print/generated/` files together
 with the script that produced them (run `build_print.py` for the 3MF); add print orientation and assembly
 notes to the README. Gotchas that cost us time on the wall: `extrude()`
 follows the sketch face normal, so force polygon winding counter-clockwise

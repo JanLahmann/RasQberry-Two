@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the floor tiles (originals/floor/) into floor_profiles.json.
+"""Measure the floor tiles (print/originals/floor/) into floor_profiles.json.
 
 For each tile it stores what floor_model.py cannot derive from its PARAMS:
 
@@ -14,7 +14,7 @@ For each tile it stores what floor_model.py cannot derive from its PARAMS:
 Polygons are {"ext": [[x, y], ...], "holes": [[[x, y], ...], ...]} in
 the original's coordinates (the tiles of one floor share one frame).
 
-Usage:  python extract_floor.py   (reads ../../originals/floor/)
+Usage:  python extract_floor.py   (reads ../../print/originals/floor/)
 """
 import json
 from pathlib import Path
@@ -23,7 +23,7 @@ import numpy as np
 import shapely.geometry as sg
 import trimesh
 
-ORIG = Path(__file__).resolve().parents[2] / "originals" / "floor"
+ORIG = Path(__file__).resolve().parents[2] / "print" / "originals" / "floor"
 TILES = {t: ORIG / f"R2_Floor-{t}.stl" for t in
          ("Tile1", "Tile2", "Tile3", "Tile4", "Tile5", "Tile6s")}
 TILES |= {t: ORIG / "Sign Magnet Indent Version" / f"R2_Floor-{t}.stl"

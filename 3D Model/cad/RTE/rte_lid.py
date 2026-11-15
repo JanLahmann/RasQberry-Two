@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parametric rebuild of the RTE server lid (R2_NarrowServerSingleLid).
 
-Rebuilds `3D Model/originals/RTE/R2_NarrowServerSingleLid.stl` (SketchUp).
+Rebuilds `3D Model/print/originals/RTE/R2_NarrowServerSingleLid.stl` (SketchUp).
 A cap the size of the server's footprint with a skirt underneath that
 slides into the socket at the top of the server (narrow_server.py,
 socket_x / socket_y). The skirt is a 1 mm wall; the cap is hollow up to a
@@ -73,7 +73,7 @@ def build(p=PARAMS):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--clearance", help="skirt clearance per side, X,Y in mm (default 0.4,0.4)")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()

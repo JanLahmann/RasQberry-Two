@@ -217,7 +217,7 @@ def build(p=PARAMS):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--formats", default="stl,step")
     ap.add_argument("--variant", choices=sorted(VARIANTS), default="jrl02")
     a = ap.parse_args()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parametric rebuild of the wall screw and nut (R2_Screw, R2_Hex_Nut).
 
-Rebuilds `3D Model/originals/wall/R2_Screw.stl` and `R2_Hex_Nut.stl`
+Rebuilds `3D Model/print/originals/wall/R2_Screw.stl` and `R2_Hex_Nut.stl`
 (SketchUp): a hollow screw with a hex head and its nut, e.g. for a cable
 feed-through.
 
@@ -95,7 +95,7 @@ def nut(p=PARAMS):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", help="output root (default ../../print)")
+    ap.add_argument("--outdir", help="output root (default ../../print/generated)")
     ap.add_argument("--clearance", type=float, help="nut clearance in mm (default 0.355)")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
