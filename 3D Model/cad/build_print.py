@@ -32,6 +32,7 @@ FILAMENT = [
     (lambda p: "Chandelier" in p.name, "silk gold"),
     (lambda p: p.name in ("R2_NarrowServerSingleLid.stl", "R2_CryoLid-Simple.stl"), "transparent"),
     (lambda p: p.parts[0] == "floor", "white"),
+    (lambda p: p.name == "RQB2-WallPanel-jrl02-2.stl", "galaxy black"),
     (lambda p: p.parts[0] == "wall", "matte black"),
     (lambda p: p.parts[0] in ("RTE", "cryostat"), "silk silver"),
 ]

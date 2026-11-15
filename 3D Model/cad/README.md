@@ -23,6 +23,9 @@ cad/           this code
                    FILAMENTS) and PARTS, the table of where each part is written
   build_print.py   copies the not-yet-rebuilt originals into print/generated/ and
                    writes a coloured 3MF for every STL there
+  build_plates.py  print/generated/complete/ (each variant assembled, in color)
+                   and print/generated/plates/ (ready PrusaSlicer plates for
+                   MK4S and Core One, with the print list)
   wall/ floor/ RTE/ cryostat/   one folder per part family
 ```
 
@@ -56,7 +59,8 @@ original only for a part that has no script yet.
 
 From the bill of materials (`FILAMENTS` in `rqb_cad.py`, assigned in
 `build_print.py`): wall black (matte preferred), floor white / rock white,
-cryostat and RTE silk silver, chandeliers silk gold, lids transparent.
+cryostat and RTE silk silver, chandeliers silk gold, lids transparent;
+the LED filter screen galaxy black (Jan, 2026-11-15).
 A multi-colour 3MF (jrl01) is one object with one part per colour; each part
 carries its filament name and an extruder number (PrusaSlicer's 3MF
 metadata, also read by Bambu Studio and OrcaSlicer). Checked in PrusaSlicer
@@ -65,6 +69,25 @@ metadata, also read by Bambu Studio and OrcaSlicer). Checked in PrusaSlicer
 CI (`stl-analysis.yml`) checks every STL in `print/generated/` on each push and PR
 and fails on any mesh problem; `print/originals/` is only analysed on manual
 dispatch.
+
+## Complete models and print plates
+
+`build_plates.py` builds the parts list of discussion #93 from the new
+parts: wall (base `jrl01-2`, `Back+13`, lid, LED filter screen), cryostat
+Gamma `jrl04` with the door, 9 `jrl02` servers with lids (three per arm
+wall) and Jan's lid with chandeliers `jrl01` (two colors, filament change
+at a layer, or two filaments on an MMU3 / INDX). The standard has the
+dovetail floor and plugs; without floor the floor is skipped and the wall
+base and cryostat without the holes (`no-floor-alternatives.3mf`) replace
+their standard ones. `COLOR_FILES` lists one PrusaSlicer project per
+filament color and its parts, packed onto as many beds as needed (multiple
+beds, PrusaSlicer 2.9); `all-parts.3mf` has every bed except the floor.
+`ORIENT` says how a part lies on the bed; `layout()` where each part sits in
+the assembled model (wall from the website's 3D viewer, cryostat on the
+floor's cryostat hole). The projects carry the system presets (Prusament
+PLA, HF0.4 nozzle) from the vendor bundle PrusaSlicer has installed;
+PrusaSlicer slices each bed once for the grams and times in
+`print/generated/plates/README.md`.
 
 ## Regenerating
 
@@ -78,7 +101,8 @@ cd "3D Model/cad"
 (cd cryostat && python3 cryostat_model.py && python3 new_door.py && python3 screw_octopus.py \
                && python3 narrow_y_conjoined.py)
 (cd floor && python3 plugs.py)          # measures floor, wall and cryostat: after them
-python3 build_print.py                  # copies + 3MFs, always last
+python3 build_print.py                  # copies + 3MFs
+python3 build_plates.py                 # complete models + plates (needs PrusaSlicer 2.9), last
 ```
 
 Each part script takes `--outdir ROOT` to write the same tree elsewhere.
