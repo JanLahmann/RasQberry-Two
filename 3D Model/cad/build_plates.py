@@ -9,6 +9,9 @@ and the cryostat are printed without their holes (the no-floor alternatives).
 - `print/generated/complete/RasQberry-Two-{standard,no-floor}.3mf`: every
   part in its place in the assembled model, in its filament color (one
   object, one named part per printed piece), to see what goes where.
+- `print/generated/complete/RasQberry-Two-{standard,no-floor}.layout.json`:
+  the same assembly as a list of STL files and their placements (for the
+  website's 3D viewer, so both use one layout).
 - `print/generated/plates/`: PrusaSlicer projects for the Prusa Core One with
   as many beds as needed (PrusaSlicer 2.9 multiple beds), parts turned the
   right way up and laid out, with the printer, print and filament presets
@@ -32,6 +35,7 @@ Usage:  python build_plates.py [--prusaslicer PATH] [--vendor DIR]
 """
 import argparse
 import functools
+import json
 import math
 import os
 import re
@@ -282,7 +286,38 @@ def write_complete(variant):
     path = OUTPUT / "complete" / f"RasQberry-Two-{variant}.3mf"
     path.parent.mkdir(parents=True, exist_ok=True)
     write_3mf(path, out)
+    write_layout(path.with_suffix(".layout.json"), pieces)
     return path
+
+
+# the bodies of the two-color part, as the single parts they are made of
+BODY_PARTS = {"lid": "R2_CryoLid-Simple", "chandelier": "R2_ChandelierSingle"}
+
+
+def stl_pieces(part, m):
+    """[(part, filament, 4x4)]: `part` placed by `m` as STL parts; the
+    two-color part as its lid and chandeliers (turned over, as in it), each
+    aligned to its body: x/y centre and top."""
+    if part != TWO_COLOR:
+        return [(part, part_filament(part), m)]
+    out, turn = [], rot([0, 1, 0], 180)
+    for name, fil, (v, _) in bodies(part):
+        single = BODY_PARTS[name.split()[0]]
+        g = trimesh.transform_points(mesh(single).vertices, turn)
+        lo, hi = v.min(0), v.max(0)
+        shift = [(lo[0] + hi[0] - g[:, 0].min() - g[:, 0].max()) / 2,
+                 (lo[1] + hi[1] - g[:, 1].min() - g[:, 1].max()) / 2, hi[2] - g[:, 2].max()]
+        out.append((single, fil, m @ T(*shift) @ turn))
+    return out
+
+
+def write_layout(path, pieces):
+    """The assembly as JSON: per printed piece its part, STL (relative to
+    print/generated), filament and 4x4 placement (row-major, mm, z up)."""
+    rows = [{"part": part, "stl": f"{PARTS[part]}.stl", "filament": fil,
+             "matrix": [round(float(x), 5) for x in mm.ravel()]}
+            for p, m in pieces for part, fil, mm in stl_pieces(p, m)]
+    path.write_text(json.dumps({"units": "mm", "up": "+z", "pieces": rows}, indent=1) + "\n")
 
 # ---------------------------------------------------------------- beds
 
