@@ -126,21 +126,20 @@ demo_password_state() {
         hash=$(sudo -n getent shadow "$user" 2>/dev/null | cut -d: -f2) || hash=""
     fi
     case "$hash" in
-        '')  echo unknown; return 0 ;;
-        '*'*) echo no; return 0 ;;
+        '')       echo unknown; return 0 ;;
+        '!'*|'*'*) echo no; return 0 ;;
     esac
-    # locked (usermod -L, passwd -l): the hash is still there after the "!",
-    # and an unlock brings it back - it counts as what it is underneath
-    hash="${hash#"${hash%%[!!]*}"}"
-    [ -n "$hash" ] || { echo no; return 0; }
     command -v perl >/dev/null 2>&1 || { echo unknown; return 0; }
-    if RQ_PW="$DEMO_PASSWORD" RQ_HASH="$hash" perl -e \
-        'my $c = crypt($ENV{RQ_PW}, $ENV{RQ_HASH}); exit((defined $c && $c eq $ENV{RQ_HASH}) ? 0 : 1)' \
-        2>/dev/null; then
-        echo yes
-    else
-        echo no
-    fi
+    # 0 the published one, 1 another, 2 crypt() cannot read the hash: unknown
+    local rc=0
+    RQ_PW="$DEMO_PASSWORD" RQ_HASH="$hash" perl -e \
+        'my $c = crypt($ENV{RQ_PW}, $ENV{RQ_HASH}); exit 2 if !defined $c || $c =~ /^\*/; exit($c eq $ENV{RQ_HASH} ? 0 : 1)' \
+        2>/dev/null || rc=$?
+    case "$rc" in
+        0) echo yes ;;
+        1) echo no ;;
+        *) echo unknown ;;
+    esac
     return 0
 }
 

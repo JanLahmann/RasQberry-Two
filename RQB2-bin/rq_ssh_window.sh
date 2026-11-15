@@ -76,6 +76,13 @@ window_minutes() {
 
 vnc_in_window() { [ "$(boot_setting DEFAULT_PW_WINDOW_VNC no)" = yes ]; }
 
+# A locked account (usermod -L) counts as "not the published password" for SSH
+# (no password login works), but an unlock brings its old hash back: VNC, which
+# stays on once switched on, waits for a real password change
+account_locked() {
+    [ "${RQ_ACCOUNT_LOCKED:-$(passwd -S "$(desktop_user)" 2>/dev/null | awk '{print $2}')}" = L ]
+}
+
 desktop_user() { printf '%s' "${RQ_SSH_USER:-$(getent passwd 1000 2>/dev/null | cut -d: -f1)}"; }
 
 # yes | no | unknown: does the desktop user still have the demo password?
@@ -195,7 +202,7 @@ cmd_window() {
 # desktop login (rasqberry-enable-vnc.sh: its own password check, retries,
 # the marker only once VNC is confirmed on)
 vnc_once() {
-    [ -x "$ENABLE_VNC" ] || return 0
+    [ -x "$ENABLE_VNC" ] || { warn "rq_ssh_window: $ENABLE_VNC missing: VNC not switched on"; return 0; }
     RQ_VNC_WAIT="${RQ_VNC_WAIT:-2}" "$ENABLE_VNC" >/dev/null 2>&1 \
         || info "rq_ssh_window: VNC could not be switched on now; the next desktop login tries again."
 }
@@ -211,10 +218,10 @@ cmd_check() {
         remove_dropin
         reload_sshd
         info "rq_ssh_window: the demo password is changed: no more first-login step."
-        vnc_once
-    elif [ "${1:-}" = changed ]; then
-        vnc_once
+    elif [ "${1:-}" != changed ]; then
+        return 0
     fi
+    vnc_once
 }
 
 cmd_status() {
@@ -230,7 +237,7 @@ main() {
         window)      ensure_root "$@"; cmd_window ;;
         check)       ensure_root "$@"; cmd_check changed ;;
         status)      cmd_status ;;
-        vnc-allowed) [ "$(demo_password)" = no ] || vnc_in_window ;;
+        vnc-allowed) { [ "$(demo_password)" = no ] && ! account_locked; } || vnc_in_window ;;
         *)           die "Usage: $(basename "$0") close | window | check | status | vnc-allowed" ;;
     esac
 }

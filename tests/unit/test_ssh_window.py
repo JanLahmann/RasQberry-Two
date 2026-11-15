@@ -13,14 +13,14 @@ _WINDOW = os.path.join(_ROOT, "RQB2-bin", "rq_ssh_window.sh")
 _FIRST = os.path.join(_ROOT, "RQB2-bin", "rq_ssh_first_login.sh")
 
 
-def _run(tmp_path, code, demo="yes", boot_env="", stubs=""):
+def _run(tmp_path, code, demo="yes", boot_env="", stubs="", locked="P"):
     env_file = tmp_path / "rasqberry_boot.env"
     env_file.write_text(boot_env)
     (tmp_path / "sshd_config.d").mkdir(exist_ok=True)
     env = dict(os.environ, RQ_SSHD_DIR=str(tmp_path), RQ_SSH_DROPIN=str(tmp_path / "05-first-login.conf"),
                RQ_BOOT_ENV_FILES=f"{tmp_path / 'none.env'}:{env_file}", RQ_DEMO_PW_STATE=demo,
                RQ_SSH_USER="rasqberry", RQ_SSH_RELOAD="true", RQ_NO_LED="1", RQ_SSH_POLL="0",
-               RQ_SSH_BANNER=str(tmp_path / "banner.txt"), RQ_VNC_MARKER=str(tmp_path / "vnc-marker"),
+               RQ_SSH_BANNER=str(tmp_path / "banner.txt"), RQ_ACCOUNT_LOCKED=locked,
                RQ_ENABLE_VNC=str(tmp_path / "enable-vnc"), RQ_VNC_CALLS=str(tmp_path / "calls"))
     # never the real VNC switch (a dev Pi would turn VNC on): a fake
     # rasqberry-enable-vnc.sh that logs each run
@@ -28,9 +28,8 @@ def _run(tmp_path, code, demo="yes", boot_env="", stubs=""):
     fake_vnc.write_text('#!/bin/sh\necho run >> "$RQ_VNC_CALLS"\n')
     fake_vnc.chmod(0o755)
     # main checks for root: after sourcing (rq_common.sh defines it), not as root here
-    fake = ''
     code = code.replace("main ", "ensure_root() { :; }; main ")
-    return subprocess.run(["bash", "-c", f'{fake}{stubs} . "{_WINDOW}"; {code}'],
+    return subprocess.run(["bash", "-c", f'{stubs} . "{_WINDOW}"; {code}'],
                           capture_output=True, text=True, env=env)
 
 
@@ -130,11 +129,34 @@ def test_no_vnc_while_the_published_password_is_set(tmp_path):
     assert _calls(tmp_path) == []
 
 
-def test_the_login_routine_stops_if_another_run_switched_vnc_on():
-    """The login and a password change can both run it: the marker ends the loop."""
-    vnc = open(os.path.join(_ROOT, "RQB2-system", "usr", "local", "bin", "rasqberry-enable-vnc.sh")).read()
-    loop = vnc[vnc.index("for attempt in"):]
-    assert loop.index('[ -e "$MARKER" ] && exit 0') < loop.index("do_vnc 0")
+def test_a_locked_account_keeps_vnc_waiting(tmp_path):
+    """usermod -L makes the hash read as "not the published one", but an unlock
+    brings it back: VNC, which stays on once on, waits for a real change."""
+    assert _run(tmp_path, "main vnc-allowed", demo="no", locked="L").returncode != 0
+    assert _run(tmp_path, "main vnc-allowed", demo="no", locked="P").returncode == 0
+
+
+def test_the_login_routine_stops_if_another_run_switched_vnc_on(tmp_path):
+    """The login and a password change can both run it: the marker, written by
+    the other run meanwhile, ends the loop before do_vnc."""
+    stubs = tmp_path / "bin"
+    stubs.mkdir()
+    marker, log = tmp_path / "marker", tmp_path / "raspi.log"
+    for name, body in {
+        "sudo": 'while [ "${1#-}" != "$1" ]; do shift; done\nexec "$@"\n',
+        "raspi-config": f'echo "$*" >> "{log}"\n[ "$2" = get_vnc ] && echo 1\nexit 0\n',
+        "sleep": f': > "{marker}"\n',                    # the other run, meanwhile
+        "logger": "exit 0\n",
+        "window": "exit 0\n",                            # vnc-allowed: yes
+    }.items():
+        (stubs / name).write_text("#!/bin/sh\n" + body)
+        (stubs / name).chmod(0o755)
+    vnc = os.path.join(_ROOT, "RQB2-system", "usr", "local", "bin", "rasqberry-enable-vnc.sh")
+    env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", RQ_VNC_MARKER=str(marker),
+               RQ_SSH_WINDOW=str(stubs / "window"), RQ_VNC_WAS_ON=str(tmp_path / "none"))
+    r = subprocess.run(["bash", vnc], capture_output=True, text=True, env=env)
+    assert r.returncode == 0, r.stderr
+    assert "do_vnc" not in (log.read_text() if log.exists() else "")
 
 
 def test_vnc_waits_for_the_password_unless_opted_in(tmp_path):

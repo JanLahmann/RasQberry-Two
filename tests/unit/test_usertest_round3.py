@@ -60,14 +60,14 @@ def test_demo_password_state(stubs, tmp_path, password, state):
 
 
 @needs_perl
-@pytest.mark.parametrize("password,state", [(DEMO, "yes"), ("someone's own", "no")])
-def test_a_locked_account_counts_as_its_hash(stubs, tmp_path, password, state):
-    """usermod -L puts "!" in front: an unlock brings the hash back, so a locked
-    published password still counts as the published one (VNC must wait)."""
-    _getent(tmp_path / "stubs", "!" + _crypt(password))
+@pytest.mark.skipif(sys.platform != "linux", reason="libxcrypt's failure token (*0); macOS crypt() falls back to DES")
+def test_a_hash_crypt_cannot_read_is_unknown(stubs, tmp_path):
+    """crypt() fails on a hash format it does not know: unknown (VNC waits),
+    not "another password"."""
+    _getent(tmp_path / "stubs", r"\$zz\$notahash")                # escaped: the stub echoes it
     proc = subprocess.run(["bash", _REMOTE, "demo-password"], env=dict(os.environ, PATH=stubs.path),
                           capture_output=True, text=True, timeout=30)
-    assert proc.stdout.strip() == state, proc.stderr
+    assert proc.stdout.strip() == "unknown", proc.stderr
 
 
 @pytest.mark.parametrize("hash_,state", [("!", "no"), ("*", "no"), ("", "unknown")])
