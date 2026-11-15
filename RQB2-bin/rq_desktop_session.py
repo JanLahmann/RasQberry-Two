@@ -97,7 +97,7 @@ BOOKMARKS_DIR = os.path.join(CONFIG_DIR, "desktop-bookmarks")
 MENU_ONLY = "X-RasQberry-OnDesktop=false"
 
 
-def shipped_launchers(bookmarks=None, first=()):
+def shipped_launchers(bookmarks=BOOKMARKS_DIR):
     """
     Every launcher the image puts on the desktop (stage 06 copies the same
     ones): desktop-bookmarks/ without the applications-menu-only ones.
@@ -106,27 +106,24 @@ def shipped_launchers(bookmarks=None, first=()):
 
     Args:
         bookmarks (str): The folder (default: the shipped desktop-bookmarks/).
-        first (list): Names that lead, in this order (the system icons:
-            a flat desktop starts with RasQberry Setup).
 
     Returns:
-        list: Launcher names: first, then the others by file name.
+        list: Launcher names, by file name (none if the folder is missing).
     """
-    folder = bookmarks or BOOKMARKS_DIR
+    names = []
     try:
-        files = sorted(f for f in os.listdir(folder) if f.endswith(".desktop"))
+        for f in sorted(os.listdir(bookmarks)):
+            if not f.endswith(".desktop"):
+                continue
+            with open(os.path.join(bookmarks, f), encoding="utf-8") as fh:
+                if MENU_ONLY not in fh.read().splitlines():
+                    names.append(f[:-len(".desktop")])
     except OSError:
         return []
-    names = []
-    for f in files:
-        try:
-            with open(os.path.join(folder, f), encoding="utf-8") as fh:
-                if MENU_ONLY in fh.read().splitlines():
-                    continue
-        except OSError:
-            continue
-        names.append(f[:-len(".desktop")])
-    return [n for n in first if n in names] + [n for n in names if n not in first]
+    return names
+
+
+ICON_ORDER = shipped_launchers()
 
 
 def known_demos_file():
@@ -791,9 +788,6 @@ def load_groups(path=None):
             "system": list(data.get("system") or []),
             "last": list(data.get("last") or []),
             "launchers": dict(data.get("launchers") or {})}
-
-
-ICON_ORDER = shipped_launchers(first=load_groups()["system"])
 
 
 def manifest_dirs(home=None):
