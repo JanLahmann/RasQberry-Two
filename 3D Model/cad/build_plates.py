@@ -414,16 +414,17 @@ def write_project(path, beds, bed, ini, multi):
     two-color part's bed gets a filament change; on a two-filament printer
     its bodies get their own extruders (`multi`)."""
     wipe = multi and ini_value(ini, "wipe_tower") == "1"
-    usable = (bed[0] - WIPE_STRIP, bed[1]) if wipe else bed
     parts = list(dict.fromkeys(p for b in beds for p in b))
     fils = filaments(parts) if multi else filaments(parts)[:1]
+    if len(fils) > len(ini_value(ini, "extruder_colour").split(";")):
+        raise ValueError(f"{path.name}: {len(fils)} filaments, more than the printer has")
     if len(beds) > MAX_BEDS:
         raise ValueError(f"{path.name}: {len(beds)} beds, PrusaSlicer takes {MAX_BEDS}")
     items = []        # (object index, x, y)
     changes = []      # bed index with the two-color part (one nozzle)
     for k, b in enumerate(beds):
         dx = k * BED_STRIDE * bed[0]
-        items += [(parts.index(p), x + dx, y) for p, (x, y) in zip(b, arrange(b, usable))]
+        items += [(parts.index(p), x + dx, y) for p, (x, y) in zip(b, arrange(b, usable(b, bed, multi)))]
         if TWO_COLOR in b and not multi:
             changes.append(k)
     model = MODEL_HEAD + ["<resources>"]
@@ -556,21 +557,31 @@ class Slicer:
 
 # ---------------------------------------------------------------- main
 
+def usable(parts, bed, multi):
+    """The bed area for `parts`: on an MMU3 a bed with two filaments keeps a
+    strip free for the wipe tower (one filament needs no tower)."""
+    if multi == "mmu3" and len(filaments(parts)) > 1:
+        return (bed[0] - WIPE_STRIP, bed[1])
+    return bed
+
+
 def projects(folder, bed):
-    """[(file name, beds, multi)] of a printer folder."""
-    color = [(f"{n}-{name}.3mf", pack(items, bed)) for n, (name, items)
-             in enumerate(COLOR_FILES, start=1)]
-    out = [(f, b, None) for f, b in color]
-    out.append(("all-parts.3mf", [b for (f, beds), (name, _) in zip(color, COLOR_FILES)
-                                   if name != FLOOR_FILE for b in beds], None))
+    """[(file name, beds, multi)] of a printer folder. The projects with
+    several colors (all-parts, no-floor-alternatives) are for the MMU3, so
+    PrusaSlicer shows each part in its color; each bed has one filament but
+    the lid bed."""
+    def beds(items, multi=None):
+        return pack(items, usable([p for p, _ in items], bed, multi))
+    out = [(f"{n}-{name}.3mf", beds(items), None) for n, (name, items)
+           in enumerate(COLOR_FILES, start=1)]
+    out.append(("all-parts.3mf", [b for name, items in COLOR_FILES if name != FLOOR_FILE
+                                   for b in beds(items, "mmu3")], "mmu3"))
     out.append(("no-floor-alternatives.3mf",
-                [b for p in NO_FLOOR.values() for b in pack([(p, 1)], bed)], None))
-    # the two-color project for two-filament printers (MMU3: wipe tower strip)
+                [b for p in NO_FLOOR.values() for b in beds([(p, 1)], "mmu3")], "mmu3"))
+    # the two-color project for each two-filament printer
     fname, items = next((f"{n}-{name}", items) for n, (name, items) in enumerate(COLOR_FILES, start=1)
                         if any(p == TWO_COLOR for p, _ in items))
-    for multi in PRINTERS[folder][2]:
-        usable = (bed[0] - WIPE_STRIP, bed[1]) if multi == "mmu3" else bed
-        out.append((f"{fname}-{multi}.3mf", pack(items, usable), multi))
+    out += [(f"{fname}-{multi}.3mf", beds(items, multi), multi) for multi in PRINTERS[folder][2]]
     return out
 
 
@@ -625,7 +636,11 @@ def write_readme(report, version):
              "and times are PrusaSlicer's estimates (Prusament PLA, HF0.4 nozzle, vendor",
              f"profiles {version}).", "",
              "- One project per filament color, one color per bed. The floor is",
-             "  `3-white-floor.3mf`; `all-parts.3mf` has every other bed.",
+             "  `3-white-floor.3mf`; `all-parts.3mf` has every other bed, each part in",
+             "  its color: it is set up for an MMU3 (5 filaments). Every bed has one",
+             "  filament except the lid bed, so with a single nozzle choose your printer",
+             "  in PrusaSlicer and change the filament between beds (for the lid bed",
+             "  use `5-transparent+silk-gold.3mf`).",
              "- **Without floor:** skip the white project and print the two parts of",
              "  `no-floor-alternatives.3mf` instead of the wall base and the cryostat",
              "  (the same parts without the holes for the floor plugs).",

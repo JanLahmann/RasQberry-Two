@@ -7,7 +7,11 @@ and times are PrusaSlicer's estimates (Prusament PLA, HF0.4 nozzle, vendor
 profiles 2.5.14).
 
 - One project per filament color, one color per bed. The floor is
-  `3-white-floor.3mf`; `all-parts.3mf` has every other bed.
+  `3-white-floor.3mf`; `all-parts.3mf` has every other bed, each part in
+  its color: it is set up for an MMU3 (5 filaments). Every bed has one
+  filament except the lid bed, so with a single nozzle choose your printer
+  in PrusaSlicer and change the filament between beds (for the lid bed
+  use `5-transparent+silk-gold.3mf`).
 - **Without floor:** skip the white project and print the two parts of
   `no-floor-alternatives.3mf` instead of the wall base and the cryostat
   (the same parts without the holes for the floor plugs).
@@ -29,7 +33,7 @@ Filament change on the lid bed at 21.0 mm.
 | Project | Bed | Parts | Filament | Grams | Time |
 |---|---|---|---|---|---|
 | 1-matte-black.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13 | matte black | 125 g | 4h 8m 42s |
-| 1-matte-black.3mf | 2 | 1 x R2_Wall-Lid | matte black | 57 g | 2h 22m 57s |
+| 1-matte-black.3mf | 2 | 1 x R2_Wall-Lid | matte black | 57 g | 2h 22m 58s |
 | 2-galaxy-grey.3mf | 1 | 1 x RQB2-WallPanel-jrl02-2 | galaxy grey | 15 g | 24m 56s |
 | 3-white-floor.3mf | 1 | 1 x R2_Floor-Tile1, 1 x R2_Floor-CryoPlug, 2 x R2_Floor-WallPlug | white | 58 g | 1h 36m 49s |
 | 3-white-floor.3mf | 2 | 1 x R2_Floor-Tile2 | white | 47 g | 1h 6m 27s |
@@ -39,14 +43,14 @@ Filament change on the lid bed at 21.0 mm.
 | 3-white-floor.3mf | 6 | 1 x R2_Floor-Tile6s | white | 46 g | 1h 13m 12s |
 | 4-silk-silver.3mf | 1 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 295 g | 14h 53m 15s |
 | 5-transparent+silk-gold.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 93 g | 3h 48m 44s |
-| all-parts.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13 | matte black | 125 g | 4h 8m 42s |
-| all-parts.3mf | 2 | 1 x R2_Wall-Lid | matte black | 57 g | 2h 22m 57s |
-| all-parts.3mf | 3 | 1 x RQB2-WallPanel-jrl02-2 | galaxy grey | 15 g | 24m 56s |
-| all-parts.3mf | 4 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 295 g | 14h 53m 15s |
-| all-parts.3mf | 5 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 93 g | 3h 48m 44s |
-| no-floor-alternatives.3mf | 1 | 1 x R2_Wall-Base-jrl01-2-no-floor | matte black | 81 g | 2h 50m 39s |
-| no-floor-alternatives.3mf | 2 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04-no-floor | silk silver | 56 g | 2h 1m 43s |
-| 5-transparent+silk-gold-mmu3.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 52m 51s |
+| all-parts.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13 | matte black | 125 g | 4h 8m 53s |
+| all-parts.3mf | 2 | 1 x R2_Wall-Lid | matte black | 57 g | 2h 23m 9s |
+| all-parts.3mf | 3 | 1 x RQB2-WallPanel-jrl02-2 | galaxy grey | 16 g | 25m 6s |
+| all-parts.3mf | 4 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 295 g | 14h 53m 25s |
+| all-parts.3mf | 5 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 52m 53s |
+| no-floor-alternatives.3mf | 1 | 1 x R2_Wall-Base-jrl01-2-no-floor | matte black | 81 g | 2h 50m 49s |
+| no-floor-alternatives.3mf | 2 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04-no-floor | silk silver | 56 g | 2h 1m 54s |
+| 5-transparent+silk-gold-mmu3.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 52m 53s |
 
 Filament, standard (the lid bed split as on MMU3): matte black 182 g, galaxy grey 15 g, white 287 g, silk silver 295 g, transparent 65 g, silk gold 28 g; 872 g in total.
 
@@ -58,7 +62,7 @@ Filament change on the lid bed at 21.0 mm.
 
 | Project | Bed | Parts | Filament | Grams | Time |
 |---|---|---|---|---|---|
-| 1-matte-black.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13, 1 x R2_Wall-Lid | matte black | 182 g | 5h 47m 19s |
+| 1-matte-black.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13, 1 x R2_Wall-Lid | matte black | 182 g | 5h 49m 49s |
 | 2-galaxy-grey.3mf | 1 | 1 x RQB2-WallPanel-jrl02-2 | galaxy grey | 15 g | 24m 32s |
 | 3-white-floor.3mf | 1 | 1 x R2_Floor-Tile1, 1 x R2_Floor-CryoPlug, 2 x R2_Floor-WallPlug | white | 58 g | 1h 30m 17s |
 | 3-white-floor.3mf | 2 | 1 x R2_Floor-Tile2 | white | 47 g | 1h 3m 13s |
@@ -68,13 +72,13 @@ Filament change on the lid bed at 21.0 mm.
 | 3-white-floor.3mf | 6 | 1 x R2_Floor-Tile6s | white | 46 g | 1h 8m 47s |
 | 4-silk-silver.3mf | 1 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 295 g | 13h 31m 26s |
 | 5-transparent+silk-gold.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 93 g | 3h 35m 6s |
-| all-parts.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13, 1 x R2_Wall-Lid | matte black | 182 g | 5h 47m 19s |
-| all-parts.3mf | 2 | 1 x RQB2-WallPanel-jrl02-2 | galaxy grey | 15 g | 24m 32s |
-| all-parts.3mf | 3 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 295 g | 13h 31m 26s |
-| all-parts.3mf | 4 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 93 g | 3h 35m 6s |
-| no-floor-alternatives.3mf | 1 | 1 x R2_Wall-Base-jrl01-2-no-floor | matte black | 81 g | 2h 33m 42s |
-| no-floor-alternatives.3mf | 2 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04-no-floor | silk silver | 56 g | 1h 57m 42s |
-| 5-transparent+silk-gold-mmu3.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 39m 49s |
+| all-parts.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13, 1 x R2_Wall-Lid | matte black | 183 g | 5h 50m 4s |
+| all-parts.3mf | 2 | 1 x RQB2-WallPanel-jrl02-2 | galaxy grey | 16 g | 24m 47s |
+| all-parts.3mf | 3 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 295 g | 13h 31m 41s |
+| all-parts.3mf | 4 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 39m 50s |
+| no-floor-alternatives.3mf | 1 | 1 x R2_Wall-Base-jrl01-2-no-floor | matte black | 81 g | 2h 33m 57s |
+| no-floor-alternatives.3mf | 2 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04-no-floor | silk silver | 56 g | 1h 57m 57s |
+| 5-transparent+silk-gold-mmu3.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 39m 50s |
 | 5-transparent+silk-gold-indx.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 34m 50s |
 
 Filament, standard (the lid bed split as on MMU3): matte black 182 g, galaxy grey 15 g, white 287 g, silk silver 295 g, transparent 65 g, silk gold 28 g; 872 g in total.
