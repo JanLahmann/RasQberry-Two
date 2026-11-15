@@ -9,6 +9,10 @@
 # (rq_carry_over.sh). To have it switched on again by this script, delete the
 # marker: sudo rm /var/lib/rasqberry/vnc-auto-enabled
 #
+# Two callers: this autostart (as the desktop user, through sudo -n), and
+# rq_ssh_window.sh check as root when the password is changed (a card whose
+# VNC waited for that); sudo -n works for root as well. Keep both working.
+#
 # On a fresh slot, raspi-config aborted in the first seconds of the session:
 # it sources demo-menu-cache.sh, which rasqberry-demo-cache.service was still
 # writing (#288). The generator now writes the cache atomically; the wait and
@@ -49,6 +53,8 @@ fi
 
 sleep "${RQ_VNC_WAIT:-15}"
 for attempt in 1 2 3 4 5; do
+    # the login and a password change can both get here: the first one wins
+    [ -e "$MARKER" ] && exit 0
     out=$(sudo -n raspi-config nonint do_vnc 0 2>&1)
     if vnc_on; then
         log "VNC enabled (attempt $attempt) - once; it stays off if switched off later"

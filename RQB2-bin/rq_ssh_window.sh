@@ -24,19 +24,21 @@ set -euo pipefail
 #   Once the password is changed (any way: the checklist, the menu, passwd),
 #   rasqberry-ssh-window-check.path runs "check" and all this goes away.
 #   An Imager-customised card (own password, or keys only) has no demo
-#   password, or password login is off anyway: nothing changes there.
+#   password, or password login is off anyway: SSH is left alone there, and
+#   only VNC waits while a keys-only card still has the published password.
 #
 # Usage: rq_ssh_window.sh close | window | check | status | vnc-allowed
 #   close        (root, before sshd starts) the drop-in for a closed window
 #   window       (root) wait for a network, open the window, close it after
-#   check        (root) remove the drop-in once the demo password is gone
+#   check        (root, on a password change) remove the drop-in and switch
+#                VNC on, once, when the demo password is gone
 #   status       demo password, window minutes, VNC setting, drop-in state
 #   vnc-allowed  exit 0 if VNC may be switched on now
 #
 # Environment (tests): RQ_SSHD_DIR, RQ_SSH_DROPIN, RQ_BOOT_ENV_FILES (colon-separated),
 #   RQ_DEMO_PW_STATE (yes|no|unknown instead of asking rq_remote_access.sh),
 #   RQ_SSH_USER, RQ_SSH_RELOAD (command), RQ_SSH_POLL (seconds), RQ_NO_LED=1,
-#   RQ_SSH_BANNER, RQ_VNC_MARKER
+#   RQ_SSH_BANNER, RQ_ENABLE_VNC
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -47,7 +49,7 @@ BOOT_ENV_FILES="${RQ_BOOT_ENV_FILES:-/boot/firmware/rasqberry_boot.env:/boot/con
 BANNER="${RQ_SSH_BANNER:-/run/rasqberry/ssh-password-closed.txt}"
 FIRST_LOGIN=/usr/bin/rq_ssh_first_login.sh
 POLL="${RQ_SSH_POLL:-5}"
-VNC_MARKER="${RQ_VNC_MARKER:-/var/lib/rasqberry/vnc-auto-enabled}"
+ENABLE_VNC="${RQ_ENABLE_VNC:-/usr/local/bin/rasqberry-enable-vnc.sh}"
 SCROLL_UNIT="rasqberry-ssh-window-scroll"
 
 # A setting from rasqberry_boot.env (the last file that has it wins: CONFIG
@@ -73,6 +75,13 @@ window_minutes() {
 }
 
 vnc_in_window() { [ "$(boot_setting DEFAULT_PW_WINDOW_VNC no)" = yes ]; }
+
+# A locked account (usermod -L) counts as "not the published password" for SSH
+# (no password login works), but an unlock brings its old hash back: VNC, which
+# stays on once switched on, waits for a real password change
+account_locked() {
+    [ "${RQ_ACCOUNT_LOCKED:-$(passwd -S "$(desktop_user)" 2>/dev/null | awk '{print $2}')}" = L ]
+}
 
 desktop_user() { printf '%s' "${RQ_SSH_USER:-$(getent passwd 1000 2>/dev/null | cut -d: -f1)}"; }
 
@@ -189,16 +198,30 @@ cmd_window() {
     led_message 60 "SSH closed - restart to reopen"
 }
 
+# VNC waited for the new password: on now, once, by the same routine as at a
+# desktop login (rasqberry-enable-vnc.sh: its own password check, retries,
+# the marker only once VNC is confirmed on)
+vnc_once() {
+    [ -x "$ENABLE_VNC" ] || { warn "rq_ssh_window: $ENABLE_VNC missing: VNC not switched on"; return 0; }
+    RQ_VNC_WAIT="${RQ_VNC_WAIT:-2}" "$ENABLE_VNC" >/dev/null 2>&1 \
+        || info "rq_ssh_window: VNC could not be switched on now; the next desktop login tries again."
+}
+
+# The demo password is gone: no more first-login step. Run by the path unit
+# with "changed" (the password has just changed). A card customized in Imager
+# that kept the published password has no drop-in (keys only), but its VNC
+# waited for the new password all the same; at boot (cmd_window) VNC stays the
+# desktop login's job unless a drop-in was there.
 cmd_check() {
     [ "$(demo_password)" = no ] || return 0
-    [ -e "$DROPIN" ] || return 0
-    remove_dropin
-    reload_sshd
-    # VNC waited for this (rasqberry-enable-vnc.sh): on now, once, as at a first login
-    if [ ! -e "$VNC_MARKER" ] && raspi-config nonint do_vnc 0 >/dev/null 2>&1; then
-        mkdir -p "$(dirname "$VNC_MARKER")" && date '+%F %T' > "$VNC_MARKER"
+    if [ -e "$DROPIN" ]; then
+        remove_dropin
+        reload_sshd
+        info "rq_ssh_window: the demo password is changed: no more first-login step."
+    elif [ "${1:-}" != changed ]; then
+        return 0
     fi
-    info "rq_ssh_window: the demo password is changed: no more first-login step; VNC on."
+    vnc_once
 }
 
 cmd_status() {
@@ -212,9 +235,9 @@ main() {
     case "${1:-}" in
         close)       ensure_root "$@"; cmd_close ;;
         window)      ensure_root "$@"; cmd_window ;;
-        check)       ensure_root "$@"; cmd_check ;;
+        check)       ensure_root "$@"; cmd_check changed ;;
         status)      cmd_status ;;
-        vnc-allowed) [ "$(demo_password)" = no ] || vnc_in_window ;;
+        vnc-allowed) { [ "$(demo_password)" = no ] && ! account_locked; } || vnc_in_window ;;
         *)           die "Usage: $(basename "$0") close | window | check | status | vnc-allowed" ;;
     esac
 }

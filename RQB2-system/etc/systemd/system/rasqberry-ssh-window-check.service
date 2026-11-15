@@ -1,6 +1,11 @@
 [Unit]
 Description=RasQberry: end the SSH first-login step once the password is changed
+# On an updated slot's first boot the carry-over writes /etc/shadow before it
+# copies the VNC choice: wait for it, or a "VNC off" would be switched back on
+After=rasqberry-carry-over.service
 
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/rq_ssh_window.sh check
+# rasqberry-enable-vnc.sh may retry for about a minute
+TimeoutStartSec=3min
