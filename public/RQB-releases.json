@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T14:10:57Z",
+  "generated": "2026-11-15T14:58:55Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,25 +35,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-15-142544",
-      "name": "rasqberry-development-2026-11-15-142544",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-142544/rasqberry-development-2026-11-15-142544.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-142544",
-      "release_date": "2026-11-15 14:25",
-      "image_download_size": 1861777500,
+      "tag": "development-2026-11-15-151802",
+      "name": "rasqberry-development-2026-11-15-151802",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-151802/rasqberry-development-2026-11-15-151802.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-15-151802",
+      "release_date": "2026-11-15 15:18",
+      "image_download_size": 1861717292,
       "extract_size": 9604956160,
-      "extract_sha256": "b8458cb9b5e16bd859e8364a600db9dc41dc9aed71daea02522b3fe670d86984",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-142544/rasqberry-development-2026-11-15-142544-ab.img.xz",
-      "ab_extract_sha256": "9ec5a4276c71b7bcfae9c4599a513752f71d54b06a1beb62d9b14b9920128b94",
-      "ab_image_sha256": "014701015e67f1d633beee4e13579617431509fc038e1582ad8937d7dbe4d03a",
+      "extract_sha256": "035a1f4ae058c9605df6b9f260d0949676575f02258bb140526c72b89d287968",
+      "image_sha256": "7327ce3e33e64442f6678d1a58ba7b0d2a6e87be0965e3611324b2a38954fd87",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-151802/rasqberry-development-2026-11-15-151802-ab.img.xz",
+      "ab_extract_sha256": "01d6254340a5f08cd9e1508a7640bcf316f6d12d9a0f863a25ce972e7ac4fef2",
+      "ab_image_sha256": "a07de0d0d036122fbd6a3ce617d935adc0c5f521025ffb1119fc63d3655fb4f0",
+      "ab_image_download_size": 1911939792,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1912922504,
       "highlights": [
-        "Bump version to development-2026-11-15-142544",
-        "Merge pull request #389 from JanLahmann/vnc-after-update",
-        "VNC after an update: tidy after review",
-        "VNC after an update: carry \"was on\" instead of inferring it",
-        "an A/B update keeps it on"
+        "Demo keys: launchers check the manifest's marker; review fixes",
+        "Demo keys: reuse rq_demo_repo; the engine checks the marker",
+        "Demo scripts read marker files and repositories from the manifests"
       ]
     }
   }
