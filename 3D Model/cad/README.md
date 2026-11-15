@@ -4,6 +4,10 @@ RasQberry parts rebuilt as code from the SketchUp and Tinkercad STLs, so
 they can be changed by editing numbers instead of meshes. The scripts write
 `3D Model/print/generated/`.
 
+**Experimental:** these code-CAD models are not fully tested yet and may
+still change. The originals in `print/originals/` stay unchanged and remain
+the reference.
+
 ## Layout of `3D Model/`
 
 ```
@@ -35,8 +39,7 @@ versions without floor end in `-no-floor` (in `print/originals/` they are in
 - **[`floor/`](floor/README.md)**: the six floor tiles with dovetail
   joints, the two magnet versions, `R2_Floor-all` and `R2_Floor-JointTest`,
   plus `R2_Floor-CryoPlug` and `R2_Floor-WallPlug`, which replace screw,
-  nut and ScrewOctopus; all in `print/generated/floor/Dovetail Version/` (the earlier
-  rebuild with pins stays in `print/generated/floor/`).
+  nut and ScrewOctopus.
 - **[`RTE/`](RTE/README.md)**: the server `R2_NarrowServerSingle`
   (`--variant original`), Jan's `RQB2-R2_NarrowServerSingle-jrl02`,
   `R2_ServerStandalone` (two servers back to back) and the lid `R2_NarrowServerSingleLid`, with the fit adjustable per axis.
