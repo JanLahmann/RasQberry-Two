@@ -71,7 +71,7 @@ RasQberry's settings live in `/usr/config/rasqberry_environment.env` (shipped de
 ## Demo-specific configuration
 
 - `RASQ_LED_DISPLAY_TIMEOUT` = `3` **kept**: RasQ-LED Demo timeout in seconds
-- `QOFFEE_PORT` = `8887`: A demo's source (repository, pinned commit, Docker image) and marker file are in its manifest (demo-manifests/rq_demo_<id>.json: install, entrypoint); only the ports are set here. Qoffee-Maker
+- `QOFFEE_PORT` = `8887`: Qoffee-Maker
 - `FWQ_JUPYTER_PORT` = `8888`: Fun-with-Quantum
 - `PARADOXES_JUPYTER_PORT` = `8891`: Quantum-Paradoxes
 - `IBM_TUTORIALS_JUPYTER_PORT` = `8889`: IBM Quantum Tutorials & Courses (from Qiskit documentation - CC BY-SA 4.0)

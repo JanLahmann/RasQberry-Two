@@ -44,10 +44,9 @@ manifest_field() {
 # Fall back to the upstream repo name (the demo-directory convention) if the
 # manifest is unreadable, so a broken manifest cannot resurrect the old fork.
 DEMO_DIR=$(get_demo_dir "$(manifest_field '.entrypoint.working_dir' 'RasQberry-Two-LED-Painter')")
-DEMO_REF=$(manifest_field '.install.ref' '')
-DEMO_URL=$(rq_demo_repo led-painter "$MANIFEST_FILE")
+DEMO_REF=$(rq_demo_ref led-painter "$MANIFEST_FILE" 2>/dev/null) || DEMO_REF=""
+DEMO_URL=$(rq_demo_repo led-painter "$MANIFEST_FILE" 2>/dev/null) || DEMO_URL=""
 MARKER=$(manifest_field '.install.marker_file' 'LED_painter.py')
-[ -n "$DEMO_URL" ] || die "The LED-Painter manifest names no repository"
 
 ################################################################################
 # check_and_install_demo - Install LED Painter with all dependencies
@@ -127,6 +126,7 @@ install_requirements() {
 
 # Fetch the pinned checkout (first install; asks first, one dialog with size)
 fetch_checkout() {
+    [ -n "$DEMO_URL" ] || die "The LED-Painter manifest names no repository"
     rq_require_demo_consent led-painter "$MANIFEST_FILE"
     info "Installing $DEMO_NAME..."
     mkdir -p "$(dirname "$DEMO_DIR")"

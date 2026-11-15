@@ -344,6 +344,17 @@ clone_ibm_learning_content() {
         fi
     fi
 
+    # the repository: the same manifest as the pin below
+    _ibm_url=""
+    if command -v rq_demo_repo >/dev/null 2>&1; then
+        _ibm_url=$(rq_demo_repo ibm-courses 2>/dev/null) || _ibm_url=""
+    fi
+    [ -n "$_ibm_url" ] || _ibm_url=$(_rq_ibm_field ibm-courses .install.source.repo_url)
+    if [ -z "$_ibm_url" ]; then
+        echo "ERROR: The ibm-courses manifest names no repository" >&2
+        return 1
+    fi
+
     echo "Downloading IBM Quantum Learning content (sparse checkout). This may take a few minutes..."
     _rq_as_desktop_user mkdir -p "$DEST" || return 1
     # Pin to a reviewed commit instead of tracking main. Qiskit/documentation is a
@@ -359,11 +370,6 @@ clone_ibm_learning_content() {
         _ibm_ref=$(rq_demo_ref ibm-courses 2>/dev/null) || _ibm_ref=""
     fi
     [ -n "$_ibm_ref" ] || _ibm_ref=$(_rq_ibm_field ibm-courses .install.source.ref)
-    _ibm_url=$(_rq_ibm_field ibm-courses .install.source.repo_url)
-    if [ -z "$_ibm_url" ]; then
-        echo "ERROR: The ibm-courses manifest names no repository" >&2
-        return 1
-    fi
     if [ -z "$_ibm_ref" ]; then
         _ibm_ref=main
         echo "WARNING: no pinned commit for the IBM Quantum content - falling back to main (unpinned)"

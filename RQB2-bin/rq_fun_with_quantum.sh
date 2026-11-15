@@ -26,7 +26,7 @@ rq_demo_header "Fun with Quantum"
 # Load environment and verify required variables
 load_rqb2_env
 verify_env_vars REPO USER_HOME STD_VENV
-# rq_demo_run.sh, which starts this launcher, has checked the manifest's marker file
+MARKER=$(rq_demo_marker fun-with-quantum)   # empty: the folder itself
 
 # Demo configuration
 DEMO_NAME="fun-with-quantum"
@@ -66,7 +66,7 @@ trap 'exit 129' HUP
 # ssh -L tunnel command are printed instead of opening a browser (Jan, Q19)
 
 # Verify demo is installed
-if [ ! -d "$DEMO_DIR" ]; then
+if [ ! -e "$DEMO_DIR/$MARKER" ]; then
     die "Fun with Quantum is not installed. Run 'rq_demo_run.sh fun-with-quantum' (installs on demand) or install via raspi-config."
 fi
 
