@@ -136,18 +136,21 @@ def test_a_locked_account_keeps_vnc_waiting(tmp_path):
     assert _run(tmp_path, "main vnc-allowed", demo="no", locked="P").returncode == 0
 
 
-def _login_vnc(tmp_path, labwc=True, marker_meanwhile=False):
+def _login_vnc(tmp_path, labwc=True, marker_meanwhile=False, was_on_before=True, session_ends=False):
     """Run rasqberry-enable-vnc.sh with stubs; returns (result, raspi-config calls, marker, was_on)."""
     stubs = tmp_path / "bin"
     stubs.mkdir()
     marker, log, was_on = tmp_path / "marker", tmp_path / "raspi.log", tmp_path / "vnc-was-on"
-    was_on.write_text("")
+    if was_on_before:
+        was_on.write_text("")
     for name, body in {
         "sudo": 'while [ "${1#-}" != "$1" ]; do shift; done\nexec "$@"\n',
         "raspi-config": f'echo "$*" >> "{log}"\n[ "$2" = get_vnc ] && {{ [ -e "{tmp_path}/on" ] && echo 0 || echo 1; }}\n'
                         f'[ "$2" = do_vnc ] && : > "{tmp_path}/on"\nexit 0\n',
-        "sleep": f': > "{marker}"\n' if marker_meanwhile else "exit 0\n",
-        "pgrep": "exit 0\n" if labwc else "exit 1\n",
+        "sleep": (f': > "{marker}"\n' if marker_meanwhile
+                  else f': > "{tmp_path}/ended"\n' if session_ends else "exit 0\n"),
+        "pgrep": (f'[ -e "{tmp_path}/ended" ] && exit 1\n[ "$*" = labwc ] && exit 0\nexit 1\n'
+                  if labwc else "exit 1\n"),
         "logger": "exit 0\n",
         "tee": 'cat > "$1"\n',
         "window": "exit 0\n",                            # vnc-allowed: yes
@@ -164,7 +167,7 @@ def _login_vnc(tmp_path, labwc=True, marker_meanwhile=False):
 def test_the_login_routine_stops_if_another_run_switched_vnc_on(tmp_path):
     """The login and a password change can both run it: the marker, written by
     the other run meanwhile, ends the loop before do_vnc."""
-    r, calls, _, _ = _login_vnc(tmp_path, marker_meanwhile=True)
+    r, calls, _, _ = _login_vnc(tmp_path, marker_meanwhile=True, was_on_before=False)
     assert r.returncode == 0, r.stderr
     assert "do_vnc" not in calls
 
@@ -174,6 +177,13 @@ def test_vnc_only_inside_the_desktop_session(tmp_path):
     VNC server instead of wayvnc. Without labwc: nothing, no marker, and
     vnc-was-on stays for the login."""
     r, calls, marker, was_on = _login_vnc(tmp_path, labwc=False)
+    assert r.returncode == 0, r.stderr
+    assert "do_vnc" not in calls and not marker and was_on
+
+
+def test_vnc_waits_if_the_session_ends_meanwhile(tmp_path):
+    """labwc gone during the wait: no do_vnc (it would pick the X11 server)."""
+    r, calls, marker, was_on = _login_vnc(tmp_path, labwc=True, session_ends=True)
     assert r.returncode == 0, r.stderr
     assert "do_vnc" not in calls and not marker and was_on
 
@@ -261,7 +271,7 @@ def _enable_vnc(tmp_path, updated):
         "logger": "exit 0",
         "raspi-config": f'case "$2" in get_vnc) cat {state} 2>/dev/null || echo 1;; do_vnc) echo 0 > {state};; esac',
         "window": "exit 1",  # vnc-allowed: no
-        "pgrep": "exit 0",   # inside the desktop session (labwc runs)
+        "pgrep": '[ "$*" = labwc ]',   # inside the desktop session (labwc runs)
     }
     for name, body in stubs.items():
         f = bin_dir / name
