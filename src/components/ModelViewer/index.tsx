@@ -22,6 +22,8 @@ export function ModelViewer() {
   const [explode, setExplode] = useState(0);
   const [step, setStep] = useState<PartInfo | null>(null);
   const [assembling, setAssembling] = useState(false);
+  const [leds, setLeds] = useState(false);
+  const [hasLeds, setHasLeds] = useState(false);
   const opened = useRef(false);
   // one Umami event per page view, on the first interaction with the viewer
   const used = (via: string) => {
@@ -45,6 +47,7 @@ export function ModelViewer() {
         });
         viewer.current = v;
         setParts(await v.load(MODEL_URL));
+        setHasLeds(v.hasLeds);
         if (!disposed) setState('ready');
       } catch (e) {
         console.error('3D viewer:', e);
@@ -73,6 +76,12 @@ export function ModelViewer() {
     if (assembling) { v.stopAssembly(); setAssembling(false); return; }
     setIsolate(false); setExplode(0); setAssembling(true);
     v.playAssembly();
+  };
+  const toggleLeds = () => {
+    used('leds');
+    const on = !leds;
+    setLeds(on);
+    viewer.current?.setLeds(on);
   };
   const fullscreen = () => {
     used('fullscreen');
@@ -114,6 +123,12 @@ export function ModelViewer() {
         <button type="button" onClick={assemble} disabled={!ready} aria-pressed={assembling}>
           {assembling ? 'Stop' : 'Assemble'}
         </button>
+        {hasLeds && (
+          <button type="button" onClick={toggleLeds} aria-pressed={leds}
+                  title="A still of the IBM LED demo, shining through the filter screen">
+            LEDs on
+          </button>
+        )}
         <button type="button" onClick={fullscreen} disabled={!ready} className={styles.fs}>Full screen</button>
       </div>
 

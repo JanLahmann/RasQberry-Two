@@ -108,6 +108,14 @@ const COLOURS = { // as printed (bill of materials): name -> [hex, metallic, rou
   gold: ['#e3a33a', 0.75, 0.32, 1],       // Silk Gold: chandeliers
   screen: ['#2b2c2f', 0.2, 0.35, 1],     // Galaxy Black LED filter screen: opaque, dark (lit LEDs shine through)
   hardware: ['#4a4a4f', 0.1, 0.6, 1],     // bolts, nuts, octopus (colour not specified)
+  vertex: ['#ffffff', 0.3, 0.45, 1],      // parts made of boxes: colour per vertex (BOX_COLOURS)
+};
+const BOX_COLOURS = {                     // vertex colours of the parts made of boxes
+  pcb: '#16181b',                         // LED panel boards (black)
+  led: '#f2f2ee',                         // WS2812 LEDs (5 x 5 mm, off)
+  pi: '#1d6b3f',                          // Raspberry Pi 5 board
+  metal: '#c7cbd0',                       // USB / Ethernet sockets
+  cooler: '#3a3c40',                      // GPIO header, Active Cooler
 };
 
 const parts = [];
@@ -126,10 +134,58 @@ add('wall-base', 'Wall base', 'Wall', 2, 'wall/R2_Wall-Base.stl', 'wall', WALL, 
 WALL_BOLTS.forEach(([x, y], i) =>
   add(`wall-bolt-${i + 1}`, 'Wall bolt', 'Wall', 3, 'wall/R2_Screw.stl', 'hardware',
     chain(WALL, T(x, y, 5), rot('x', 180), T(0.2, -34.7, 0)), [0, 60, 130]));
+// LED panel: one WS2812 matrix of 24 x 8 LEDs (192, LED_LAYOUT=single-24x8) behind the filter screen,
+// 10 mm pitch (the 240 x 81 mm screen opening); LEDs face the screen.
+const LED = { x0: 139.9 - 115, z0: 41.5 - 35, pitch: 10, front: -84.1 };   // centre of LED (0, 0), wall frame
+const ledAt = (c, r) => [LED.x0 + c * LED.pitch, LED.front, LED.z0 + r * LED.pitch];   // r = 0 at the bottom
+{
+  const [x0, , z0] = ledAt(0, 0);
+  const boxes = [[[x0 - 5, LED.front + 1.6, z0 - 5], [x0 + 235, LED.front + 2.6, z0 + 75], 'pcb']];
+  for (let c = 0; c < 24; c++) for (let r = 0; r < 8; r++) {
+    const [x, y, z] = ledAt(c, r);
+    boxes.push([[x - 2.5, y, z - 2.5], [x + 2.5, y + 1.6, z + 2.5], 'led']);
+  }
+  add('led-panel', 'LED panel (WS2812, 24 x 8)', 'Wall', 4, null, 'vertex', WALL, [0, 30, 45], { boxes });
+}
+
+// "LEDs on": a still of the IBM LED demo (RQB2-bin/rq_led_ibm_logo.py, rainbow), top row first
+const IBM_LOGO = [
+  '######..#####...#.....#.',
+  '######..##..##..##...##.',
+  '..##....##..##..###.###.',
+  '..##....#####...##.#.##.',
+  '..##....#####...##...##.',
+  '..##....##..##..##...##.',
+  '######..##..##..##...##.',
+  '######..#####...##...##.',
+];
+const RAINBOW = ['#fb80bf', '#fa0100', '#f9831f', '#f8df08', '#02a204', '#00c4ad', '#0041b7', '#83209e'];
+const SCREEN = [[19.9, -85.2, 1], [259.9, -84.2, 82]];
+
 add('wall-window', 'LED filter screen (galaxy black; replaces the welding glass)', 'Wall', 4, null, 'screen', WALL, [0, 10, 30],
-  { box: [[19.9, -85.2, 1], [259.9, -84.2, 82]] });
-// the back stands on the base's 3 mm floor, its top flush with the base top (the STL sits at z 8.04)
-add('wall-back', 'Wall back', 'Wall', 5, 'wall/R2_Wall-Back.stl', 'wall', chain(WALL, T(5.3, -100, 3 - 8.04)), [0, 130, 30]);
+  { box: SCREEN, leds: { demo: 'IBM LED demo (rainbow)', pitch: LED.pitch, front: SCREEN[0][1] - 0.5,
+    pixels: IBM_LOGO.flatMap((row, k) => [...row].flatMap((ch, c) => ch === '#' ? [[...ledAt(c, 7 - k), RAINBOW[k]]] : [])) } });
+// The back with the Raspberry Pi mount 13 mm higher (the standard in the parts list). It stands on
+// the base's 3 mm floor, its top flush with the base top; its STL lies 12.13 / 380.12 / 18.08 mm
+// off the plain back's, whose STL sits at z 8.04.
+const BACK = chain(WALL, T(5.3, -100, 3 - 8.04), T(-12.13, -380.12, -18.08));
+add('wall-back', 'Wall back', 'Wall', 5, 'wall/R2_Wall-Back+13.stl', 'wall', BACK, [0, 130, 30]);
+
+// Raspberry Pi 5 (simplified), screwed to the four bosses on the inside of the back (holes at
+// x 150.9 / 208.9, z 46.1 / 95.1 in Back+13's STL, Pi 5 pattern 58 x 49 mm); USB and Ethernet
+// towards +x, the Active Cooler under the right grille.
+const PI_Y = 442.26;                       // boss tops (inside face of the back)
+const piBox = (x0, x1, z0, z1, h, colour, y = PI_Y - 1.6) => [[x0, y - h, z0], [x1, y, z1], colour];
+add('raspberry-pi', 'Raspberry Pi 5 (simplified)', 'Wall', 5, null, 'vertex', BACK, [0, 90, 60], {
+  boxes: [
+    piBox(147.4, 232.4, 42.6, 98.6, 1.6, 'pi', PI_Y),             // board, 85 x 56 x 1.6
+    piBox(154.4, 205.4, 92.6, 97.6, 8.5, 'cooler'),               // GPIO header 2 x 20
+    piBox(156.4, 196.4, 50.6, 88.6, 9, 'cooler'),                 // Active Cooler heatsink
+    piBox(212.4, 234.4, 44.1, 60.1, 13.5, 'metal'),               // Ethernet
+    piBox(215.4, 234.4, 62.6, 77.6, 16, 'metal'),                 // USB 3 (2x)
+    piBox(215.4, 234.4, 80.1, 95.1, 16, 'metal'),                 // USB 2 (2x)
+  ],
+});
 add('wall-lid', 'Wall lid', 'Wall', 6, 'wall/R2_Wall-Lid.stl', 'wall', WALL, [0, 60, 120]);
 WALL_BOLTS.forEach(([x, y], i) =>
   add(`wall-nut-${i + 1}`, 'Hex nut', 'Wall', 7, 'wall/R2_Hex_Nut.stl', 'hardware',
@@ -181,37 +237,60 @@ const doc = new Document();
 const buffer = doc.createBuffer();
 const scene = doc.createScene('RasQberry Two');
 const materials = {};
-for (const [name, [hex, metal, rough, alpha]] of Object.entries(COLOURS)) {
+const linear = (hex) => { // '#rrggbb' as linear RGB
   const n = parseInt(hex.slice(1), 16);
   const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  return [lin(n >> 16), lin((n >> 8) & 255), lin(n & 255)];
+};
+for (const [name, [hex, metal, rough, alpha]] of Object.entries(COLOURS)) {
   const m = doc.createMaterial(name)
-    .setBaseColorFactor([lin(n >> 16), lin((n >> 8) & 255), lin(n & 255), alpha])
+    .setBaseColorFactor([...linear(hex), alpha])
     .setMetallicFactor(metal).setRoughnessFactor(rough).setDoubleSided(alpha < 1);
   if (alpha < 1) m.setAlphaMode('BLEND');
   materials[name] = m;
 }
 
+const boxTris = ([[a, b, c], [d, e, f]]) => { // a box [[x0,y0,z0],[x1,y1,z1]] as triangles
+  const v = [[a, b, c], [d, b, c], [d, e, c], [a, e, c], [a, b, f], [d, b, f], [d, e, f], [a, e, f]];
+  const faces = [[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]];
+  return faces.flat().flatMap((i) => v[i]);
+};
+
 const meshes = new Map(); // file -> { mesh, centre }
 function meshFor(p) {
   const key = p.file || p.id;
   if (meshes.has(key)) return meshes.get(key);
-  let pos;
-  if (p.file) pos = readStl(p.file);
-  else { // a box: [[x0,y0,z0],[x1,y1,z1]]
-    const [[a, b, c], [d, e, f]] = p.box;
-    const v = [[a, b, c], [d, b, c], [d, e, c], [a, e, c], [a, b, f], [d, b, f], [d, e, f], [a, e, f]];
-    const faces = [[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]];
-    pos = Float32Array.from(faces.flat().flatMap((i) => v[i]));
+  // positions per colour: an STL, one box, or boxes in several colours
+  const byColour = new Map();
+  if (p.file) byColour.set(p.colour, readStl(p.file));
+  else if (p.box) byColour.set(p.colour, Float32Array.from(boxTris(p.box)));
+  else { // boxes in several colours: one primitive with vertex colours, so the part stays one mesh
+    const pos = [], col = [];
+    for (const [lo, hi, colour] of p.boxes) {
+      const t = boxTris([lo, hi]);
+      pos.push(...t);
+      const [r, g, b] = linear(BOX_COLOURS[colour]);
+      for (let i = 0; i < t.length / 3; i++) col.push(r, g, b);
+    }
+    byColour.set('vertex', Float32Array.from(pos));
+    p.vertexColours = Float32Array.from(col);
   }
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-  for (let i = 0; i < pos.length; i++) { lo[i % 3] = Math.min(lo[i % 3], pos[i]); hi[i % 3] = Math.max(hi[i % 3], pos[i]); }
+  for (const pos of byColour.values())
+    for (let i = 0; i < pos.length; i++) { lo[i % 3] = Math.min(lo[i % 3], pos[i]); hi[i % 3] = Math.max(hi[i % 3], pos[i]); }
   const centre = lo.map((v, i) => (v + hi[i]) / 2);
-  const out = new Float32Array(pos.length);
-  for (let i = 0; i < pos.length; i += 3) out.set(toGl([pos[i] - centre[0], pos[i + 1] - centre[1], pos[i + 2] - centre[2]]), i);
-  const accessor = doc.createAccessor().setType('VEC3').setArray(out).setBuffer(buffer);
-  const prim = doc.createPrimitive().setAttribute('POSITION', accessor).setMaterial(materials[p.colour]);
-  const mesh = doc.createMesh(p.file ? p.file.split('/').pop().replace('.stl', '') : p.id).addPrimitive(prim);
-  const entry = { mesh, centre, triangles: pos.length / 9 };
+  const mesh = doc.createMesh(p.file ? p.file.split('/').pop().replace('.stl', '') : p.id);
+  let triangles = 0;
+  for (const [colour, pos] of byColour) {
+    const out = new Float32Array(pos.length);
+    for (let i = 0; i < pos.length; i += 3) out.set(toGl([pos[i] - centre[0], pos[i + 1] - centre[1], pos[i + 2] - centre[2]]), i);
+    const accessor = doc.createAccessor().setType('VEC3').setArray(out).setBuffer(buffer);
+    const prim = doc.createPrimitive().setAttribute('POSITION', accessor).setMaterial(materials[colour]);
+    if (colour === 'vertex') prim.setAttribute('COLOR_0', doc.createAccessor().setType('VEC3').setArray(p.vertexColours).setBuffer(buffer));
+    mesh.addPrimitive(prim);
+    triangles += pos.length / 9;
+  }
+  const entry = { mesh, centre, triangles };
   meshes.set(key, entry);
   return entry;
 }
@@ -226,6 +305,10 @@ for (const p of parts) {
     .setExtras({
       part: p.id, label: p.label, group: p.group, step: p.step, colour: p.colour,
       source: p.file, explode: p.explode ? toGl(p.explode) : [0, 0, 0],
+      // LED pixels for "LEDs on", in the model's frame (glTF, m): [x, y, z, colour]
+      ...(p.leds && { leds: { demo: p.leds.demo, size: p.leds.pitch * S,
+        normal: toGl([0, 1, 2].map((r) => -p.M[r * 4 + 1])).map((v) => v / S),   // the screen's front (-y), turned with it
+        pixels: p.leds.pixels.map(([x, , z, colour]) => [...toGl(apply(p.M, [x, p.leds.front, z])), colour]) } }),
     });
   scene.addChild(node);
 }

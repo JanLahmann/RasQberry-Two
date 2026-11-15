@@ -1,7 +1,8 @@
 /**
  * The three.js side of the 3D model viewer: loads the GLB made by
  * scripts/build-3d-model.mjs, renders on demand, and offers explode,
- * selection/isolation and the assembly animation. Loaded lazily by index.tsx,
+ * selection/isolation, the assembly animation and "LEDs on" (a still of an
+ * LED demo glowing through the filter screen). Loaded lazily by index.tsx,
  * so pages without the viewer never download three.js.
  */
 import * as THREE from 'three';
@@ -18,6 +19,9 @@ export interface PartInfo {
   step: number;
   source?: string;  // STL file on the 3D-model branch
 }
+
+/** "LEDs on" data on the filter screen node (GLB extras): pixels in the model's frame */
+interface LedExtras { size: number; normal: number[]; pixels: [number, number, number, string][] }
 
 interface Part {
   obj: THREE.Mesh;
@@ -54,6 +58,8 @@ export class ModelViewer {
   private assembling = false;
   private ro: ResizeObserver;
   private down = { x: 0, y: 0 };
+  private leds: { group: THREE.Group; part: Part }[] = [];
+  private ledsOn = false;
   readonly reducedMotion: boolean;
   meta: Record<string, unknown> = {};
 
@@ -96,14 +102,18 @@ export class ModelViewer {
     this.meta = (gltf.scene.userData || {}) as Record<string, unknown>;
     const infos = new Map<string, PartInfo>();
     gltf.scene.traverse((o) => {
-      const d = o.userData as { part?: string; label?: string; group?: string; step?: number; explode?: number[]; source?: string };
+      const d = o.userData as {
+        part?: string; label?: string; group?: string; step?: number; explode?: number[]; source?: string;
+        leds?: LedExtras;
+      };
       if (!(o as THREE.Mesh).isMesh || !d.part) return;
       const obj = o as THREE.Mesh;
       const src = obj.material as THREE.MeshStandardMaterial;
       const material = src.clone();
       material.flatShading = true; // the GLB has no normals: facets, as printed
       const highlight = material.clone();
-      highlight.emissive = material.color.clone().lerp(HIGHLIGHT, 0.25);
+      // vertex-coloured parts have a white base colour: tint with the highlight only
+      highlight.emissive = material.vertexColors ? HIGHLIGHT.clone().multiplyScalar(0.25) : material.color.clone().lerp(HIGHLIGHT, 0.25);
       highlight.emissiveIntensity = 0.3;
       const ghost = material.clone();
       ghost.transparent = true;
@@ -111,12 +121,14 @@ export class ModelViewer {
       ghost.depthWrite = false;
       obj.material = material;
       const key = d.label || d.part;
-      this.parts.push({
+      const part: Part = {
         obj, key, material, highlight, ghost,
         base: obj.position.clone(),
         explode: new THREE.Vector3().fromArray(d.explode || [0, 0, 0]),
         step: d.step || 0,
-      });
+      };
+      this.parts.push(part);
+      if (d.leds) this.leds.push({ group: this.ledGlow(obj, d.leds), part });
       const info = infos.get(key);
       if (info) info.count++;
       else infos.set(key, { key, label: key, group: d.group || '', count: 1, step: d.step || 0, source: d.source?.split('/').pop() });
@@ -131,6 +143,16 @@ export class ModelViewer {
     this.controls.maxDistance = this.bounds.radius * 12;
     this.resetView(false);
     return [...infos.values()].sort((a, b) => a.step - b.step || a.label.localeCompare(b.label, 'en', { numeric: true }));
+  }
+
+  /** True if the model has LEDs that can be switched on. */
+  get hasLeds() { return this.leds.length > 0; }
+
+  /** Switch the LED demo still on or off. */
+  setLeds(on: boolean) {
+    this.ledsOn = on;
+    this.showLeds();
+    this.invalidate();
   }
 
   /** 0 = assembled, 1 = fully exploded */
@@ -205,6 +227,11 @@ export class ModelViewer {
       const m = o as THREE.Mesh;
       if (m.isMesh) m.geometry.dispose();
     });
+    for (const l of this.leds) l.group.children.forEach((m) => {
+      const im = m as THREE.InstancedMesh;
+      (im.material as THREE.Material).dispose();
+      im.dispose(); // instance matrix and colour buffers
+    });
     for (const p of this.parts) [p.material, p.highlight, p.ghost].forEach((m) => m.dispose());
     this.scene.environment?.dispose();
     this.renderer.dispose();
@@ -212,6 +239,44 @@ export class ModelViewer {
   }
 
   // ------------------------------------------------------------- internals
+
+  /** Lit LEDs on the front of `obj` (the filter screen): a bright dot and a
+   *  soft halo per pixel, hidden until setLeds(true). The pixels are in the
+   *  model's frame; the group undoes obj's own transform (which includes the
+   *  mesh quantization scale), so it follows obj when the model explodes. */
+  private ledGlow(obj: THREE.Mesh, leds: LedExtras) {
+    const group = new THREE.Group();
+    group.visible = false;
+    obj.updateWorldMatrix(true, false);
+    group.matrixAutoUpdate = false;
+    group.matrix.copy(obj.matrixWorld).invert();
+    const facing = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1), new THREE.Vector3().fromArray(leds.normal).normalize());
+    const layer = (radius: number, opacity: number) => {
+      const material = new THREE.MeshBasicMaterial({
+        toneMapped: false, transparent: opacity < 1, opacity, depthWrite: opacity === 1,
+        blending: opacity < 1 ? THREE.AdditiveBlending : THREE.NormalBlending,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, // drawn over the screen
+      });
+      const mesh = new THREE.InstancedMesh(new THREE.CircleGeometry(radius, 20), material, leds.pixels.length);
+      const m = new THREE.Matrix4(), c = new THREE.Color();
+      leds.pixels.forEach(([x, y, z, colour], i) => {
+        mesh.setMatrixAt(i, m.compose(new THREE.Vector3(x, y, z), facing, new THREE.Vector3(1, 1, 1)));
+        mesh.setColorAt(i, c.set(colour));
+      });
+      mesh.raycast = () => {}; // clicks go to the screen
+      group.add(mesh);
+    };
+    layer(leds.size * 0.6, 0.22);    // halo: light spreading in the screen
+    layer(leds.size * 0.32, 1);      // the LED itself
+    obj.add(group);
+    return group;
+  }
+
+  /** The LEDs glow while switched on and their screen is shown normally (not ghosted or hidden). */
+  private showLeds() {
+    for (const l of this.leds) l.group.visible = this.ledsOn && l.part.obj.material !== l.part.ghost;
+  }
 
   private flyIn(p: Part, dur: number, delay: number) {
     const from = p.explode.lengthSq() > 0
@@ -239,6 +304,7 @@ export class ModelViewer {
       p.obj.material = this.selected === null ? p.material : on ? p.highlight : p.ghost;
       p.obj.visible = on || !this.isolate;
     }
+    this.showLeds();
     this.invalidate();
   }
 
