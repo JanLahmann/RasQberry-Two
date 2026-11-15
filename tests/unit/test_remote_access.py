@@ -64,6 +64,7 @@ exit 0
 ''')
     _exe(d / "sudo", '[ "$1" = -n ] && shift\nexec "$@"\n')
     _exe(d / "logger", "exit 0\n")
+    _exe(d / "pgrep", '[ "$*" = labwc ] && exit 0\nexec /usr/bin/pgrep "$@"\n')   # the desktop session (labwc) runs
     _exe(d / "systemctl", rec + 'case "$1" in is-enabled) [ -e "$STUB_ENABLED" ] ;; *) exit 0 ;; esac\n')
     _exe(d / "id", 'if [ "$1" = -u ]; then echo 0; else exec /usr/bin/id "$@"; fi\n')
     _exe(d / "hostname", 'echo "${STUB_HOSTNAME:-rasqberry}"\n')

@@ -33,6 +33,16 @@ mark_done() {
 # Done once: from now on, on or off is the user's choice
 [ -e "$MARKER" ] && exit 0
 
+# Only inside the desktop session: raspi-config picks wayvnc only while labwc
+# runs (is_labwc: the same pgrep), and without it switches on the X11 VNC
+# server instead (an A/B update's first boot, 2026-11-15). Without labwc the
+# next desktop login does it; a card that never starts the desktop (console
+# boot, X11 session) switches VNC on in raspi-config or the RasQberry menu.
+desktop_up() { pgrep labwc >/dev/null 2>&1; }
+if ! desktop_up; then
+    log "no desktop session: VNC is switched on at the next desktop login (or in raspi-config)"
+    exit 0
+fi
 
 if vnc_on; then
     mark_done
@@ -55,6 +65,8 @@ sleep "${RQ_VNC_WAIT:-15}"
 for attempt in 1 2 3 4 5; do
     # the login and a password change can both get here: the first one wins
     [ -e "$MARKER" ] && exit 0
+    # the session may have ended while we waited: not without it (see above)
+    desktop_up || { log "the desktop session ended: VNC waits for the next login"; exit 0; }
     out=$(sudo -n raspi-config nonint do_vnc 0 2>&1)
     if vnc_on; then
         log "VNC enabled (attempt $attempt) - once; it stays off if switched off later"
