@@ -27,6 +27,7 @@ from build123d import (Box, Circle, Cylinder, Plane, Pos, RegularPolygon, Rot,
                        extrude, loft)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import rqb_params  # noqa: E402
 from rqb_cad import bbox_size, check_solid, export_part  # noqa: E402
 
 PARAMS = dict(
@@ -42,7 +43,7 @@ PARAMS = dict(
     head_flats=31.71, head_h=2.0,
     collar_flats=27.71, collar_h=3.0,
     thread_len=8.0,
-    bore_d=20.0,
+    bore_d=rqb_params.CABLE_BORE_D,
     # nut
     nut_flats=32.08, nut_h=3.0,
     nut_clearance=0.355,         # bore radius minus thread radius

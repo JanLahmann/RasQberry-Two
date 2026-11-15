@@ -7,7 +7,6 @@ For each tile it stores what floor_model.py cannot derive from its PARAMS:
   corner chamfers, the key notches, the hex hole and the V-notches where
   the top grooves end.
 - `skirt`: outline of the skirt under the plate (section at z = -9.05).
-- `pins`: horizontal holes through the skirt (centre x, y and axis).
 - `relief`: the mirrored tile number (and on Tile6s the sign) under the
   plate, as slabs [z0, z1, polygons].
 - `magnets`: magnet pockets in the underside of the plate (x, y, r).
@@ -61,19 +60,6 @@ def poly_json(p):
     return {"ext": r(p.exterior.coords), "holes": [r(h.coords) for h in p.interiors]}
 
 
-def pins(m, skirt, z=-6.5):
-    """Horizontal holes: gaps in the skirt at the hole's centre height."""
-    out = []
-    # opening (shrink, grow) drops slivers where the walls are not quite
-    # vertical in the original
-    for gap in geoms(skirt.difference(section(m, z)).buffer(-0.2).buffer(0.2)):
-        x0, y0, x1, y1 = gap.bounds
-        axis = "y" if (x1 - x0) > (y1 - y0) else "x"   # hole runs across the wall
-        out.append({"x": round((x0 + x1) / 2, 3), "y": round((y0 + y1) / 2, 3), "axis": axis,
-                    "len": round(max(x1 - x0, y1 - y0), 3)})
-    return out
-
-
 def relief(m, skirt):
     zs = np.unique(m.vertices[:, 2].round(3))
     zs = zs[(zs > -5.001) & (zs < -2.999)]
@@ -109,12 +95,11 @@ def main():
         data[name] = {
             "plate": [poly_json(p) for p in geoms(plate)],
             "skirt": [poly_json(p) for p in geoms(skirt)],
-            "pins": pins(m, skirt),
             "relief": relief(m, skirt),
             "magnets": magnets(m) if name.endswith("Mag") else [],
             "bounds": [round(v, 3) for v in m.bounds.flatten()],
         }
-        print(f"{name}: {len(data[name]['pins'])} pins, {len(data[name]['relief'])} relief slabs, "
+        print(f"{name}: {len(data[name]['relief'])} relief slabs, "
               f"{len(data[name]['magnets'])} magnets")
     out = Path(__file__).with_name("floor_profiles.json")
     out.write_text(json.dumps(data, separators=(",", ":")))
