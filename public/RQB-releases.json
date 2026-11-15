@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T14:10:19Z",
+  "generated": "2026-11-15T14:10:57Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,16 +43,17 @@
       "image_download_size": 1861777500,
       "extract_size": 9604956160,
       "extract_sha256": "b8458cb9b5e16bd859e8364a600db9dc41dc9aed71daea02522b3fe670d86984",
-      "image_sha256": "a220efba5b8ebd0d5f571a6877d061dd50837b8b54fdd1ef08d2fd56b31dbb65",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-142544/rasqberry-development-2026-11-15-142544-ab.img.xz",
       "ab_extract_sha256": "9ec5a4276c71b7bcfae9c4599a513752f71d54b06a1beb62d9b14b9920128b94",
       "ab_image_sha256": "014701015e67f1d633beee4e13579617431509fc038e1582ad8937d7dbe4d03a",
-      "ab_image_download_size": 1912922504,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1912922504,
       "highlights": [
+        "Bump version to development-2026-11-15-142544",
+        "Merge pull request #389 from JanLahmann/vnc-after-update",
         "VNC after an update: tidy after review",
         "VNC after an update: carry \"was on\" instead of inferring it",
-        "VNC: an A/B update keeps it on"
+        "an A/B update keeps it on"
       ]
     }
   }
