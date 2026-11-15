@@ -86,6 +86,23 @@ def test_a_changed_password_ends_it(tmp_path):
     assert _dropin(tmp_path) is None
 
 
+def test_a_changed_password_switches_vnc_on_without_a_drop_in(tmp_path):
+    # Imager-customised cards never get the drop-in (fresh-card test 2026-11-15):
+    # VNC must still come on once the published password is changed, once
+    stubs = 'raspi-config() { echo "$*" >> "$RQ_VNC_CALLS"; }; '
+    calls = tmp_path / "calls"
+    code = f'RQ_VNC_CALLS="{calls}"; cmd_check'
+    assert _run(tmp_path, code, demo="no", stubs=stubs).returncode == 0
+    assert calls.read_text() == "nonint do_vnc 0\n"
+    assert (tmp_path / "vnc-marker").exists()
+    _run(tmp_path, code, demo="no", stubs=stubs)            # the marker: not again
+    assert calls.read_text() == "nonint do_vnc 0\n"
+    calls.unlink()
+    (tmp_path / "vnc-marker").unlink()
+    _run(tmp_path, code, demo="yes", stubs=stubs)           # still the published one: no
+    assert not calls.exists()
+
+
 def test_vnc_waits_for_the_password_unless_opted_in(tmp_path):
     assert _run(tmp_path, "main vnc-allowed").returncode != 0
     assert _run(tmp_path, "main vnc-allowed", boot_env="DEFAULT_PW_WINDOW_VNC=yes\n").returncode == 0

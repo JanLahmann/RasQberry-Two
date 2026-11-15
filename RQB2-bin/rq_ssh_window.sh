@@ -191,9 +191,12 @@ cmd_window() {
 
 cmd_check() {
     [ "$(demo_password)" = no ] || return 0
-    [ -e "$DROPIN" ] || return 0
-    remove_dropin
-    reload_sshd
+    # the drop-in exists only once the window has closed: a password changed
+    # while it is still open must switch VNC on all the same
+    if [ -e "$DROPIN" ]; then
+        remove_dropin
+        reload_sshd
+    fi
     # VNC waited for this (rasqberry-enable-vnc.sh): on now, once, as at a first login
     if [ ! -e "$VNC_MARKER" ] && raspi-config nonint do_vnc 0 >/dev/null 2>&1; then
         mkdir -p "$(dirname "$VNC_MARKER")" && date '+%F %T' > "$VNC_MARKER"
