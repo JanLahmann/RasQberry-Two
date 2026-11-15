@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T22:17:43Z",
+  "generated": "2026-11-15T22:18:28Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,14 +43,15 @@
       "image_download_size": 2064152748,
       "extract_size": 9596567552,
       "extract_sha256": "3618f0425f5ea5f2a6387f396ce8e1a65e258d46ab943ec533eb22a7beb33ee9",
-      "image_sha256": "ddf79a514aa73b9ec999c91ca3873ce2affb30438c99c12dacc5f6de647f0ddf",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-15-224730/rasqberry-development-2026-11-15-224730-ab.img.xz",
       "ab_extract_sha256": "c2adc8d7e9d9835c181ef3d63b3142c4b3c1de41e3bd8665d738ac10907c96cd",
       "ab_image_sha256": "bd4d724a0e06d4a0afa4f6030ac7c2b1e33060b304e1ba2acd2d1ef72fbcd80e",
-      "ab_image_download_size": 2112669312,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2112669312,
       "highlights": [
-        "ci: hold_listing input keeps a release out of the Imager lists (#413)"
+        "hold_listing input keeps a release out of the Imager lists (#413)",
+        "Bump version to development-2026-11-15-224730",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-11-15-200009"
       ]
     }
   }
