@@ -16,7 +16,8 @@ set -euo pipefail
 #     (rq_ssh_first_login.sh, sshd ForceCommand for that user).
 #   - VNC stays off until the password is changed (rasqberry-enable-vnc.sh),
 #     unless DEFAULT_PW_WINDOW_VNC=yes (classrooms, booths). A card that had
-#     VNC on before this release keeps it (it may be its only way in).
+#     VNC on before keeps it, also across A/B updates (it may be its only
+#     way in; rq_carry_over.sh writes vnc-was-on).
 #   - no port forwarding for that user meanwhile (ssh -N skips the step).
 #   Both settings are read at every start from rasqberry_boot.env (CONFIG on
 #   A/B cards, else the boot partition), so an edit after flashing counts.
