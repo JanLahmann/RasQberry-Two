@@ -26,7 +26,7 @@ where (without the LED filter screen, which goes in front of the LEDs).
 
 | Project | Bed | Parts | Filament | Grams | Time |
 |---|---|---|---|---|---|
-| 1-matte-black.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13, 1 x R2_Wall-Lid | matte black | 182 g | 5h 46m 13s |
+| 1-matte-black.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13, 1 x R2_Wall-Lid | matte black | 182 g | 5h 49m 46s |
 | 2-galaxy-black.3mf | 1 | 1 x RQB2-WallPanel-jrl02-2 | galaxy black | 15 g | 24m 32s |
 | 3-white-floor.3mf | 1 | 1 x R2_Floor-Tile1, 1 x R2_Floor-CryoPlug, 2 x R2_Floor-WallPlug | white | 58 g | 1h 30m 17s |
 | 3-white-floor.3mf | 2 | 1 x R2_Floor-Tile2 | white | 47 g | 1h 3m 13s |
@@ -37,7 +37,7 @@ where (without the LED filter screen, which goes in front of the LEDs).
 | 4-silk-silver.3mf | 1 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 295 g | 13h 31m 26s |
 | 5-transparent+silk-gold.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 35m 6s |
 | all-parts-indx.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13 | matte black | 126 g | 3h 43m 14s |
-| all-parts-indx.3mf | 2 | 1 x R2_Wall-Lid | matte black | 58 g | 2h 32m 13s |
+| all-parts-indx.3mf | 2 | 1 x R2_Wall-Lid | matte black | 58 g | 2h 32m 19s |
 | all-parts-indx.3mf | 3 | 1 x RQB2-WallPanel-jrl02-2 | galaxy black | 16 g | 21m 33s |
 | all-parts-indx.3mf | 4 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 298 g | 14h 4m 43s |
 | all-parts-indx.3mf | 5 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 34m 54s |
