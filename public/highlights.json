@@ -1,15 +1,11 @@
 {
   "stable": [],
   "beta": [
-    "After an update, \"What's new\" opens once, and the update offer shows it before you install",
-    "Your own extras after an update: root-owned scripts in /data/rasqberry/after-update.d/ run once on the new system",
-    "Fun with Quantum works offline on the Pi, with three new games: The CHSH Game, The Quantum Prisoner's Dilemma and GHZ on Real Quantum Devices",
-    "Workshop Server: doQumentation code runs on the Pi, also without the internet",
-    "Demo Loop can start at login and now shows Quantum Fractals too",
-    "Touchscreens: Raspberry Pi OS's own on-screen keyboard is back and pops up in text fields, also for the Wi-Fi password",
-    "Updates keep more: Home Connect settings, the right clock, and the taskbar badge; the badge says \"being checked\" until the new system is confirmed",
-    "Feedback by GitHub or e-mail (info@rasqberry.org), no GitHub account needed",
-    "traQmania is now racetraQ (v0.3.0, with a German UI); an existing install moves over",
-    "Quantum Lab and Quantum Mixer start from tested images, downloads show realistic times, Ctrl+C during any Docker download stops cleanly, and fewer false \"no internet\" messages at a demo's first start"
+    "Wi-Fi hotspot for booths and classrooms: phones and laptops join the Pi's own network with a QR code and find its demos on a landing page",
+    "A new Pi without a network opens a setup hotspot, so you can reach it and connect it to your Wi-Fi, also without a screen",
+    "Without a password from Imager, SSH accepts the published password only for 15 minutes after a start and asks for a new one; VNC comes on after that",
+    "Online demo catalogue: add contributed demos in Manage demos, for example the two SAP demos",
+    "Qiskit 2.6, the IBM Quantum Learning paths, and Ket, the AI helper, on the Pi's start page",
+    "Many fixes from user tests: window sizes, names and bookmarks, LED demos in a sandbox, VNC kept after an update, Bluetooth sound delay, Wi-Fi names with accents"
   ]
 }
