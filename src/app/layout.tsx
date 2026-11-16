@@ -5,6 +5,7 @@ import Script from "next/script";
 import "@/styles/globals.scss";
 import { OG_IMAGE } from "@/utils/pageMeta";
 import { Footer } from "@/components/Footer";
+import { ketLoader } from "@/lib/ket.mjs";
 
 const plex = IBM_Plex_Sans({ weight: ['100', '200', '300', '400', '500', '600', '700'], subsets: ["latin"] });
 
@@ -33,25 +34,18 @@ const FROM_PI = `try{var q=new URLSearchParams(location.search);` +
   `if(q.get("from")==="pi")sessionStorage.setItem("rq-from","pi");` +
   `if(sessionStorage.getItem("rq-from")==="pi")document.documentElement.setAttribute("data-from","pi")}catch(e){}`;
 
-// Fun with Quantum's standard tracker filter (every family site): ?notrack
-// keeps this browser out of the counts (?track undoes it), and headless
-// browsers and bots send nothing (no backslashes in this string: the
-// build turned "\\b" into a backspace). Pages opened on a Pi (?from=pi, see above)
-// count as device.rasqberry.org, like the Pi's own events
-// (rq_umami_event.py), so rasqberry.org shows only website visitors.
-const KET_LOADER = `(function(){try{var q=new URLSearchParams(location.search),s=sessionStorage;` +
-  `if(!(q.get("assistant")==="1"||q.get("from")==="pi"||s.getItem("fwq-assistant")||s.getItem("fwq-from-pi")` +
-  `||s.getItem("rq-from")==="pi"||document.querySelector("[data-fwq-assistant]")))return;` +
-  `var e=document.createElement("script");e.defer=true;e.src="https://fwq-assistant.jan-35c.workers.dev/widget.js";` +
-  `e.setAttribute("data-site","rasqberry");e.setAttribute("data-context","build");` +
-  `e.setAttribute("data-context-pi","device");document.body.appendChild(e)}catch(e){}})()`;
-
 const YOUTUBE_CLICK = `document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a.youtube-click");` +
   `if(!a)return;e.preventDefault();var f=document.createElement("iframe");` +
   `f.src="https://www.youtube-nocookie.com/embed/"+encodeURIComponent(a.getAttribute("data-youtube-id"))+"?autoplay=1";` +
   `f.className="youtube-iframe";f.allow="autoplay; picture-in-picture";f.allowFullscreen=true;f.style.border="0";` +
   `a.replaceWith(f)})`;
 
+// Fun with Quantum's standard tracker filter (every family site): ?notrack
+// keeps this browser out of the counts (?track undoes it), and headless
+// browsers and bots send nothing (no backslashes in this string: the
+// build turned "\\b" into a backspace). Pages opened on a Pi (?from=pi, see above)
+// count as device.rasqberry.org, like the Pi's own events
+// (rq_umami_event.py), so rasqberry.org shows only website visitors.
 const UMAMI_FILTER = `(function(){try{var q=location.search;` +
   `if(/[?&]notrack(?=$|[&=])/.test(q))localStorage.setItem('umami.disabled','1');` +
   `if(/[?&]track(?=$|[&=])/.test(q))localStorage.removeItem('umami.disabled')}catch(e){}` +
@@ -79,11 +73,8 @@ export default function RootLayout({
           data-domains="rasqberry.org"
           data-before-send="fwqUmamiBeforeSend"
         />
-        {/* The RasQberry helper (Fun with Quantum's assistant), loaded only where
-            it can open: ?assistant=1, a Pi (?from=pi; "device" context), or a
-            page with [data-fwq-assistant] (testing). Elsewhere no request goes
-            to its server (privacy page). */}
-        <script dangerouslySetInnerHTML={{ __html: KET_LOADER }} />
+        {/* Ket, the RasQberry helper: for whom it loads, see src/lib/ket.mjs */}
+        <script dangerouslySetInnerHTML={{ __html: ketLoader() }} />
         <script dangerouslySetInnerHTML={{ __html: YOUTUBE_CLICK }} />
       </body>
     </html>

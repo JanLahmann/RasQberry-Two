@@ -23,6 +23,7 @@ leadspace:
       url: https://github.com/JanLahmann/RasQberry-Two
       icon: logo-github
       target: _blank
+  ket: "Questions about your first steps? Ask our AI helper"
   pi:
     copy: "<span class=\"text-gradient\">Welcome! RasQberry Two runs on this Pi.</span> Start with the learning path <strong>First 15 minutes</strong>: double-click <strong>Learning paths</strong> on the desktop."
     cta:
@@ -45,6 +46,7 @@ leadspace:
         umami:
           event: "RasQberry Two: pi welcome click"
           target: demo-list
+    ket: "Questions about this RasQberry? Ask our AI helper"
   bg:
     image:
       src: /Artwork/RQB2-Website.webp

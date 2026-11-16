@@ -1,13 +1,13 @@
 'use client'
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from 'next/image';
 
 import styles from './lead-space.module.scss'
 import clsx from "clsx";
 import { Button, Column, Grid, Link } from "@/components/carbon-wrapper";
 import { icons } from "@/components/icons";
-import { umamiAttrs } from "@/lib/umami";
+import { UMAMI, umamiAttrs } from "@/lib/umami";
 
 interface CTA {
     label: string
@@ -38,10 +38,14 @@ export interface Props {
     size?: 'short' | 'tall' | 'super'
     copy?: string
     cta?: CTAs
+    // A line under the buttons that opens Ket, the helper; shown only while the
+    // widget is on the page (src/lib/ket.mjs decides where it loads)
+    ket?: string
     // On a Pi (rasqberry.org/?from=pi): this copy and these links instead
     pi?: {
         copy?: string
         cta?: CTAs
+        ket?: string
     }
     bg?: {
         gradient: boolean,
@@ -70,7 +74,30 @@ function CallToAction({ cta }: { cta: CTAs }) {
     </div>
 }
 
-export function LeadSpace({ title, copy, cta, pi, bg, size = 'tall', variant = 'light' }: Props) {
+// The widget (div#fwq-assistant, open shadow root) has no open() call: press
+// its own floating button, unless the panel is open already
+function openKet() {
+    const button = document.getElementById('fwq-assistant')?.shadowRoot?.querySelector<HTMLButtonElement>('.fa-open');
+    if (button && button.getAttribute('aria-expanded') !== 'true') button.click();
+}
+
+function KetPrompt({ label }: { label: string }) {
+    const [ready, setReady] = useState(false);
+    useEffect(() => {
+        // The host only: its shadow content may be filled after it is added
+        const found = () => !!document.getElementById('fwq-assistant');
+        if (found()) { setReady(true); return; }
+        const observer = new MutationObserver(() => { if (found()) { setReady(true); observer.disconnect(); } });
+        observer.observe(document.body, { childList: true });
+        return () => observer.disconnect();
+    }, []);
+    if (!ready) return null;
+    return <p className={styles['lead-space__ket']}>
+        <button type="button" onClick={openKet} {...umamiAttrs(UMAMI.assistantOpen, { tool: "ket", where: "home-hero" })}>💬 {label}</button>
+    </p>
+}
+
+export function LeadSpace({ title, copy, cta, ket, pi, bg, size = 'tall', variant = 'light' }: Props) {
     return <div className={clsx(styles['lead-space'], styles[`lead-space--${size}`])}>
         <Grid className={clsx(styles['lead-space__content'], styles[`lead-space__content--${size}`], styles[`lead-space__content--${variant}`])}>
             <Column sm="100%">
@@ -81,10 +108,12 @@ export function LeadSpace({ title, copy, cta, pi, bg, size = 'tall', variant = '
                     <div className={pi ? 'not-pi' : undefined}>
                         {copy && <div dangerouslySetInnerHTML={{ __html: copy }}></div>}
                         {cta && <CallToAction cta={cta} />}
+                        {ket && <KetPrompt label={ket} />}
                     </div>
                     {pi && <div className="only-pi">
                         {pi.copy && <div dangerouslySetInnerHTML={{ __html: pi.copy }}></div>}
                         {pi.cta && <CallToAction cta={pi.cta} />}
+                        {pi.ket && <KetPrompt label={pi.ket} />}
                     </div>}
                 </Column>
             </Grid>
