@@ -82,6 +82,8 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+      - name: Check the Ket loader on both sides of KET_OPEN_UNTIL
+        run: npm run ket:check
       - name: Check the demo list and learning paths match the demo manifests
         # 01-demo-list.md and 02-learning-paths.md are generated from
         # RQB2-config/demo-manifests (the manifests and learning-paths.json) -

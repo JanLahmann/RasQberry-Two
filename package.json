@@ -11,6 +11,7 @@
     "validate:external": "node scripts/validate-content.js --check-external",
     "demos": "node scripts/generate-demo-list.js",
     "demos:check": "node scripts/generate-demo-list.js --check",
+    "ket:check": "node scripts/check-ket.mjs",
     "model": "node scripts/build-3d-model.mjs"
   },
   "dependencies": {

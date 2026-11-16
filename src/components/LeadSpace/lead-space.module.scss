@@ -115,6 +115,34 @@
         }
     }
 
+    // "Ask our AI helper" under the buttons: opens Ket (LeadSpace KetPrompt)
+    &__ket {
+        margin-top: 1.25rem;
+
+        button {
+            @include type.type-style('body-02');
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1.25rem;
+            color: themes.$text-primary;
+            background: themes.$layer-01;
+            border: 2px solid themes.$border-interactive;
+            border-radius: 999px;
+            cursor: pointer;
+            text-align: start;
+
+            &:hover {
+                background: themes.$layer-hover-01;
+            }
+
+            &:focus-visible {
+                outline: 2px solid themes.$focus;
+                outline-offset: 2px;
+            }
+        }
+    }
+
     &__bg {
         max-inline-size: 100%;
 
