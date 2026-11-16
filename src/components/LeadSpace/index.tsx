@@ -7,7 +7,7 @@ import styles from './lead-space.module.scss'
 import clsx from "clsx";
 import { Button, Column, Grid, Link } from "@/components/carbon-wrapper";
 import { icons } from "@/components/icons";
-import { UMAMI, umamiAttrs } from "@/lib/umami";
+import { umamiAttrs } from "@/lib/umami";
 
 interface CTA {
     label: string
@@ -93,7 +93,8 @@ function KetPrompt({ label }: { label: string }) {
     }, []);
     if (!ready) return null;
     return <p className={styles['lead-space__ket']}>
-        <button type="button" onClick={openKet} {...umamiAttrs(UMAMI.assistantOpen, { tool: "ket", where: "home-hero" })}>💬 {label}</button>
+        {/* No Umami attribute: the widget counts its own "assistant open" */}
+        <button type="button" onClick={openKet}><span aria-hidden="true">💬</span> {label}</button>
     </p>
 }
 
