@@ -98,8 +98,8 @@ written card only, not after an update.
 
 The first start takes a few minutes and the Pi restarts on its own: do not
 unplug it. Then the desktop opens, without a login, and a short setup checklist
-appears (see [First boot](/#3-first-boot)). Over SSH and VNC the login is
-`rasqberry` with password `Qiskit1!`, or the user set in Imager.
+appears (see [First boot](/#3-first-boot)). Over SSH and VNC, log in with the
+user set in Imager; without one, see [first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen).
 
 ## Downloads
 

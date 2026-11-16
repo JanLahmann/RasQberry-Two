@@ -31,8 +31,25 @@ To see the Pi's IP address, run `hostname -I`, or look at **System Info** in
 ## Remote access
 
 On most networks the Pi is reachable as `rasqberry.local`; otherwise use its IP
-address. The login is `rasqberry` with password `Qiskit1!`, or the user and
-password you set in Imager.
+address. The login is the user and password you set in Imager, otherwise
+`rasqberry` with the published password `Qiskit1!`.
+
+### First access without a screen
+
+Without a user or SSH key from Imager, the Pi protects its published password:
+
+1. **Log in over SSH within 15 minutes of switching the Pi on:**
+   `ssh rasqberry@rasqberry.local`, password `Qiskit1!`. Missed it? Switch the
+   Pi off and on again.
+2. **Set your own password.** The Pi asks right away: first `Qiskit1!`, then the
+   new password twice. It is also the password for VNC and `sudo`.
+3. **VNC comes on** once the password is changed.
+
+Until then SSH accepts only keys outside those 15 minutes, and VNC stays off.
+With a screen, change the password in the setup checklist instead. For a booth
+or classroom, `rasqberry_boot.env` on the card's boot drive can
+change this: `DEFAULT_PW_WINDOW_MIN` (minutes, `0` = keys only) and
+`DEFAULT_PW_WINDOW_VNC=yes` (VNC on before the change).
 
 ### SSH
 
@@ -43,12 +60,14 @@ ssh rasqberry@rasqberry.local
 ```
 
 With your own user name from Imager: `ssh <user>@rasqberry.local`. Confirm the
-host key the first time, then enter the password.
+host key the first time, then enter the password. To log in with a key from
+then on: `ssh-copy-id rasqberry@rasqberry.local`.
 
 ### VNC (the desktop)
 
-VNC is switched on once, at the first start. If you switch it off
-(**3 Interface Options** → **VNC**), it stays off.
+VNC comes on once the Pi no longer has the published password: at the first
+start with a password from Imager, otherwise after you change it. If you switch
+it off (**3 Interface Options** → **VNC**), it stays off.
 
 Use **RealVNC Viewer** or **TigerVNC** and connect to `rasqberry.local`. The Pi
 only accepts encrypted logins, so the Mac's built-in Screen Sharing and some
