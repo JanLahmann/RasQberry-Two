@@ -63,6 +63,9 @@ USER_VENDOR = Path.home() / "Library/Application Support/PrusaSlicer/vendor"
 SINGLE = ("Prusa CORE One HF0.4 nozzle", "0.20mm SPEED @COREONE HF0.4", "Prusament PLA @COREONE HF0.4")
 MULTI = ("Prusa CORE One INDX 8T HF0.4 nozzle", "0.20mm Balanced ★ @COREONEINDX HF0.4",
          "Prusament PLA @COREONEINDX HF0.4")
+# the tool each filament is loaded on in Jan's INDX (2026-11-16); T7-T8 free
+INDX_TOOLS = {"matte black": 1, "white": 2, "silk silver": 3, "transparent": 4,
+              "silk gold": 5, "galaxy black": 6}
 VENDOR_MODELS = ("COREONE", "COREONE_INDX8T")
 GAP = 6.0          # mm between parts on a bed
 MARGIN = 1.0       # mm from the bed edge (the wall parts are 245.7 mm, the INDX bed 248)
@@ -416,14 +419,12 @@ def ini_value(ini, key):
     return re.search(rf"^{key} = (.*)$", ini, re.M).group(1)
 
 
-def project_config(ini, fils):
-    """Slic3r_PE.config: the resolved presets with the filament colors (one
-    per extruder; extra extruders keep theirs)."""
-    n = len(ini_value(ini, "extruder_colour").split(";"))
-    colors = [FILAMENTS[f] for f in fils][:n]
-    if n > 1:
-        keep = ini_value(ini, "extruder_colour").split(";")
-        colors += keep[len(colors):]
+def project_config(ini, tools):
+    """Slic3r_PE.config: the resolved presets with the filament colors of
+    `tools` ({filament: extruder}); other extruders keep theirs."""
+    colors = ini_value(ini, "extruder_colour").split(";")
+    for f, t in tools.items():
+        colors[t - 1] = FILAMENTS[f]
     over = {"filament_colour": ";".join(colors), "extruder_colour": ";".join(colors)}
     lines = []
     for line in ini.splitlines():
@@ -464,12 +465,12 @@ def bed_offset(k, bed):
 def write_project(path, beds, bed, ini, multi):
     """PrusaSlicer project with one bed per entry of `beds`: one object per
     part (one volume per body), one instance per copy. On one nozzle the
-    two-color part's bed gets a filament change; on a two-filament printer
-    its bodies get their own extruders (`multi`)."""
+    two-color part's bed gets a filament change; on the INDX (`multi`) each
+    body goes to the tool its filament is loaded on (INDX_TOOLS)."""
     parts = list(dict.fromkeys(p for b in beds for p in b))
-    fils = filaments(parts) if multi else filaments(parts)[:1]
-    if len(fils) > len(ini_value(ini, "extruder_colour").split(";")):
-        raise ValueError(f"{path.name}: {len(fils)} filaments, more than the printer has")
+    tools = INDX_TOOLS if multi else {filaments(parts)[0]: 1}
+    if max(tools.values()) > len(ini_value(ini, "extruder_colour").split(";")):
+        raise ValueError(f"{path.name}: INDX_TOOLS needs more tools than the printer has")
     if len(beds) > MAX_BEDS:
         raise ValueError(f"{path.name}: {len(beds)} beds, PrusaSlicer takes {MAX_BEDS}")
     items = []        # (object index, x, y)
@@ -494,6 +495,8 @@ def write_project(path, beds, bed, ini, multi):
         model.append("</vertices><triangles>")
         cfg += [f'<object id="{n}" instances_count="{sum(i == n - 1 for i, _, _ in items)}">',
                 f'<metadata type="object" key="name" value={quoteattr(name)}/>']
+        if multi:   # object-level fallbacks (e.g. a brim) use a filament of this part
+            cfg.append(f'<metadata type="object" key="extruder" value="{INDX_TOOLS[vols[0][3]]}"/>')
         if part == TWO_COLOR:
             cfg += [f'<metadata type="object" key="{k}" value="{v}"/>' for k, v in
                     (("support_material", "1"), ("support_material_auto", "1"),
@@ -508,7 +511,7 @@ def write_project(path, beds, bed, ini, multi):
                 cfg += ['<metadata type="volume" key="modifier" value="1"/>',
                         '<metadata type="volume" key="volume_type" value="SupportBlocker"/>']
             elif multi:
-                cfg.append(f'<metadata type="volume" key="extruder" value="{fils.index(fil) + 1}"/>')
+                cfg.append(f'<metadata type="volume" key="extruder" value="{INDX_TOOLS[fil]}"/>')
             cfg.append("</volume>")
             base, first = base + len(v), first + len(t)
         model.append("</triangles></mesh></object>")
@@ -519,7 +522,7 @@ def write_project(path, beds, bed, ini, multi):
     model += ["</build>", "</model>"]
     cfg.append("</config>")
     meta = {"Metadata/Slic3r_PE_model.config": "\n".join(cfg),
-            "Metadata/Slic3r_PE.config": project_config(ini, fils)}
+            "Metadata/Slic3r_PE.config": project_config(ini, tools)}
     if changes:
         gold = filaments([TWO_COLOR])[1]
         blocks = [f'<custom_gcodes_per_print_z bed_idx="{k}">\n'
@@ -570,7 +573,7 @@ def resolved(exe, dd, presets, tmp):
 
 
 def slice_stats(exe, dd, project, tmp):
-    """([grams per extruder used], time) from slicing a one-bed `project`."""
+    """([grams per extruder], time) from slicing a one-bed `project`."""
     gcode = Path(tmp) / "bed.gcode"
     r = subprocess.run([exe, "--datadir", dd, "--no-binary-gcode", "--export-gcode",
                         "-o", gcode, project], capture_output=True, text=True)
@@ -580,7 +583,7 @@ def slice_stats(exe, dd, project, tmp):
     grams = [float(g) for g in re.search(r"; filament used \[g\] = (.+)", text).group(1).split(",")]
     time = re.search(r"; estimated printing time \(normal mode\) = (.+)", text).group(1).strip()
     gcode.unlink()
-    return [g for g in grams if g > 0], time
+    return grams, time
 
 
 class Slicer:
@@ -590,12 +593,18 @@ class Slicer:
         self.exe, self.dd, self.tmp, self.cache = exe, dd, tmp, {}
 
     def stats(self, parts, bed, ini, multi):
-        """([grams], time) of one bed of `parts`."""
+        """({filament: grams}, time) of one bed of `parts`; on one nozzle all
+        grams go to the first filament."""
         k = (multi, tuple(sorted(parts)))
         if k not in self.cache:
             p = Path(self.tmp) / "bed.3mf"
             write_project(p, [parts], bed, ini, multi)
-            self.cache[k] = slice_stats(self.exe, self.dd, p, self.tmp)
+            grams, time = slice_stats(self.exe, self.dd, p, self.tmp)
+            fils = filaments(parts) if multi else filaments(parts)[:1]
+            used = {f: grams[INDX_TOOLS[f] - 1 if multi else 0] for f in fils}
+            if abs(sum(grams) - sum(used.values())) > 0.5:
+                raise RuntimeError(f"{parts}: grams on unexpected extruders {grams}")
+            self.cache[k] = (used, time)
         return self.cache[k]
 
 # ---------------------------------------------------------------- main
@@ -631,6 +640,8 @@ def main():
     ap.add_argument("--prusaslicer", default=os.environ.get("PRUSASLICER", PRUSASLICER))
     ap.add_argument("--vendor", help="folder with PrusaResearch.ini/.idx (default: PrusaSlicer's own)")
     a = ap.parse_args()
+    if set(FILAMENTS) - set(INDX_TOOLS):
+        raise SystemExit(f"no INDX tool for {sorted(set(FILAMENTS) - set(INDX_TOOLS))} (INDX_TOOLS)")
     bundle = vendor_bundle(a.prusaslicer, a.vendor)
     version = re.search(r"^config_version = (.+)$", (bundle / "PrusaResearch.ini").read_text(), re.M).group(1)
     with tempfile.TemporaryDirectory() as tmp:
@@ -661,7 +672,7 @@ def main():
                     # the two-color bed split as the INDX slices it
                     multi = len(filaments(b)) > 1
                     grams = slicer.stats(b, beds[multi], inis[multi], multi)[0]
-                    per.update(dict(zip(filaments(b), grams)))
+                    per.update(grams)
             totals[variant] = per
         write_readme(rows, totals, change_z(inis[False]), version)
 
@@ -677,7 +688,8 @@ def write_readme(rows, totals, cz, version):
              "and times are PrusaSlicer's estimates (Prusament PLA, HF0.4 nozzle, vendor",
              f"profiles {version}).", "",
              "- One project per filament color, one color per bed, for one nozzle.",
-             "- `-indx`: the same parts in their colors for the Core One INDX 8T.",
+             "- `-indx`: the same parts in their colors for the Core One INDX 8T, each",
+             "  filament on its tool: " + ", ".join(f"T{t} {f}" for f, t in INDX_TOOLS.items()) + ".",
              "  `all-parts-indx.3mf` has every bed except the floor",
              "  (`3-white-floor.3mf`); each bed has one filament, except the lid bed.",
              "- **Without floor:** skip the floor and print the two parts of",
@@ -693,8 +705,8 @@ def write_readme(rows, totals, cz, version):
              "| Project | Bed | Parts | Filament | Grams | Time |", "|---|---|---|---|---|---|"]
     for fname, k, parts, (grams, time) in rows:
         desc = ", ".join(f"{c} x {file_name(p)}" for p, c in Counter(parts).items())
-        g = " + ".join(f"{x:.0f}" for x in grams)
-        lines.append(f"| {fname} | {k} | {desc} | {' + '.join(filaments(parts))} | {g} g | {time} |")
+        g = " + ".join(f"{x:.0f}" for x in grams.values())
+        lines.append(f"| {fname} | {k} | {desc} | {' + '.join(grams)} | {g} g | {time} |")
     lines.append("")
     for variant in VARIANTS:
         grams = {f: round(g) for f, g in totals[variant].items()}
