@@ -131,8 +131,8 @@ Card: 128 GB high-speed (A2/U3) recommended, 16 GB minimum
 nothing? See [other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).
 
 **2. Start the Pi.** The first start takes a few minutes and restarts on its
-own: do not unplug it. The desktop opens without a login; over SSH and VNC the
-login is `rasqberry` with password `Qiskit1!`, or the user set in Imager.
+own: do not unplug it. The desktop opens without a login. Over SSH and VNC, log
+in with the user set in Imager; without one, see [first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen).
 
 **3. Answer the setup questions** (below), then start a demo.
 
@@ -143,7 +143,8 @@ answer it. It offers only the steps that still need a decision from you:
 
 - **Keyboard layout and time zone.** Set for the UK until you change them.
 - **Connect to Wi-Fi.** Only when the Pi has no network connection.
-- **Change the password.** Optional: keep the demo password for a booth.
+- **Change the password.** Optional: keep the demo password for a booth (VNC
+  then stays off, see [first access](/02-software/02-system-options/#3-first-access-without-a-screen)).
 - **Name this RasQberry.** Useful when several kits share a network.
 - **Check the LED panel.** An IBM logo appears on the panel and you pick the
   colour in which it reads upright. That tells RasQberry how your panel is wired.
