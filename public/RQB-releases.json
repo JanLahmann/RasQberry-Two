@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T05:07:35Z",
+  "generated": "2026-11-21T15:51:18Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -49,9 +49,7 @@
       "ab_extract_size": 12398362624,
       "ab_image_download_size": 2112669312,
       "highlights": [
-        "hold_listing input keeps a release out of the Imager lists (#413)",
-        "Bump version to development-2026-11-15-224730",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-11-15-200009"
+        "Development build - see release notes for details"
       ]
     }
   }
