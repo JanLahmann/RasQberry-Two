@@ -98,8 +98,8 @@ written card only, not after an update.
 
 The first start takes a few minutes and the Pi restarts on its own: do not
 unplug it. Then the desktop opens, without a login, and a short setup checklist
-appears (see [First boot](/#3-first-boot)). Over SSH and VNC the login is
-`rasqberry` with password `Qiskit1!`, or the user set in Imager.
+appears (see [First boot](/#3-first-boot)). Over SSH and VNC, log in with the
+user set in Imager; without one, see [first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen).
 
 ## Downloads
 
@@ -147,7 +147,7 @@ Qiskit and the demos live in the virtual environment `~/RasQberry-Two/venv/RQB2`
 need updating: see the
 [Qiskit 2.0 migration guide](https://quantum.cloud.ibm.com/docs/en/migration-guides/qiskit-2.0).
 
-SSH is on; VNC is switched on at the first start
+SSH is on; VNC comes on once the Pi has your own password
 ([remote access](/02-software/02-system-options/)).
 
 ## Keeping up to date
@@ -169,7 +169,8 @@ SSH is on; VNC is switched on at the first start
 - **Cannot find the Pi on the network:** try `rasqberry.local`. The LED panel
   scrolls the IP address at start-up; on the Pi, **System Info** or `hostname -I`
   shows it.
-- **VNC does not connect:** use RealVNC Viewer or TigerVNC; see
+- **VNC does not connect:** VNC is off until the password is changed; use
+  RealVNC Viewer or TigerVNC; see
   [remote access](/02-software/02-system-options/).
 - **"Failed to run demo":** the message names the cause. The usual ones: no
   network on a demo's first start, or a display demo started over SSH (start it

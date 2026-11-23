@@ -38,7 +38,7 @@ Our first step is to install the RasQberry Two Operating System (OS). Instructio
 After you have finished flashing the OS image to the micro-SD card, you can insert it into the slot underneath the Pi as such:
 ![Figure 1](/assembly-images/mounting_location_sd_card.JPG "Figure 1: Mounting location for the Micro SD card.")
 
-Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard and mouse. The first start takes a few minutes and restarts on its own; then the desktop appears without a login. A short setup checklist opens: skip its LED step for now, because the panel is not wired yet. The login for SSH and VNC is `rasqberry` with password `Qiskit1!`, or the user set in Imager.
+Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard and mouse. The first start takes a few minutes and restarts on its own; then the desktop appears without a login. A short setup checklist opens: skip its LED step for now, because the panel is not wired yet. Change the password there; the login for SSH and VNC is `rasqberry` with your new password, or the user set in Imager.
 
 The LEDs need no extra system setup: RasQberry drives them directly on GPIO 18. Once the panels are wired (below), you check them with the LED Setup Wizard.
 

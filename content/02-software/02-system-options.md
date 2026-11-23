@@ -31,8 +31,27 @@ To see the Pi's IP address, run `hostname -I`, or look at **System Info** in
 ## Remote access
 
 On most networks the Pi is reachable as `rasqberry.local`; otherwise use its IP
-address. The login is `rasqberry` with password `Qiskit1!`, or the user and
-password you set in Imager.
+address. The login is the user and password you set in Imager, otherwise
+`rasqberry` with the published password `Qiskit1!`.
+
+### First access without a screen
+
+Without a user or SSH key from Imager, the Pi protects its published password:
+
+1. **Log in over SSH within 15 minutes:** `ssh rasqberry@rasqberry.local`,
+   password `Qiskit1!`. The 15 minutes start when the Pi is on the network; on
+   the very first start, wait for its own restart first. Missed it? Switch the
+   Pi off and on again.
+2. **Set your own password.** The Pi asks right away: first `Qiskit1!`, then the
+   new password twice. It is also the password for VNC and `sudo`.
+3. **VNC comes on** once the password is changed.
+
+After the 15 minutes, password login is closed until the next start. With a
+screen, change the password in the setup checklist instead. For a booth or
+classroom that keeps `Qiskit1!`: in `rasqberry_boot.env` on the boot drive
+(bootfs; BOOT-A or BOOT-B on the A/B image) remove the `#` in front of
+`DEFAULT_PW_WINDOW_MIN` (minutes, `0` = keys only) or `DEFAULT_PW_WINDOW_VNC`
+(set to `yes`: VNC on as well).
 
 ### SSH
 
@@ -43,12 +62,14 @@ ssh rasqberry@rasqberry.local
 ```
 
 With your own user name from Imager: `ssh <user>@rasqberry.local`. Confirm the
-host key the first time, then enter the password.
+host key the first time, then enter the password. To log in with a key from
+then on, once you have your own password: `ssh-copy-id <user>@rasqberry.local`.
 
 ### VNC (the desktop)
 
-VNC is switched on once, at the first start. If you switch it off
-(**3 Interface Options** → **VNC**), it stays off.
+VNC comes on once the Pi no longer has the published password: at the first
+start with a password from Imager, otherwise after you change it. If you switch
+it off (**3 Interface Options** → **VNC**), it stays off.
 
 Use **RealVNC Viewer** or **TigerVNC** and connect to `rasqberry.local`. The Pi
 only accepts encrypted logins, so the Mac's built-in Screen Sharing and some
@@ -79,5 +100,6 @@ together.
 
 Everyone who reads this website knows the default password. On a shared
 network, change it: the setup checklist offers this once on the first login
-(skip it to keep the demo password, for example at a booth). Later, run
+(skip it to keep the demo password, for example at a booth; then SSH and VNC
+work as in [first access without a screen](#3-first-access-without-a-screen)). Later, run
 `passwd`, or use **1 System Options** → **S3 Password**.

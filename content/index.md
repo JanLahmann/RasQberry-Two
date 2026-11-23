@@ -131,39 +131,31 @@ Card: 128 GB high-speed (A2/U3) recommended, 16 GB minimum
 nothing? See [other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).
 
 **2. Start the Pi.** The first start takes a few minutes and restarts on its
-own: do not unplug it. The desktop opens without a login; over SSH and VNC the
-login is `rasqberry` with password `Qiskit1!`, or the user set in Imager.
+own. Until you set your own password (in Imager or the setup checklist), VNC is
+off and SSH takes `Qiskit1!` only for 15 minutes after a start
+([details](/02-software/02-system-options/#3-first-access-without-a-screen)).
 
 **3. Answer the setup questions** (below), then start a demo.
 
 ### First boot
 
-At the first desktop or SSH login a short setup checklist opens, until you
-answer it. It offers only the steps that still need a decision from you:
+At the first login a short setup checklist offers the steps that still need you:
 
-- **Keyboard layout and time zone.** Set for the UK until you change them.
-- **Connect to Wi-Fi.** Only when the Pi has no network connection.
-- **Change the password.** Optional: keep the demo password for a booth.
-- **Name this RasQberry.** Useful when several kits share a network.
-- **Check the LED panel.** An IBM logo appears on the panel and you pick the
-  colour in which it reads upright. That tells RasQberry how your panel is wired.
-  No panel? Say so, and the LED demos use an on-screen view.
-- **Download all demos.** Optional; otherwise each demo downloads on its first start.
-- **Turn on touch mode.** Only when a touchscreen is attached: bigger icons,
-  buttons and menus, and icons open with one tap. Later: the **Touch Mode** icon,
-  or **0 RasQberry** → **Desktop Settings**. The keyboard icon in the taskbar shows
-  an on-screen keyboard; it also opens by itself in text fields.
-- **On some Pis:** setting up the SD card, and notes about a small card or the
-  Pi's firmware.
+- **Keyboard layout and time zone** (UK until you change them).
+- **Wi-Fi**, when the Pi has no network.
+- **Your own password.** Keep `Qiskit1!` only for a booth.
+- **A name for this RasQberry**, when several share a network.
+- **The LED panel:** pick the colour in which the IBM logo reads upright. No
+  panel? Say so; LED demos then show on screen.
+- **Download all demos** now, or each on its first start.
+- **Touch mode**, when a touchscreen is attached.
 
-On the [A/B image](/02-software/03-ab-boot/) the card is prepared for two systems
-during the first start, on cards of 64 GB or more; a smaller card runs one system.
+On the [A/B image](/02-software/03-ab-boot/) the first start prepares two
+systems on cards of 64 GB or more.
 
-Every step can wait: leave it unticked, or choose **Later**; the **RasQberry Setup** icon
-on the desktop opens the list again. Done with it? Tick **Don't show again** (the
-last line): the icon goes, and the list stays in the RasQberry menu
-(**0 RasQberry** → **Setup Checklist**, or `rq_firstlogin.sh --all`). The icon
-also goes once every step is done.
+Every step can wait: the **RasQberry Setup** icon opens the list again. Tick
+**Don't show again** to remove the icon; the list stays in **0 RasQberry** →
+**Setup Checklist**.
 
 Then try something: double-click a demo icon on the desktop, pick one from the
 [demo list](/03-quantum-computing-demos/01-demo-list/), or follow a
