@@ -91,8 +91,8 @@ Security**.
 
 Sound plays over HDMI (a monitor with speakers) or a Bluetooth speaker. To pair
 one: the Bluetooth icon in the taskbar → **Add Device**; right-click the volume
-icon to choose the output. A Bluetooth speaker plays 100–300 ms late: on the
-development image, **0 RasQberry** → **Desktop Settings** → **Sound delay** →
+icon to choose the output. A Bluetooth speaker plays 100–300 ms late:
+**0 RasQberry** → **Desktop Settings** → **Sound delay** →
 **Calibrate** plays ticks with flashes on the LED panel; adjust until they come
 together.
 

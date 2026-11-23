@@ -124,7 +124,7 @@ menu: double-click **RasQberry Configuration** on the desktop (or run
 |---|---|
 | Quantum Demos | Learning paths, the demo groups (LED panel, Play, Big projects, Learn & code, Workshops & events, Contributed demos), Manage demos (download all, catalogue, update, remove) |
 | Setup Checklist | The first-start steps again |
-| Desktop Settings | Touch mode, opening rasqberry.org at desktop login, the sound delay for a Bluetooth speaker (development image) |
+| Desktop Settings | Touch mode, opening rasqberry.org at desktop login, the sound delay for a Bluetooth speaker |
 | IBM Quantum account | Save, check or forget your API key |
 | Remote Access & Security | Password, SSH and VNC, the Pi's name, Raspberry Pi Connect |
 | Software & Image Updates | Check for a newer image; on the A/B image also the Slot Manager |

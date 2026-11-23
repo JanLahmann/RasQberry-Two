@@ -82,9 +82,9 @@ your name or ID. No IP address, no cookies.
 ### RasQberry advanced configuration
 
 - **LED panel setup**: Set up the LED panel: find its layout, check it, and set the brightness. Early beta, not yet tested by people: expect rough edges. *(needs: LED panel)*
-- **Sound on a Bluetooth speaker**: Pair a Bluetooth speaker and calibrate the sound delay until tick and LED flash come together. Early beta, not yet tested by people: expect rough edges. *(needs: Bluetooth speaker, LED panel, development image)*
+- **Sound on a Bluetooth speaker**: Pair a Bluetooth speaker and calibrate the sound delay until tick and LED flash come together. Early beta, not yet tested by people: expect rough edges. *(needs: Bluetooth speaker, LED panel)*
 - **Remote access**: Reach the Pi from another computer: SSH, VNC and Raspberry Pi Connect. Early beta, not yet tested by people: expect rough edges. *(needs: internet)*
-- **Wi-Fi hotspot**: Let phones and laptops join the Pi's own Wi-Fi and open its demos. Early beta, not yet tested by people: expect rough edges. *(coming soon)*
+- **Wi-Fi hotspot**: Let phones and laptops join the Pi's own Wi-Fi and open its demos. Early beta, not yet tested by people: expect rough edges.
 - **Updates on the single-system image**: Check for a newer image on the single-system image and follow what the Pi suggests. Early beta, not yet tested by people: expect rough edges. *(needs: internet, single-system image)*
 
 ### LED panel
