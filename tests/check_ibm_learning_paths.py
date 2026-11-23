@@ -107,7 +107,7 @@ def main(argv):
     lines = compare(ours, theirs)
     if lines:
         lines.append("Update ibm_learning in RQB2-config/demo-manifests/learning-paths.json "
-                     "(the Pi, the website and Introduction to quantum use it).")
+                     "(the Pi, the website and our path ibm-introduction-to-quantum use it).")
         report(lines)
     else:
         print(f"OK: the {len(ours)} learning paths match {PAGE}: {', '.join(ours)}")

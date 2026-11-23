@@ -606,6 +606,8 @@ def test_ibm_introduction_to_quantum_follows_ibm():
     p = next(p for p in _paths() if p["id"] == "ibm-introduction-to-quantum")
     assert p["minutes"] == 26 * 60
     assert "Based on IBM Quantum Learning's" in p["credit"]
+    # ours, adapted: not named as if IBM made it, nor like IBM's own path in ibm_learning
+    assert p["title"] == "Introduction to quantum, adapted"
     assert p["credit_url"] == f"{_IBM}/learning/en?modal=introduction-to-quantum"
     assert [(s["online"], s["time"]) for s in p["steps"]] == [(_IBM + u, t) for u, t in _IBM_INTRO]
     # each opens the same page in doQumentation on this Pi (same paths as
@@ -646,7 +648,7 @@ def test_the_list_offers_ibm_quantum_learning(tmp_path):
     proc, calls, started = _walk(tmp_path, ["ibm", "i2", "all", "ESC", "ESC"])
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "Continue with IBM Quantum Learning (online)" in calls[0]
-    assert "Introduction to quantum: newcomers with time to learn, 26 hours" in calls[0]
+    assert "Introduction to quantum, adapted: newcomers with time to learn, 26 hours" in calls[0]
     box = calls[1]
     assert _arg(box, "--title") == "RasQberry: IBM Quantum Learning"
     assert _arg(box, "--cancel-button") == "Back"
@@ -719,7 +721,7 @@ def test_ibm_path_offers_online_when_doqumentation_fails(tmp_path):
 def test_list_prints_ibm_quantum_learning():
     env = dict(os.environ, RQ_CONFIG_FILE="/nonexistent")
     out = subprocess.run(["bash", _SCRIPT, "--list"], capture_output=True, text=True, env=env).stdout
-    assert "Introduction to quantum (beta) - Newcomers with time to learn, about 26 hours" in out
+    assert "Introduction to quantum, adapted (beta) - Newcomers with time to learn, about 26 hours" in out
     assert "Based on IBM Quantum Learning's" in out
     assert f"On this Pi in doQumentation, or online: {_IBM}/docs/en/guides/quick-start" in out
     assert "Continue with IBM Quantum Learning (https://quantum.cloud.ibm.com/learning/en):" in out
