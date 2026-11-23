@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-23T21:46:28Z",
+  "generated": "2026-11-23T23:03:17Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,19 +8,19 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-10-10-053754",
-      "name": "rasqberry-beta-2026-10-10",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-10-053754/rasqberry-beta-2026-10-10.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-10-053754",
-      "release_date": "2026-10-10",
-      "image_download_size": 1738274856,
-      "extract_size": 9495904256,
-      "extract_sha256": "de7836bf92aca334561ab7f5799374bcac84a668a24dbfbb958ba5a2fa2a4c09",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-10-053754/rasqberry-beta-2026-10-10-ab.img.xz",
-      "ab_extract_sha256": "0f81f89a67693c47839ba720a04c44548dada23df993ac48aa2d2424b18866eb",
-      "ab_image_sha256": "883440991a77d3e93ef8ce965c8be59cc683725178a375b0559c73ac6e186f48",
+      "tag": "beta-2026-11-15-225917",
+      "name": "rasqberry-beta-2026-11-15",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-11-15-225917/rasqberry-beta-2026-11-15.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-11-15-225917",
+      "release_date": "2026-11-15",
+      "image_download_size": 1776110844,
+      "extract_size": 9596567552,
+      "extract_sha256": "8b6c615e4fe0b94db3f985c646b4ba65595c1b9dfd0587d6018ab8c1cf2745b4",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-11-15-225917/rasqberry-beta-2026-11-15-ab.img.xz",
+      "ab_extract_sha256": "73e97cb8e6670f484b0d16e7a8aa4770157417b288c19684bfcde6d9c809a885",
+      "ab_image_sha256": "f1ea9c03437df5cf16c98af201259b367dcfd529b02f79200f250baa120bbbf3",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1790906568,
+      "ab_image_download_size": 1820633140,
       "highlights": [
         "After an update, \"What's new\" opens once, and the update offer shows it before you install",
         "Your own extras after an update: root-owned scripts in /data/rasqberry/after-update.d/ run once on the new system",
@@ -35,23 +35,22 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-11-23-220515",
-      "name": "rasqberry-development-2026-11-23-220515",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-220515/rasqberry-development-2026-11-23-220515.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-23-220515",
-      "release_date": "2026-11-23 22:05",
-      "image_download_size": 2059351312,
+      "tag": "development-2026-11-23-233322",
+      "name": "rasqberry-development-2026-11-23-233322",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-233322/rasqberry-development-2026-11-23-233322.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-23-233322",
+      "release_date": "2026-11-23 23:33",
+      "image_download_size": 2059343520,
       "extract_size": 9596567552,
-      "extract_sha256": "578d62c3ea0acbfd623724219de4145dadd0fdab549ddd43b7e7ff1a5c0d3064",
-      "image_sha256": "1fe5f291a0dbb80015c9a79f9c7ecc97de7eeac6e78788b5a098ac9236371014",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-220515/rasqberry-development-2026-11-23-220515-ab.img.xz",
-      "ab_extract_sha256": "4e413a989b47e66613149588f7f4d46e179710b6d3e07be7dc28bdb624dfa0e6",
-      "ab_image_sha256": "5892e2d5b2b4a6fddaee6cead2ff286aafff9ecdb3718e58baa65711c22d6110",
-      "ab_image_download_size": 2111043368,
+      "extract_sha256": "4ad0a9479b33278e48d149e3554f4442110628ebc046581a721f3a9915402c28",
+      "image_sha256": "86b501002847871dcbb3277cc8c5627f0bc8e40db5165a2f990bc6e5d78236c9",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-233322/rasqberry-development-2026-11-23-233322-ab.img.xz",
+      "ab_extract_sha256": "bb7c670cc7c8525f46df0066489b7e923050873f221fe4cd2c3ce1f4939e25e9",
+      "ab_image_sha256": "1a9ea34093c06fd1e080ae76630ca02c9adbd9c2c3eef7da507bfdd7612820c6",
+      "ab_image_download_size": 2111482016,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Grok Bloch tips: scroll when taller than the window (#426)",
-        "Learning paths: Introduction to quantum, based on IBM Quantum Learning (#425)"
+        "Tester missions: sound and hotspot are in the beta (#429)"
       ]
     }
   }
