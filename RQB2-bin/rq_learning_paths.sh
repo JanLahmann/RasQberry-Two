@@ -14,7 +14,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   offers what to do next (another path or a page), and Where to go next
 #   lists six steps from playing to building your own. Continue with IBM
 #   Quantum Learning lists IBM Quantum's own learning paths and opens one in
-#   the browser. A path taken from IBM ("IBM: Introduction to quantum") opens
+#   the browser. Our path adapted from IBM's (id ibm-introduction-to-quantum) opens
 #   its steps in doQumentation on this Pi, or online at IBM Quantum when
 #   doQumentation is not downloaded or does not start. Opened from the
 #   RasQberry menu (Quantum Demos -> Learning paths) and from the Learning
