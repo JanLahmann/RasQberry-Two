@@ -53,19 +53,18 @@ leadspace:
       alt: lead space background image
 ---
 
-{/* BETA BOX: announces beta-2026-10-10-053754. For a newer beta, update the release tag in the "What's new" link; when a stable release ships, reword or remove the box. */}
+{/* BETA BOX: announces beta-2026-11-15-225917. For a newer beta, update the release tag in the "What's new" link; when a stable release ships, reword or remove the box. */}
 <div className="callout callout--news">
-  <p><strong>New beta: the SD card stays in the Pi.</strong> With the new <a href="/02-software/03-ab-boot/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="ab-image">A/B image</a>, releases install over the air into the other system, and the Pi falls back by itself if one doesn't work (64 GB card or larger, 128 GB recommended).</p>
+  <p><strong>New beta: hotspot, demo catalogue and Qiskit 2.6.</strong> On a 64 GB card or larger the <a href="/02-software/03-ab-boot/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="ab-image">A/B image</a> keeps the card in the Pi: releases install over the air.</p>
   <ul>
-    <li><strong>Raspberry Pi OS Trixie</strong> with Python 3.13, the demos in six groups on the desktop, and your own user name from Imager.</li>
-    <li><strong>Several new demos and games:</strong> the Workshop &amp; Qiskit Server for a whole class, doQumentation (IBM Quantum Learning on this Pi), Qiskit Live, the Mermin-Peres game and a demo catalogue with <a href="https://racetraq.org" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="racetraq">racetraQ</a>.</li>
-    <li><strong><a href="/03-quantum-computing-demos/02-learning-paths/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="learning-paths">Learning paths</a>:</strong> short tours through the demos, with tips on where to go next.</li>
-    <li><strong>Taskbar badge:</strong> shows which system runs and tells you when a new release is out.</li>
-    <li><strong>Help us test it:</strong> we're looking for testers who try RasQberry Two and its demos on their own Pi. Testers get Ket, our new AI tester helper: it suggests missions that fit their hardware and takes their feedback. <a href="/testing/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="testing">Become a tester</a></li>
+    <li><strong>Wi-Fi hotspot</strong> for booths and classrooms: phones join with a QR code; a new Pi without a network opens a setup hotspot.</li>
+    <li><strong>Demo catalogue:</strong> add contributed demos in Manage demos, such as <a href="https://racetraq.org" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="racetraq">racetraQ</a> and two SAP demos.</li>
+    <li><strong><a href="/03-quantum-computing-demos/02-learning-paths/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="learning-paths">Learning paths</a></strong> with IBM Quantum Learning, and many fixes from user tests.</li>
+    <li><strong>Help us test it:</strong> testers get Ket, our AI tester helper, with missions for their hardware. <a href="/testing/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="testing">Become a tester</a></li>
   </ul>
   <p className="callout__actions">
     <a className="cta-button not-pi" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="imager">▶ Write RasQberry Two to your SD card</a>
-    <a href="https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-10-053754" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="release-notes">What's new</a>
+    <a href="https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-11-15-225917" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="release-notes">What's new</a>
     <a href="https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=New%20beta" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="feedback">Tell us what you think</a>
   </p>
 </div>
