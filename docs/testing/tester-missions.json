@@ -299,8 +299,8 @@
       "title": "Entangible",
       "goal": "Build a circuit with the printed gate tiles and let the camera read it.",
       "needs": [
-        "camera",
-        "dev-image"
+        "dev-image",
+        "camera"
       ],
       "demo": "entangible",
       "maturity": "beta"
@@ -337,6 +337,7 @@
       "goal": "Race a car steered by a quantum agent and train your own.",
       "needs": [
         "internet",
+        "dev-image",
         "display",
         "big-card"
       ],
@@ -349,7 +350,9 @@
       "group": "fwq",
       "title": "Fun with Quantum: start here",
       "goal": "Open the Fun with Quantum start page and pick a game from it.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "fun-with-quantum",
       "part": "readme",
       "maturity": "beta"
@@ -369,7 +372,9 @@
       "group": "fwq",
       "title": "Fun with Quantum: GHZ Game",
       "goal": "Play the GHZ Game and see how quantum players win.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "fun-with-quantum",
       "part": "ghz-game",
       "maturity": "beta"
@@ -379,7 +384,9 @@
       "group": "fwq",
       "title": "Fun with Quantum: Hardy's Paradox",
       "goal": "Work through Hardy's Paradox.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "fun-with-quantum",
       "part": "hardys-paradox",
       "maturity": "beta"
@@ -389,7 +396,9 @@
       "group": "fwq",
       "title": "Fun with Quantum: Mermin–Peres Magic Square",
       "goal": "Play the Mermin–Peres Magic Square.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "fun-with-quantum",
       "part": "mermin-peres",
       "maturity": "beta"
@@ -399,7 +408,9 @@
       "group": "fwq",
       "title": "Fun with Quantum: 3-SAT with Grover's Algorithm",
       "goal": "Solve a 3-SAT problem with Grover's algorithm.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "fun-with-quantum",
       "part": "3-sat",
       "maturity": "beta"
@@ -409,7 +420,9 @@
       "group": "fwq",
       "title": "Fun with Quantum: The CHSH Game",
       "goal": "Play the CHSH Game.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "fun-with-quantum",
       "part": "chsh-game",
       "maturity": "beta"
@@ -419,7 +432,9 @@
       "group": "fwq",
       "title": "Fun with Quantum: The Quantum Prisoner's Dilemma",
       "goal": "Play the Quantum Prisoner's Dilemma.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "fun-with-quantum",
       "part": "prisoners-dilemma",
       "maturity": "beta"
@@ -431,7 +446,8 @@
       "goal": "Run the GHZ experiment on a real quantum computer.",
       "needs": [
         "internet",
-        "ibm-account"
+        "ibm-account",
+        "dev-image"
       ],
       "demo": "fun-with-quantum",
       "part": "ghz-real-devices",
@@ -442,7 +458,9 @@
       "group": "fwq",
       "title": "Fun with Quantum website: games in the browser",
       "goal": "Play the games in the browser on the Fun with Quantum website, also offline.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "fun-with-quantum",
       "part": "website",
       "maturity": "beta"
@@ -453,7 +471,8 @@
       "title": "Fun with Quantum family: related projects",
       "goal": "Explore the other projects of the Fun with Quantum family.",
       "needs": [
-        "internet"
+        "internet",
+        "dev-image"
       ],
       "demo": "fun-with-quantum",
       "part": "family",
@@ -475,7 +494,9 @@
       "group": "fwq",
       "title": "Quantum Paradoxes",
       "goal": "Work through one of the quantum paradox notebooks.",
-      "needs": [],
+      "needs": [
+        "dev-image"
+      ],
       "demo": "quantum-paradoxes",
       "maturity": "beta"
     },
@@ -485,7 +506,8 @@
       "title": "doQumentation (IBM Quantum Learning on this Pi)",
       "goal": "Open a tutorial in doQumentation (IBM Quantum Learning on this Pi) and run its code.",
       "needs": [
-        "big-card"
+        "big-card",
+        "dev-image"
       ],
       "demo": "qiskit-tutorials",
       "maturity": "beta"
@@ -517,7 +539,8 @@
       "goal": "Choose a Qiskit version and the notebooks, start QuBins and run a notebook.",
       "needs": [
         "internet",
-        "big-card"
+        "big-card",
+        "dev-image"
       ],
       "demo": "qubins",
       "maturity": "beta"
@@ -560,7 +583,8 @@
       "goal": "Start the Qiskit Live and run a notebook.",
       "needs": [
         "internet",
-        "big-card"
+        "big-card",
+        "dev-image"
       ],
       "demo": "quantum-lab",
       "maturity": "beta"
