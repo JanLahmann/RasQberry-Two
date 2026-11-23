@@ -4,8 +4,8 @@
     "Wi-Fi hotspot for booths and classrooms: phones and laptops join the Pi's own network with a QR code and find its demos on a landing page",
     "A new Pi without a network opens a setup hotspot, so you can reach it and connect it to your Wi-Fi, also without a screen",
     "Without a password from Imager, SSH accepts the published password only for 15 minutes after a start and asks for a new one; VNC comes on after that",
-    "Online demo catalogue: add contributed demos in Manage demos, for example the two SAP demos",
+    "Bluetooth speakers: calibrate the sound delay until the tick and the LED flash come together",
     "Qiskit 2.6, the IBM Quantum Learning paths, and Ket, the AI helper, on the Pi's start page",
-    "Many fixes from user tests: window sizes, names and bookmarks, LED demos in a sandbox, VNC kept after an update, Bluetooth sound delay, Wi-Fi names with accents"
+    "Many fixes from user tests: window sizes, names and bookmarks, LED demos in a sandbox, VNC kept after an update, Wi-Fi names with accents"
   ]
 }
