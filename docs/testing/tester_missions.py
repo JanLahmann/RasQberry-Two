@@ -25,6 +25,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
+# the demo levels the image build applies (rq_demo_level.py apply)
+sys.path.insert(0, os.path.join(ROOT, "RQB2-bin"))
+from rq_demo_level import level_of  # noqa: E402
 MANIFESTS = os.path.join(ROOT, "RQB2-config", "demo-manifests")
 CATALOGUE = os.path.join(ROOT, "RQB2-config", "known-demos.json")
 OUT_JSON = os.path.join(HERE, "tester-missions.json")
@@ -168,12 +171,11 @@ FUNCTIONS = [
      "Set up the LED panel: find its layout, check it, and set the brightness.", ["led-panel"]),
     ("sound", "advanced", "Sound on a Bluetooth speaker",
      "Pair a Bluetooth speaker and calibrate the sound delay until tick and LED flash come together.",
-     ["bluetooth-speaker", "led-panel", "dev-image"]),
+     ["bluetooth-speaker", "led-panel"]),
     ("remote", "advanced", "Remote access",
      "Reach the Pi from another computer: SSH, VNC and Raspberry Pi Connect.", ["internet"]),
     ("hotspot", "advanced", "Wi-Fi hotspot",
-     "Let phones and laptops join the Pi's own Wi-Fi and open its demos.", [],
-     "coming"),
+     "Let phones and laptops join the Pi's own Wi-Fi and open its demos.", []),
     ("standard-update", "advanced", "Updates on the single-system image",
      "Check for a newer image on the single-system image and follow what the Pi suggests.",
      ["internet", "single-image"]),
@@ -196,7 +198,7 @@ NEEDS_TEXT = {
 # Needs the manifests have no field for (yet). Catalogue demos: known-demos.json
 # has no needs, so they come from the demo's rqb-demo.json at the pinned commit.
 EXTRA_NEEDS = {
-    "entangible": ["camera", "dev-image"],  # tiles read by a camera; not in beta-2026-10-10
+    "entangible": ["camera"],  # tiles read by a camera
     "racetraq": ["display", "big-card"],    # rqb-demo.json: display required, a Docker demo
     "sap-quantum-learning": ["display"],    # rqb-demo.json: display required (web page)
     # most tutorials, Hello world too, run on IBM hardware through the saved account
@@ -232,6 +234,12 @@ def demo_needs(manifest):
     entry = manifest.get("entrypoint") or {}
     if entry.get("type") == "docker" or (manifest.get("install") or {}).get("docker_image_of"):
         needs.append("big-card")
+    # below beta level the beta image drops it, or all its parts
+    # (rq_demo_level.py trim_manifests): the development image only
+    level = level_of(manifest.get("maturity"))
+    parts = manifest.get("variants") or [{}]
+    if all(level_of(v.get("maturity"), level) == "dev" for v in parts):
+        needs.append("dev-image")
     for need in EXTRA_NEEDS.get(manifest.get("id", ""), []):
         if need not in needs:
             needs.append(need)
@@ -277,6 +285,9 @@ def build():
         if m["id"] in SPLIT_DEMOS:
             for v in m.get("variants", []):
                 extra = [n for n in PART_NEEDS.get(m["id"], {}).get(v["id"], []) if n not in demo_needs(m)]
+                # a part below beta level is in the development image only
+                if level_of(v.get("maturity"), level_of(m.get("maturity"))) == "dev" and "dev-image" not in demo_needs(m) + extra:
+                    extra.append("dev-image")
                 missions.append({
                     "id": f"demo-{m['id']}-{v['id']}",
                     "group": group,
@@ -313,7 +324,7 @@ def build():
     for item in FUNCTIONS:
         mid, group, title, goal, needs = item[:5]
         mission = {"id": mid, "group": group, "title": title, "goal": goal, "needs": list(needs)}
-        if len(item) > 5:
+        if len(item) > 5:  # kept for the next mission that isn't in an image yet
             mission["status"] = item[5]
         missions.append(mission)
 

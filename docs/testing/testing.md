@@ -82,9 +82,9 @@ your name or ID. No IP address, no cookies.
 ### RasQberry advanced configuration
 
 - **LED panel setup**: Set up the LED panel: find its layout, check it, and set the brightness. Early beta, not yet tested by people: expect rough edges. *(needs: LED panel)*
-- **Sound on a Bluetooth speaker**: Pair a Bluetooth speaker and calibrate the sound delay until tick and LED flash come together. Early beta, not yet tested by people: expect rough edges. *(needs: Bluetooth speaker, LED panel, development image)*
+- **Sound on a Bluetooth speaker**: Pair a Bluetooth speaker and calibrate the sound delay until tick and LED flash come together. Early beta, not yet tested by people: expect rough edges. *(needs: Bluetooth speaker, LED panel)*
 - **Remote access**: Reach the Pi from another computer: SSH, VNC and Raspberry Pi Connect. Early beta, not yet tested by people: expect rough edges. *(needs: internet)*
-- **Wi-Fi hotspot**: Let phones and laptops join the Pi's own Wi-Fi and open its demos. Early beta, not yet tested by people: expect rough edges. *(coming soon)*
+- **Wi-Fi hotspot**: Let phones and laptops join the Pi's own Wi-Fi and open its demos. Early beta, not yet tested by people: expect rough edges.
 - **Updates on the single-system image**: Check for a newer image on the single-system image and follow what the Pi suggests. Early beta, not yet tested by people: expect rough edges. *(needs: internet, single-system image)*
 
 ### LED panel
@@ -97,39 +97,39 @@ your name or ID. No IP address, no cookies.
 
 ### Big projects
 
-- **Entangible**: Build a circuit with the printed gate tiles and let the camera read it. Early beta, not yet tested by people: expect rough edges. *(needs: camera (USB webcam or Pi camera), development image)*
+- **Entangible**: Build a circuit with the printed gate tiles and let the camera read it. Early beta, not yet tested by people: expect rough edges. *(needs: development image, camera (USB webcam or Pi camera))*
 - **Qoffee-Maker**: Order a coffee from a quantum computer, with or without a Home Connect machine. Early beta, not yet tested by people: expect rough edges. *(needs: screen, internet, SD card of 32 GB or more)*
 - **Quantum Mixer**: Mix a cocktail, an ice cream or a coffee with a quantum circuit. Early beta, not yet tested by people: expect rough edges. *(needs: screen, SD card of 32 GB or more)*
-- **racetraQ**: Race a car steered by a quantum agent and train your own. Early beta, not yet tested by people: expect rough edges. *(needs: internet, screen, SD card of 32 GB or more)*
+- **racetraQ**: Race a car steered by a quantum agent and train your own. Early beta, not yet tested by people: expect rough edges. *(needs: internet, development image, screen, SD card of 32 GB or more)*
 
 ### Play
 
-- **Fun with Quantum: start here**: Open the Fun with Quantum start page and pick a game from it. Early beta, not yet tested by people: expect rough edges.
+- **Fun with Quantum: start here**: Open the Fun with Quantum start page and pick a game from it. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
 - **Fun with Quantum: Quantum Coin Game**: Play the Quantum Coin Game, first classically, then with the quantum H move. Early beta, not yet tested by people: expect rough edges.
-- **Fun with Quantum: GHZ Game**: Play the GHZ Game and see how quantum players win. Early beta, not yet tested by people: expect rough edges.
-- **Fun with Quantum: Hardy's Paradox**: Work through Hardy's Paradox. Early beta, not yet tested by people: expect rough edges.
-- **Fun with Quantum: Mermin–Peres Magic Square**: Play the Mermin–Peres Magic Square. Early beta, not yet tested by people: expect rough edges.
-- **Fun with Quantum: 3-SAT with Grover's Algorithm**: Solve a 3-SAT problem with Grover's algorithm. Early beta, not yet tested by people: expect rough edges.
-- **Fun with Quantum: The CHSH Game**: Play the CHSH Game. Early beta, not yet tested by people: expect rough edges.
-- **Fun with Quantum: The Quantum Prisoner's Dilemma**: Play the Quantum Prisoner's Dilemma. Early beta, not yet tested by people: expect rough edges.
-- **Fun with Quantum: GHZ on Real Quantum Devices**: Run the GHZ experiment on a real quantum computer. Early beta, not yet tested by people: expect rough edges. *(needs: internet, IBM Quantum account)*
-- **Fun with Quantum website: games in the browser**: Play the games in the browser on the Fun with Quantum website, also offline. Early beta, not yet tested by people: expect rough edges.
-- **Fun with Quantum family: related projects**: Explore the other projects of the Fun with Quantum family. Early beta, not yet tested by people: expect rough edges. *(needs: internet)*
+- **Fun with Quantum: GHZ Game**: Play the GHZ Game and see how quantum players win. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
+- **Fun with Quantum: Hardy's Paradox**: Work through Hardy's Paradox. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
+- **Fun with Quantum: Mermin–Peres Magic Square**: Play the Mermin–Peres Magic Square. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
+- **Fun with Quantum: 3-SAT with Grover's Algorithm**: Solve a 3-SAT problem with Grover's algorithm. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
+- **Fun with Quantum: The CHSH Game**: Play the CHSH Game. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
+- **Fun with Quantum: The Quantum Prisoner's Dilemma**: Play the Quantum Prisoner's Dilemma. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
+- **Fun with Quantum: GHZ on Real Quantum Devices**: Run the GHZ experiment on a real quantum computer. Early beta, not yet tested by people: expect rough edges. *(needs: internet, IBM Quantum account, development image)*
+- **Fun with Quantum website: games in the browser**: Play the games in the browser on the Fun with Quantum website, also offline. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
+- **Fun with Quantum family: related projects**: Explore the other projects of the Fun with Quantum family. Early beta, not yet tested by people: expect rough edges. *(needs: internet, development image)*
 - **Quantum Fractals**: Watch the fractals change with the state of a qubit. Early beta, not yet tested by people: expect rough edges. *(needs: screen)*
-- **Quantum Paradoxes**: Work through one of the quantum paradox notebooks. Early beta, not yet tested by people: expect rough edges.
+- **Quantum Paradoxes**: Work through one of the quantum paradox notebooks. Early beta, not yet tested by people: expect rough edges. *(needs: development image)*
 
 ### Learn & code
 
-- **doQumentation (IBM Quantum Learning on this Pi)**: Open a tutorial in doQumentation (IBM Quantum Learning on this Pi) and run its code. Early beta, not yet tested by people: expect rough edges. *(needs: SD card of 32 GB or more)*
+- **doQumentation (IBM Quantum Learning on this Pi)**: Open a tutorial in doQumentation (IBM Quantum Learning on this Pi) and run its code. Early beta, not yet tested by people: expect rough edges. *(needs: SD card of 32 GB or more, development image)*
 - **Grokking the Bloch Sphere**: Move a qubit around the Bloch sphere and follow the gates. Early beta, not yet tested by people: expect rough edges.
 - **Grokking the Bloch Sphere: online version**: Open the online version from the Pi and move a qubit around the Bloch sphere. *(needs: screen, internet)*
-- **QuBins**: Choose a Qiskit version and the notebooks, start QuBins and run a notebook. Early beta, not yet tested by people: expect rough edges. *(needs: internet, SD card of 32 GB or more)*
+- **QuBins**: Choose a Qiskit version and the notebooks, start QuBins and run a notebook. Early beta, not yet tested by people: expect rough edges. *(needs: internet, SD card of 32 GB or more, development image)*
 
 ### IBM and partner demos
 
 - **IBM Quantum Composer**: Build a circuit in the IBM Quantum Composer and simulate it. *(needs: screen, internet)*
 - **IBM Quantum Courses**: Open an IBM Quantum course and run its first code cells.
 - **IBM Quantum Tutorials**: Open an IBM Quantum tutorial and run its code cells. Early beta, not yet tested by people: expect rough edges. *(needs: internet, IBM Quantum account)*
-- **Qiskit Live (QuBins)**: Start the Qiskit Live and run a notebook. Early beta, not yet tested by people: expect rough edges. *(needs: internet, SD card of 32 GB or more)*
+- **Qiskit Live (QuBins)**: Start the Qiskit Live and run a notebook. Early beta, not yet tested by people: expect rough edges. *(needs: internet, SD card of 32 GB or more, development image)*
 - **SAP Quantum Learning**: Take the quiz and build a circuit in SAP Quantum Learning. Early beta, not yet tested by people: expect rough edges. *(needs: internet, screen)*
 - **SAP Quantum LED**: Show the SAP logo on the LED panel, coloured by three qubits. Early beta, not yet tested by people: expect rough edges. *(needs: internet, LED panel)*

@@ -87,7 +87,7 @@ def test_demo_groups_follow_the_rules():
         assert m[mid]["group"] == "fwq", mid
     for mid in ("demo-grok-bloch", "demo-grok-bloch-web", "demo-qiskit-tutorials"):
         assert m[mid]["group"] == "learn", mid
-    assert m["hotspot"]["group"] == "advanced" and m["hotspot"]["status"] == "coming"
+    assert m["hotspot"]["group"] == "advanced" and "status" not in m["hotspot"]  # in beta-2026-11-15
 
 
 def test_group_titles_are_the_pis_folders():
@@ -113,8 +113,8 @@ def test_needs_match_what_the_pi_asks_for():
     assert "display" in m["demo-sap-quantum-learning"]["needs"]
     # most IBM tutorials, Hello world too, run on IBM hardware
     assert {"internet", "ibm-account"} <= set(m["demo-ibm-tutorials"]["needs"])
-    # not in beta-2026-10-10: Entangible and the sound delay
-    assert "dev-image" in m["demo-entangible"]["needs"] and "dev-image" in m["sound"]["needs"]
+    # the sound delay (Calibrate) is in the beta since beta-2026-11-15
+    assert "dev-image" not in m["sound"]["needs"]
     assert "internet" in m["whats-new"]["needs"]
     for mission in _missions()["missions"]:
         assert len(mission["needs"]) == len(set(mission["needs"])), mission["id"]
@@ -127,8 +127,8 @@ def test_only_a_demo_that_requires_sound_needs_a_speaker():
     tm = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tm)
     for audio, needs in (("none", []), ("optional", []), ("required", ["bluetooth-speaker"])):
-        assert tm.demo_needs({"needs_hw": {"audio": audio}}) == needs, audio
-    assert tm.demo_needs({"needs_hw": {}}) == []
+        assert tm.demo_needs({"needs_hw": {"audio": audio}, "maturity": "prod"}) == needs, audio
+    assert tm.demo_needs({"needs_hw": {}, "maturity": "prod"}) == []
 
 
 def test_missions_name_goals_not_steps():
@@ -150,3 +150,30 @@ def test_missions_are_unique_and_complete():
                "wifi", "sound", "catalogue", "desktop-groups", "touch", "remote", "whats-new",
                "ibm-account", "learning-paths", "my-programs", "help", "hotspot"):
         assert fn in ids, fn
+
+
+def test_dev_image_follows_the_demo_levels():
+    # a demo or part below beta level is dropped from beta images
+    # (rq_demo_level.py), so its mission needs the development image
+    import sys
+    sys.path.insert(0, os.path.join(_ROOT, "RQB2-bin"))
+    from rq_demo_level import level_of
+    m = {x["id"]: x for x in _missions()["missions"]}
+    checked = 0
+    for path in glob.glob(os.path.join(_ROOT, "RQB2-config", "demo-manifests", "rq_demo_*.json")):
+        if path.endswith("rq_demo_schema.json"):
+            continue
+        man = json.load(open(path))
+        level = level_of(man.get("maturity"))
+        if "demo-" + man["id"] in m:
+            parts = man.get("variants") or [{}]
+            dev = all(level_of(v.get("maturity"), level) == "dev" for v in parts)
+            assert ("dev-image" in m["demo-" + man["id"]]["needs"]) == dev, man["id"]
+            checked += 1
+        for v in man.get("variants") or []:
+            mid = f"demo-{man['id']}-{v['id']}"
+            if mid in m:
+                assert ("dev-image" in m[mid]["needs"]) == (level_of(v.get("maturity"), level) == "dev"), mid
+                checked += 1
+    assert checked > 10
+    assert "dev-image" in m["demo-racetraq"]["needs"]  # catalogue entry, level dev
