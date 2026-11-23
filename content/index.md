@@ -131,8 +131,12 @@ Card: 128 GB high-speed (A2/U3) recommended, 16 GB minimum
 nothing? See [other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).
 
 **2. Start the Pi.** The first start takes a few minutes and restarts on its
-own: do not unplug it. The desktop opens without a login. Over SSH and VNC, log
-in with the user set in Imager; without one, see [first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen).
+own: do not unplug it. The desktop opens without a login. With your own password
+from Imager, SSH and VNC work right away. Otherwise the Pi keeps the published
+password `Qiskit1!` and protects it: VNC stays off, and SSH takes `Qiskit1!` only
+in the first 15 minutes after a start and asks for a new password at once. Once
+you set your own password (there, or in the setup checklist), VNC comes on
+([first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen)).
 
 **3. Answer the setup questions** (below), then start a demo.
 
