@@ -262,3 +262,5 @@ def test_bloch_tips_come_from_our_patch():
     for words in ("What it shows", "Try this", "What to notice", "Explain the Bloch sphere"):
         assert words in patch
     assert "https://quantum.cloud.ibm.com/learning/en/courses/" in patch
+    # the open panel scrolls when taller than the window (Jan's test 2026-11-23)
+    assert "max-height:calc(100dvh" in patch and "overflow-y:auto" in patch
