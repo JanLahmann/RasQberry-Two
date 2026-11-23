@@ -73,15 +73,15 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (development 2026-11-23-220515)",
+          "name": "RasQberry Two Dev (development 2026-11-23-233322)",
           "description": "Build from the development branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-220515/rasqberry-development-2026-11-23-220515.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-233322/rasqberry-development-2026-11-23-233322.img.xz",
           "extract_size": 9596567552,
-          "extract_sha256": "578d62c3ea0acbfd623724219de4145dadd0fdab549ddd43b7e7ff1a5c0d3064",
-          "image_download_size": 2059351312,
-          "image_sha256": "1fe5f291a0dbb80015c9a79f9c7ecc97de7eeac6e78788b5a098ac9236371014",
-          "release_date": "2026-11-23 22:05",
+          "extract_sha256": "4ad0a9479b33278e48d149e3554f4442110628ebc046581a721f3a9915402c28",
+          "image_download_size": 2059343520,
+          "image_sha256": "86b501002847871dcbb3277cc8c5627f0bc8e40db5165a2f990bc6e5d78236c9",
+          "release_date": "2026-11-23 23:33",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
@@ -93,15 +93,15 @@
           ]
         },
         {
-          "name": "RasQberry Two Dev A/B (development 2026-11-23-220515)",
+          "name": "RasQberry Two Dev A/B (development 2026-11-23-233322)",
           "description": "A/B image from the development branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-220515/rasqberry-development-2026-11-23-220515-ab.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-233322/rasqberry-development-2026-11-23-233322-ab.img.xz",
           "extract_size": 12398362624,
-          "extract_sha256": "4e413a989b47e66613149588f7f4d46e179710b6d3e07be7dc28bdb624dfa0e6",
-          "image_download_size": 2111043368,
-          "image_sha256": "5892e2d5b2b4a6fddaee6cead2ff286aafff9ecdb3718e58baa65711c22d6110",
-          "release_date": "2026-11-23 22:05",
+          "extract_sha256": "bb7c670cc7c8525f46df0066489b7e923050873f221fe4cd2c3ce1f4939e25e9",
+          "image_download_size": 2111482016,
+          "image_sha256": "1a9ea34093c06fd1e080ae76630ca02c9adbd9c2c3eef7da507bfdd7612820c6",
+          "release_date": "2026-11-23 23:33",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
