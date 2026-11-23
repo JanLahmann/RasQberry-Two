@@ -4,7 +4,7 @@ The demos come in seven groups: an icon on the desktop and a submenu of
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with `rq_demo_run.sh <id>`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to
-run on real IBM hardware. Demos tagged beta are still in development: they are in
+run on real IBM hardware. Demos tagged "dev image" are still in development: they are in
 the development images only, where they say "(beta)" on their icon and when they
 start: [tell us how they work](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml).
 
@@ -24,7 +24,7 @@ Demos on the LED panel, or in its on-screen view without a panel.
 | **[LED Demos](/03-quantum-computing-demos/led-display/)** | Tests, text, logos and colour effects on the LED panel | LED panel or on-screen view | `led-demos` |
 | **RasQ-LED Demo** | Circuits with superposition and entanglement, measured and shown on the LED panel | LED panel or on-screen view | `rasq-led` |
 | **[Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/)** | Watch Grover's search solve Lights Out puzzles on the LED panel, one after another | LED panel or on-screen view, network on first start | `quantum-lights-out` |
-| **[Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)** | Measured qubits on the LED panel, from a simulator or a real IBM quantum computer <span className="beta-tag">beta</span>: Real IBM Quantum computer | LED panel or on-screen view, display, network on first start, IBM Quantum account optional | `quantum-raspberry-tie` |
+| **[Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)** | Measured qubits on the LED panel, from a simulator or a real IBM quantum computer <span className="beta-tag">dev image</span>: Real IBM Quantum computer | LED panel or on-screen view, display, network on first start, IBM Quantum account optional | `quantum-raspberry-tie` |
 | **LED-Painter** | Paint and draw on the LED panel from a graphical interface | LED panel or on-screen view, display, network on first start | `led-painter` |
 
 ## Play
@@ -33,7 +33,7 @@ Games and puzzles you play against or with a quantum computer.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **Fun with Quantum** | Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin–Peres magic square, 3-SAT with Grover, CHSH game, quantum prisoner's dilemma, GHZ on real devices), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects <span className="beta-tag">beta</span>: Start here, GHZ Game, Hardy's Paradox, Mermin–Peres Magic Square, 3-SAT with Grover's Algorithm, The CHSH Game, The Quantum Prisoner's Dilemma, GHZ on Real Quantum Devices, Fun with Quantum website, Fun with Quantum family | network on first start, IBM Quantum account optional | `fun-with-quantum` |
+| **Fun with Quantum** | Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin–Peres magic square, 3-SAT with Grover, CHSH game, quantum prisoner's dilemma, GHZ on real devices), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects <span className="beta-tag">dev image</span>: Start here, GHZ Game, Hardy's Paradox, Mermin–Peres Magic Square, 3-SAT with Grover's Algorithm, The CHSH Game, The Quantum Prisoner's Dilemma, GHZ on Real Quantum Devices, Fun with Quantum website, Fun with Quantum family | network on first start, IBM Quantum account optional | `fun-with-quantum` |
 | **[Quantum Fractals](/03-quantum-computing-demos/fractals/)** | Julia-set fractals that change with the state of one qubit, in the browser | display | `quantum-fractals` |
 
 ## Big projects
@@ -65,19 +65,19 @@ Demos from other projects and partners. Add them with Manage demos > Add demo fr
 | **SAP Quantum Learning** | Browser quiz and circuit composer (provided by SAP) | add it first: **Manage demos** → **Add demo from catalogue** (2 MB) | `sap-quantum-learning` |
 | **SAP Quantum LED** | SAP logo on the LEDs, coloured by 3 qubits (provided by SAP) | add it first: **Manage demos** → **Add demo from catalogue** (1 MB) | `sap-quantum-led` |
 
-## Beta: try & tell us
+## In development: try & tell us
 
-New and experimental demos: some things may not work yet. Try them and tell us what works and what doesn't.
+In the [development image](/latest/dev) only, not in the beta. New and experimental demos: some things may not work yet. Try them and tell us what works and what doesn't.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **Workshop & Qiskit Server** <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, a 32 GB card, IBM Quantum account optional | `doqumentation` |
-| **doQumentation (IBM Quantum Learning on this Pi)** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
-| **Quantum Paradoxes** <span className="beta-tag">beta</span> | Interactive Jupyter notebooks exploring quantum paradoxes and phenomena | network on first start, IBM Quantum account optional | `quantum-paradoxes` |
-| **Entangible** <span className="beta-tag">beta</span> | Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera | network on first start | `entangible` |
-| **Qiskit Live (QuBins)** <span className="beta-tag">beta</span> | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network, a 32 GB card | `quantum-lab` |
-| **QuBins** <span className="beta-tag">beta</span> | JupyterLab with the Qiskit version you choose (QuBins Docker images), and the notebooks you choose: IBM Quantum Tutorials and Courses, Quantum Paradoxes, Fun with Quantum, or only your own work | network, a 32 GB card | `qubins` |
-| **racetraQ** (formerly traQmania) <span className="beta-tag">beta</span> | Quantum reinforcement-learning racing game (provided by the Fun with Quantum family) | add it first: **Manage demos** → **Add demo from catalogue** (600 MB) | `racetraq` |
+| **Workshop & Qiskit Server** <span className="beta-tag">dev image</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, a 32 GB card, IBM Quantum account optional | `doqumentation` |
+| **doQumentation (IBM Quantum Learning on this Pi)** <span className="beta-tag">dev image</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
+| **Quantum Paradoxes** <span className="beta-tag">dev image</span> | Interactive Jupyter notebooks exploring quantum paradoxes and phenomena | network on first start, IBM Quantum account optional | `quantum-paradoxes` |
+| **Entangible** <span className="beta-tag">dev image</span> | Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera | network on first start | `entangible` |
+| **Qiskit Live (QuBins)** <span className="beta-tag">dev image</span> | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network, a 32 GB card | `quantum-lab` |
+| **QuBins** <span className="beta-tag">dev image</span> | JupyterLab with the Qiskit version you choose (QuBins Docker images), and the notebooks you choose: IBM Quantum Tutorials and Courses, Quantum Paradoxes, Fun with Quantum, or only your own work | network, a 32 GB card | `qubins` |
+| **racetraQ** (formerly traQmania) <span className="beta-tag">dev image</span> | Quantum reinforcement-learning racing game (provided by the Fun with Quantum family) | add it first: **Manage demos** → **Add demo from catalogue** (600 MB) | `racetraq` |
 
 ---
 

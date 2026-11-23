@@ -183,7 +183,7 @@ function catalogueRows(registry) {
 // and tagged beta, as the Pi marks them "(beta)". A manifest without a level
 // takes its catalogue entry's, as rq_demo_maturity does on the Pi.
 const isDev = (d) => d.maturity === 'dev';
-const BETA_TAG = '<span className="beta-tag">beta</span>';
+const BETA_TAG = '<span className="beta-tag">dev image</span>';
 
 // The catalogue entry's level for a shipped manifest that has none (by id, or
 // an entry that "replaces" it), as the Pi falls back to it.
@@ -241,7 +241,7 @@ The demos come in ${count(groups.groups.length)} groups: an icon on the desktop 
 \`sudo raspi-config\` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with \`rq_demo_run.sh <id>\`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to
-run on real IBM hardware. Demos tagged beta are still in development: they are in
+run on real IBM hardware. Demos tagged "dev image" are still in development: they are in
 the development images only, where they say "(beta)" on their icon and when they
 start: [tell us how they work](${FEEDBACK}).
 
@@ -253,7 +253,10 @@ ${first}> This page is generated from the [demo manifests](https://github.com/${
 `;
   for (const g of groups.groups) {
     if (!byGroup[g.id].length) continue;
-    md += `## ${g.title}\n\n${g.description ? `${g.description}\n\n` : ''}${TABLE_HEAD}`;
+    // The Pi's group title says "Beta", but these demos are in the development image only
+    const title = g.beta ? 'In development: try & tell us' : g.title;
+    const devNote = g.beta ? 'In the [development image](/latest/dev) only, not in the beta. ' : '';
+    md += `## ${title}\n\n${devNote}${g.description ? `${g.description}\n\n` : '\n\n'}${TABLE_HEAD}`;
     for (const m of byGroup[g.id]) md += row(m);
     md += `\n`;
   }
@@ -280,7 +283,7 @@ function renderByCategory(manifests) {
 Start a demo from its desktop icon, from \`sudo raspi-config\` → **0 RasQberry** →
 **Quantum Demos**, or from a terminal with \`rq_demo_run.sh <id>\`. Demos marked
 "network on first start" download the first time you run them. An IBM Quantum
-account is only needed to run on real IBM hardware. Demos tagged beta are still in
+account is only needed to run on real IBM hardware. Demos tagged "dev image" are still in
 development: they are in the development images only, where they say "(beta)" on
 their icon and when they start: [tell us how they work](${FEEDBACK}).
 
