@@ -203,8 +203,7 @@
       "goal": "Pair a Bluetooth speaker and calibrate the sound delay until tick and LED flash come together.",
       "needs": [
         "bluetooth-speaker",
-        "led-panel",
-        "dev-image"
+        "led-panel"
       ],
       "maturity": "beta"
     },
@@ -224,7 +223,6 @@
       "title": "Wi-Fi hotspot",
       "goal": "Let phones and laptops join the Pi's own Wi-Fi and open its demos.",
       "needs": [],
-      "status": "coming",
       "maturity": "beta"
     },
     {

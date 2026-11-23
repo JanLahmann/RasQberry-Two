@@ -87,7 +87,7 @@ def test_demo_groups_follow_the_rules():
         assert m[mid]["group"] == "fwq", mid
     for mid in ("demo-grok-bloch", "demo-grok-bloch-web", "demo-qiskit-tutorials"):
         assert m[mid]["group"] == "learn", mid
-    assert m["hotspot"]["group"] == "advanced" and m["hotspot"]["status"] == "coming"
+    assert m["hotspot"]["group"] == "advanced" and "status" not in m["hotspot"]  # in beta-2026-11-15
 
 
 def test_group_titles_are_the_pis_folders():
@@ -114,7 +114,7 @@ def test_needs_match_what_the_pi_asks_for():
     # most IBM tutorials, Hello world too, run on IBM hardware
     assert {"internet", "ibm-account"} <= set(m["demo-ibm-tutorials"]["needs"])
     # not in beta-2026-10-10: Entangible and the sound delay
-    assert "dev-image" in m["demo-entangible"]["needs"] and "dev-image" in m["sound"]["needs"]
+    assert "dev-image" in m["demo-entangible"]["needs"] and "dev-image" not in m["sound"]["needs"]  # Calibrate is in beta-2026-11-15
     assert "internet" in m["whats-new"]["needs"]
     for mission in _missions()["missions"]:
         assert len(mission["needs"]) == len(set(mission["needs"])), mission["id"]
