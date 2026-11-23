@@ -1,7 +1,7 @@
 {
-  "generated": "2026-11-23T21:47:03Z",
+  "generated": "2026-11-23T21:49:56Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 69,
+  "count": 71,
   "releases": [
     {
       "name": "RasQberry Two Dev (64-bit)",
@@ -44,6 +44,48 @@
       "_release_tag": "development-2026-11-23-220515",
       "_branch": "development",
       "_published": "2026-11-23T21:06:05Z"
+    },
+    {
+      "name": "RasQberry Two Beta (64-bit)",
+      "description": "RasQberry beta release with latest features (may be unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-11-15-225917/rasqberry-beta-2026-11-15.img.xz",
+      "extract_size": 9596567552,
+      "extract_sha256": "8b6c615e4fe0b94db3f985c646b4ba65595c1b9dfd0587d6018ab8c1cf2745b4",
+      "image_download_size": 1776110844,
+      "image_sha256": "5640e215c17d004394268aad4ae88f6df56aac8b0dc11b6714f3e6853ca2c95b",
+      "release_date": "2026-11-15",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "beta-2026-11-15-225917",
+      "_branch": "beta",
+      "_published": "2026-11-15T22:00:06Z"
+    },
+    {
+      "name": "RasQberry Two Beta A/B (64-bit)",
+      "description": "RasQberry beta release with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-11-15-225917/rasqberry-beta-2026-11-15-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "73e97cb8e6670f484b0d16e7a8aa4770157417b288c19684bfcde6d9c809a885",
+      "image_download_size": 1820633140,
+      "image_sha256": "f1ea9c03437df5cf16c98af201259b367dcfd529b02f79200f250baa120bbbf3",
+      "release_date": "2026-11-15",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "beta-2026-11-15-225917",
+      "_branch": "beta",
+      "_published": "2026-11-15T22:00:06Z"
     },
     {
       "name": "RasQberry Two Dev (64-bit)",
