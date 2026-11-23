@@ -1,5 +1,5 @@
 diff --git a/index.html b/index.html
-index 9201fb8..a65a18c 100644
+index ef3abb9..e3ab81a 100644
 --- a/index.html
 +++ b/index.html
 @@ -63,6 +63,8 @@
@@ -14,10 +14,10 @@ index 9201fb8..a65a18c 100644
 \ No newline at end of file
 diff --git a/rasqberry-help.js b/rasqberry-help.js
 new file mode 100644
-index 0000000..cf9e792
+index 0000000..f6996d6
 --- /dev/null
 +++ b/rasqberry-help.js
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,81 @@
 +/*
 + * RasQberry Two: a short guide to Grokking the Bloch Sphere.
 + * Added by RasQberry's patch (RQB2-config/demo-patches/grok-bloch-help.patch);
@@ -31,6 +31,8 @@ index 0000000..cf9e792
 +    var style = document.createElement("style");
 +    style.textContent =
 +        "#rq-tips{position:fixed;top:10px;left:10px;z-index:10;max-width:225px;" +
++        "max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);" +
++        "overflow-y:auto;overscroll-behavior:contain;" +
 +        "background:rgba(255,255,255,0.94);color:#222;border-radius:8px;" +
 +        "box-shadow:0 2px 8px rgba(0,0,0,0.25);font:13px/1.35 sans-serif;padding:4px 10px}" +
 +        "#rq-tips summary{cursor:pointer;font-weight:bold;padding:4px 0}" +
