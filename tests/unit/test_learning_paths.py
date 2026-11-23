@@ -204,7 +204,7 @@ def test_first_program_avoids_the_chsh_tutorial():
     # #1: Tutorials -> Get started holds only CHSH, which fails in Simulator
     # Mode (upstream doQumentation); Hello World runs. Go back to Get started
     # once doQumentation is fixed.
-    # (IBM: Introduction to quantum opens its own pages and keeps IBM's CHSH
+    # (Introduction to quantum opens its own pages and keeps IBM's CHSH
     # step; its notice says that it fails in Simulator mode)
     steps = [s for _, _, s in _steps() if s.get("demo") == "qiskit-tutorials" and "page" not in s]
     assert steps
@@ -605,7 +605,7 @@ def test_ibm_learning_screen_fits_80x24():
 def test_ibm_introduction_to_quantum_follows_ibm():
     p = next(p for p in _paths() if p["id"] == "ibm-introduction-to-quantum")
     assert p["minutes"] == 26 * 60
-    assert "From IBM Quantum Learning" in p["credit"]
+    assert "Based on IBM Quantum Learning's" in p["credit"]
     assert p["credit_url"] == f"{_IBM}/learning/en?modal=introduction-to-quantum"
     assert [(s["online"], s["time"]) for s in p["steps"]] == [(_IBM + u, t) for u, t in _IBM_INTRO]
     # each opens the same page in doQumentation on this Pi (same paths as
@@ -646,7 +646,7 @@ def test_the_list_offers_ibm_quantum_learning(tmp_path):
     proc, calls, started = _walk(tmp_path, ["ibm", "i2", "all", "ESC", "ESC"])
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "Continue with IBM Quantum Learning (online)" in calls[0]
-    assert "IBM: Introduction to quantum: newcomers with time to learn, 26 hours" in calls[0]
+    assert "Introduction to quantum: newcomers with time to learn, 26 hours" in calls[0]
     box = calls[1]
     assert _arg(box, "--title") == "RasQberry: IBM Quantum Learning"
     assert _arg(box, "--cancel-button") == "Back"
@@ -682,7 +682,7 @@ def test_ibm_path_opens_its_page_in_doqumentation(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     step = calls[1]
     prompt = step[step.index("--menu") + 1]
-    assert "From IBM Quantum Learning" in prompt and "Step 1 of 6: Quickstart (1 hour)" in prompt
+    assert "Based on IBM Quantum Learning's" in prompt and "Step 1 of 6: Quickstart (1 hour)" in prompt
     assert "Open on this Pi (doQumentation)" in step and "Open online at IBM Quantum" in step
     assert _arg(step, "--default-item") == "start"
     assert started == ["rq_demo_run.sh qiskit-tutorials"]
@@ -719,8 +719,8 @@ def test_ibm_path_offers_online_when_doqumentation_fails(tmp_path):
 def test_list_prints_ibm_quantum_learning():
     env = dict(os.environ, RQ_CONFIG_FILE="/nonexistent")
     out = subprocess.run(["bash", _SCRIPT, "--list"], capture_output=True, text=True, env=env).stdout
-    assert "IBM: Introduction to quantum (beta) - Newcomers with time to learn, about 26 hours" in out
-    assert "From IBM Quantum Learning" in out
+    assert "Introduction to quantum (beta) - Newcomers with time to learn, about 26 hours" in out
+    assert "Based on IBM Quantum Learning's" in out
     assert f"On this Pi in doQumentation, or online: {_IBM}/docs/en/guides/quick-start" in out
     assert "Continue with IBM Quantum Learning (https://quantum.cloud.ibm.com/learning/en):" in out
     for slug in _IBM_SLUGS:
