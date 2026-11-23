@@ -2,10 +2,9 @@
 
 # Learning paths
 
-Short tours through the demos, each for one audience. Every step says what to
-try and what to notice. On the Pi, open the **Learning paths** icon or
-`sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **Learning paths
-(beta)**: it starts each demo for you. All demos are on the
+Ideas to get you started, not a curriculum: explore the Pi, try things out and
+play around. Each path is a short tour for one audience; on the Pi, the
+**Learning paths** icon starts each demo for you. All demos are on the
 [Demo List](/03-quantum-computing-demos/01-demo-list/).
 
 <div className="path-card">
@@ -106,13 +105,13 @@ Write and run a quantum circuit with Qiskit, then keep learning.
 
 <div className="path-card">
 
-## IBM: Introduction to quantum
+## Introduction to quantum, adapted
 
 Newcomers with time to learn · about 26 hours
 
 Learn key terms, applications and starter skills, on the Pi where you can.
 
-<a href="https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum">From IBM Quantum Learning: its Introduction to quantum learning path.</a>
+<a href="https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum">Based on IBM Quantum Learning's Introduction to quantum path, with our own changes.</a>
 
 1. **Quickstart** (1 hour): in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">doQumentation</a> on the Pi, or <a href="https://quantum.cloud.ibm.com/docs/en/guides/quick-start" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ibm-introduction-to-quantum" data-umami-event-to="https://quantum.cloud.ibm.com/docs/en/guides/quick-start">online at IBM Quantum</a>
    - Try: Build the circuit and run it (on this Pi, Qiskit is already installed).
