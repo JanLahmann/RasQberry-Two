@@ -408,10 +408,9 @@ function renderPaths(learning, manifests) {
 
 # Learning paths
 
-Short tours through the demos, each for one audience. Every step says what to
-try and what to notice. On the Pi, open the **Learning paths** icon or
-\`sudo raspi-config\` → **0 RasQberry** → **Quantum Demos** → **Learning paths
-(beta)**: it starts each demo for you. All demos are on the
+Ideas to get you started, not a curriculum: explore the Pi, try things out and
+play around. Each path is a short tour for one audience; on the Pi, the
+**Learning paths** icon starts each demo for you. All demos are on the
 [Demo List](${DEMO_LIST_URL}).
 `;
   for (const p of paths) {
