@@ -37,6 +37,16 @@ knowledge assumed. Experts follow the links.
   testing) may be longer but follow the same shape.
 - Privacy and legal text changes only with the maintainer's explicit OK.
 
+## Images
+
+- Show, don't describe: a screenshot or photo wherever the reader has to find something on
+  screen or on the hardware, and one image per demo.
+- Screenshots come from a real Pi running the current image, cropped to what matters.
+- Every image has alt text that says what it shows.
+- No personal data in images: hostnames, IP addresses, Wi-Fi names, user names, tokens.
+- Folders: `public/installation-images/` (setup and menus), `public/demo-screenshots/`
+  (demos), `public/assembly-images/` (hardware). WebP or PNG, aim for under 300 KB each.
+
 ## FAQ
 
 `content/faq.md` holds answers written by the maintainer, so the site and Ket give the same
