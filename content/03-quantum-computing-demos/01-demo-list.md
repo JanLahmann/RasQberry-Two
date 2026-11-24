@@ -67,7 +67,7 @@ Demos from other projects and partners. Add them with Manage demos > Add demo fr
 
 ## In development: try & tell us
 
-In the [development image](/latest/dev) only, not in the beta. New and experimental demos: some things may not work yet. Try them and tell us what works and what doesn't.
+In the [development image](/testing/#2-before-you-start-the-right-version) only, not in the beta. New and experimental demos: some things may not work yet. Try them and tell us what works and what doesn't.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
