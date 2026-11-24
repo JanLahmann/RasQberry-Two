@@ -16,10 +16,9 @@ take 2–4 GB each, per system. The **RasQberry Two Beta** image holds two syste
 64 GB ([A/B image](/02-software/03-ab-boot/)); **RasQberry Two Beta — single system** is
 always one system. Untested builds are under **RasQberry developer builds**.
 
-## Power and cooling
+## Power
 
-Use the official supply: 27 W USB-C for the Pi 5, 15 W for the Pi 4. Ordinary chargers
-are too weak for a bright LED panel. Fit an active cooler on the Pi 5.
+Ordinary USB-C chargers are too weak for a bright LED panel; use the official supply.
 
 ## Imager customisation
 
@@ -38,10 +37,8 @@ Customisation applies to the first start of a newly written card only.
 
 ## If the link does not open Imager
 
-You need Raspberry Pi Imager 2.0.3 or newer.
+Besides adding the repository by hand ([installation page](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager)):
 
-- **Add the repository by hand:** in Imager, **App Options** → **Content Repository** →
-  **Use custom URL** → `https://RasQberry.org/RQB-images.json` → **Apply & Restart**.
 - **Start Imager from a terminal:**
 
   ```bash
@@ -109,8 +106,9 @@ Code written for Qiskit 1.x may need the
 - **System updates:** the update icon in the taskbar, or
   `sudo apt update && sudo apt full-upgrade`.
 - **New RasQberry releases:** on the A/B image, install into the other system
-  ([how](/02-software/03-ab-boot/)). On the single-system image, write a new card; copy
-  your notebooks and `~/.qiskit` to a USB stick first.
+  ([how](/02-software/03-ab-boot/)). On one system (the single-system image, or the beta
+  image on a card under 64 GB), write a new card; copy your notebooks and `~/.qiskit`
+  to a USB stick first.
 - A daily check tells you when a newer release is out.
 
 ## Downloads
@@ -125,14 +123,11 @@ Code written for Qiskit 1.x may need the
 
 ## Troubleshooting
 
-- **Can't find the Pi:** try `rasqberry.local`. The LED panel scrolls the IP address at
-  start-up; **System Info** shows it too.
-- **VNC doesn't connect:** VNC stays off until you set your own password
-  ([remote access](/02-software/02-system-options/)).
-- **"Failed to run demo":** the message names the cause, usually no network on a first
-  start, or a display demo started over SSH (start it on the desktop or over VNC).
+The installation page lists the common problems; these come up less often:
+
+- **"Failed to run demo" over SSH:** a display demo needs the desktop; start it there or
+  over VNC.
 - **Disk full:** Docker demos need 32 GB or more (card sizes above).
-- **LED panel stays dark:** [LED troubleshooting](/03-quantum-computing-demos/led-display/).
 - **Still stuck?** `rq_info.sh --report` saves a report in your home folder. Attach it to
   a [GitHub issue](https://github.com/JanLahmann/RasQberry-Two/issues) or e-mail it to
   info@rasqberry.org.

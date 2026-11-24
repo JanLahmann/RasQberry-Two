@@ -43,7 +43,7 @@ knowledge assumed. Experts follow the links.
 - Mention every capability once, in one line, on the page that owns it.
 - Compute every number; never estimate counts, sizes or times.
 - Avoid text that goes stale (dates, version numbers) unless the reader needs it.
-- Up to about 600 words per page. Reference pages (bill of materials, assembly guide,
+- Up to about 600 words per page. Reference pages (bill of materials, assembly guide, details pages,
   testing) may be longer but follow the same shape.
 - Privacy and legal text changes only with the maintainer's explicit OK.
 

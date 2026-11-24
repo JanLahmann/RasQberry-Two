@@ -5,7 +5,7 @@ Write RasQberry Two to an SD card, start your Pi, and keep it up to date.
 ## What you need
 
 - **Raspberry Pi 5** (2 GB RAM is enough) or **Raspberry Pi 4B** (4 GB RAM).
-- **MicroSD card:** 128 GB, A2/U3 recommended; 16 GB minimum.
+- **MicroSD card:** 16 GB minimum; recommended 128 GB, A2/U3.
 - **Official power supply** (27 W for the Pi 5, 15 W for the Pi 4) and, on the Pi 5, an active cooler.
 - **Internet:** most demos download on their first start.
 - Optional: the LED panel, a display, keyboard and mouse. Without a display, use
@@ -35,7 +35,7 @@ Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or ne
 
 ### Customisation
 
-Set your Wi-Fi, time zone, user name and password in Imager, and the Pi needs no screen
+Set your Wi-Fi, time zone, user name, password and SSH key in Imager, and the Pi needs no screen
 ([all options](/details/installation/#2-imager-customisation)).
 
 ### If the link does not open Imager
@@ -46,7 +46,8 @@ Repository** → **Use custom URL** ([other ways](/details/installation/#2-if-th
 ## First start
 
 The first start takes a few minutes, and the Pi may restart on its own: don't unplug it.
-Then the desktop opens with the setup checklist.
+Then the desktop opens with the setup checklist. Without a screen, log in over SSH or VNC
+with the user from Imager ([first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen)).
 
 ### Setup checklist
 
@@ -66,7 +67,8 @@ Demo icons and group folders are on the desktop. Everything else is in the menu:
 
 - **System updates:** the update icon in the taskbar.
 - **New RasQberry releases:** on the A/B image, install into the other system
-  ([how](/02-software/03-ab-boot/)); otherwise write a new card. The Pi tells you when one is out.
+  ([how](/02-software/03-ab-boot/)). Otherwise write a new card: copy your notebooks
+  and `~/.qiskit` to a USB stick first. The Pi tells you when a release is out.
 
 All images: [rasqberry.org/latest/](/latest/).
 
@@ -74,6 +76,8 @@ All images: [rasqberry.org/latest/](/latest/).
 
 - **Can't find the Pi:** try `rasqberry.local`, or read the IP address from the LED panel
   at start-up or in **System Info**.
-- **VNC doesn't connect:** it stays off until you set your own password.
+- **VNC doesn't connect:** it stays off until you set your own password
+  ([remote access](/02-software/02-system-options/)).
+- **"Failed to run demo":** the message names the cause, usually no network on a first start.
 - **LED panel stays dark:** [LED troubleshooting](/03-quantum-computing-demos/led-display/).
-- More problems and how to send a report: [troubleshooting details](/details/installation/#2-troubleshooting).
+- Disk full, other problems, and how to send us a report: [troubleshooting details](/details/installation/#2-troubleshooting).
