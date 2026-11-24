@@ -1,6 +1,6 @@
 # Hardware Assembly Procedure
 
-This section provides a step-by-step photographic guide on how to assemble the RasQberry Two Platform. The guide is divided into different sections based on the separate components of the 3D model, as well as a section detailing setup instructions for the Raspberry Pi. The three main components of the RasQberry Two platform are: The Wall, The Cryostat and The Floor.
+Build the RasQberry Two model step by step, with a photo for each step. You set up the Raspberry Pi, then assemble the three main parts: the Wall, the Floor and the Cryostat. You need the [parts from the bill of materials](/01-3d-model/01-bill-of-materials/) and the printed pieces.
 
 ### Explore the model in 3D
 
@@ -179,7 +179,7 @@ Now it’s time to test the LEDs! Double-click the **RasQberry Setup** icon on t
 sudo rq_led_setup_wizard.sh
 ```
 
-(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LED panel` → `LED setup & tests` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colours; pick the colour in which the logo reads upright, and RasQberry stores your panel layout.
+(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LED panel` → `LED setup & tests` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colors; pick the color in which the logo reads upright, and RasQberry stores your panel layout.
 
 If everything is wired up correctly, the IBM logo appears on the LED panel in the correct orientation. Verify that your result looks similar to this:
 
@@ -356,7 +356,7 @@ The Door (**R2_NewDoor**) should be printed upright, so that the layer lines ali
 
 ![Figure 7](/assembly-images/cryostat_assembly_7.JPG "Figure 7: The door to the cryostat. Notice that the bottom magnet is inserted while the top magnet has not been glued in yet.")
 
-The outside of the main Cryostat and RTE Server model and the inside of the 3 stand alone single RTE Servers (**R2_NarrowServerSingle**) connect with Magnets, alowing one to demonstrate the configurability of the system. Fit 2 large (15x2mm) magnets into the indents or pockets on the outer edge of each of the 3 RTE “arms”. Make sure they are all the same way round, so the RTEs will attach. Do the same with the individual RTE Servers.
+The outside of the main Cryostat and RTE Server model and the inside of the 3 stand alone single RTE Servers (**R2_NarrowServerSingle**) connect with Magnets, allowing one to demonstrate the configurability of the system. Fit 2 large (15x2mm) magnets into the indents or pockets on the outer edge of each of the 3 RTE “arms”. Make sure they are all the same way round, so the RTEs will attach. Do the same with the individual RTE Servers.
 
 ![Figure 8](/assembly-images/cryostat_assembly_8.JPG "Figure 8: The two large magnets glued inside the RTE server.")
 
@@ -407,3 +407,5 @@ Be sure to check out the [Quantum Computing Demos](/03-quantum-computing-demos/0
 ![Figure 1](/assembly-images/complete_assembly_1.JPG "Figure 1: The fully assembled RasQberry Two model.")
 
 ![Figure 2](/assembly-images/complete_assembly_2.JPG "Figure 2: Ditto.")
+
+Questions? Ask [Ket](/?assistant=1).
