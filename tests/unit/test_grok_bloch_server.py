@@ -61,7 +61,7 @@ def test_server_answers_while_a_connection_is_idle(tmp_path):
         r = conn.getresponse()
         assert r.status == 200
         # patched files show at once, not a cached copy (#427)
-        assert r.getheader("Cache-Control") == "no-cache"
+        assert r.getheader("Cache-Control") == "no-store"
         assert b"bloch" in r.read()
         conn.close()
     finally:

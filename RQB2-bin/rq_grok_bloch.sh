@@ -74,9 +74,12 @@ class QuietHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().log_message(format, *args)
 
     def end_headers(self):
-        # Revalidate every file: after a patch refresh the browser would
-        # otherwise show its cached copy of the old file for a while
-        self.send_header('Cache-Control', 'no-cache')
+        """Add Cache-Control: no-store, so a patched file shows at once.
+
+        Not no-cache: revalidation compares mtimes, and a Pi without a clock
+        can write the patched file with an older mtime (304, old file kept).
+        """
+        self.send_header('Cache-Control', 'no-store')
         super().end_headers()
 
 
