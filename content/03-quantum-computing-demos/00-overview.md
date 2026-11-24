@@ -72,8 +72,7 @@ Double-click **My Quantum Programs**: JupyterLab opens in your folder
 `~/My-Quantum-Programs` at Hello World, next to example programs.
 **File** → **New** → **Notebook** starts your own; keep it in that folder, which
 A/B updates keep. Python files run with `rq_python my_program.py` or in Thonny.
-Qiskit 2.x is in `~/RasQberry-Two/venv/RQB2`
-([versions](/02-software/01-installation-overview/)).
+Qiskit 2.x is in `~/RasQberry-Two/venv/RQB2`; **System Info** shows the exact versions.
 
 ## Entangible
 
