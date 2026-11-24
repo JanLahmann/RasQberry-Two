@@ -11,7 +11,7 @@ you find, improve the docs, or add a demo.
 ### 1. Test & Report Issues
 
 The most valuable contribution is testing and reporting bugs:
-- [Become a tester](/testing/): missions for your hardware, with Ket as your helper
+- [Ask to become a tester](/testing/): missions for your hardware, with Ket as your helper
 - Try out RasQberry on your hardware
 - [Report issues](https://github.com/JanLahmann/RasQberry-Two/issues) with clear steps to reproduce
 - Include error messages, screenshots, and hardware details
@@ -59,7 +59,7 @@ Build new interactive demonstrations:
 - [Qiskit Documentation](https://quantum.cloud.ibm.com/docs/)
 
 **Development:**
-- Python 3.13 and Qiskit 2.x (as on the image), Raspberry Pi 4 or 5
+- The Python and Qiskit versions on the image (`rq_info.sh`), Raspberry Pi 4 or 5
 - RasQberry OS image from [releases](/latest/)
 
 Questions? Ask [Ket](/?assistant=1).

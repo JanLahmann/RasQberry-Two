@@ -15,8 +15,7 @@ You bring the Raspberry Pis; we help you get them ready.
 
 ## One of your Pis as a server for the whole group
 
-*In the [development image](/latest/dev); we set it up with you.* The
-**Workshop & Qiskit Server** runs on one of your Pis and serves the
+<span className="beta-tag">dev image</span> The **Workshop & Qiskit Server** runs on one of your Pis and serves the
 participants' laptops over the local network: IBM Quantum tutorials and courses,
 with the Qiskit code running on the Pi. It is based on
 [doQumentation](https://doqumentation.org). We help you size it for your group.
@@ -32,7 +31,10 @@ participants; open the same entry again to stop it.
 **Network:** the participants' devices must be on the same network as the Pi.
 Guest Wi-Fi and networks with client isolation block the connection between
 devices. Check with the venue, or bring the network along: the Pi's own
-[Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot). Participants join
+[Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot). Start the server
+once beforehand, while the Pi is online (it downloads its image), and keep a network
+cable in for IBM Quantum computers. For a large group, try it out first or bring a
+small travel router. Participants join
 by opening the address or scanning the QR code the Pi shows.
 
 ## For a stand
