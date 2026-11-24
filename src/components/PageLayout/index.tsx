@@ -30,16 +30,22 @@ interface Props {
     contentFile?: string
     // false: no "Edit this page" link (e.g. the 404 page)
     editLink?: boolean
+    // false: no "Questions? Ask Ket" line (e.g. the 404 page)
+    askKet?: boolean
 }
 
 // Generated pages: an edit on GitHub would be overwritten, so no edit link.
 const GENERATED_PAGES = ['03-quantum-computing-demos/01-demo-list.md']
+// Pages without the "Questions? Ask Ket" line: legal text stays as written, and
+// the testing page has its own tester-mode Ket.
+const NO_ASK_KET = ['privacy.md', 'testing.md']
 
-export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems = [], tableofcontent, pagePath, contentFile, editLink = true }: Props) {
+export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems = [], tableofcontent, pagePath, contentFile, editLink = true, askKet = true }: Props) {
     // Construct the GitHub edit URL
     const contentPath = contentFile || `${pagePath ? pagePath.join('/') : 'index'}.md`;
     const githubEditUrl = `https://github.com/JanLahmann/RasQberry-Two/edit/gh-pages/content/${contentPath}`;
     const showEditLink = editLink && !GENERATED_PAGES.includes(contentPath);
+    const showAskKet = askKet && !NO_ASK_KET.includes(contentPath);
 
     return <>
         {leadspace && <LeadSpace {...leadspace} />}
@@ -56,6 +62,11 @@ export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems
                     }
                     <Column sm="100%" lg={10} className="main-content">
                         {children}
+
+                        {showAskKet && <p>
+                            {/* relative: Ket opens on this page, so it knows where the question came from */}
+                            Questions? Ask <a href="?assistant=1">Ket</a>.
+                        </p>}
 
                         {/* Edit this page footer */}
                         {showEditLink && <div className={styles['page-layout__footer']}>

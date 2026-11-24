@@ -154,5 +154,3 @@ Click a part for its name and STL file, press **Assemble** to watch it come toge
 - **Stuck?** See [troubleshooting](/02-software/01-installation-overview/#2-troubleshooting) or [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues).
 - **News:** [announcements](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements).
 - Looking for the model of IBM Quantum System One? See [rasqberry.one](https://rasqberry.one).
-
-Questions? Ask [Ket](/?assistant=1).

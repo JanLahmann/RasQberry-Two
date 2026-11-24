@@ -91,5 +91,3 @@ Updates** and **What's new**. After an update, What's new opens once by itself.
 
 The partition layout, the boot mechanism and the command-line tools are in
 [docs/ab-boot.md](https://github.com/JanLahmann/RasQberry-Two/blob/development/docs/ab-boot.md).
-
-Questions? Ask [Ket](/?assistant=1).

@@ -31,7 +31,8 @@ knowledge assumed. Experts follow the links.
 2. What you can do: bullets, one line each, with a link.
 3. Steps: commands in code blocks, menu paths in bold with →
    (**0 RasQberry** → **System Info**).
-4. Last line: `Questions? Ask [Ket](/?assistant=1).`
+4. The page layout ends each page with "Questions? Ask Ket"; don't add it yourself.
+   Not on the privacy, testing and 404 pages (`NO_ASK_KET` in PageLayout).
 
 ## Rules
 

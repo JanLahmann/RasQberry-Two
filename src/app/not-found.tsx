@@ -7,7 +7,7 @@ import { getNavItems } from '@/utils/getNavItems'
 export default async function NotFound() {
     const navItems = await getNavItems(await getPagesFilesPaths(join(process.cwd(), 'content')))
 
-    return <PageLayout navItems={navItems} tableofcontent={{ items: [] }} editLink={false}>
+    return <PageLayout navItems={navItems} tableofcontent={{ items: [] }} editLink={false} askKet={false}>
         <div>
             <h1>Page not found</h1>
             <p>This page does not exist (any more). Try one of these:</p>

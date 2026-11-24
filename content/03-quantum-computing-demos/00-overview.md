@@ -102,5 +102,3 @@ address its window shows (they warn about the certificate once: **Advanced** →
 [Qiskit documentation](https://quantum.cloud.ibm.com/docs/) ·
 [IBM Quantum Composer](https://quantum.cloud.ibm.com/composer) ·
 [Fun with Quantum](https://fun-with-quantum.org)
-
-Questions? Ask [Ket](/?assistant=1).

@@ -104,5 +104,3 @@ with flashes on the LED panel; adjust until they come together.
 Everyone who reads this website knows `Qiskit1!`. On a shared network, set your own:
 in the setup checklist, with `passwd`, or **1 System Options** → **S3 Password**.
 Keep it only for a booth (then see [first access without a screen](#3-first-access-without-a-screen)).
-
-Questions? Ask [Ket](/?assistant=1).

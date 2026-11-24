@@ -407,5 +407,3 @@ Be sure to check out the [Quantum Computing Demos](/03-quantum-computing-demos/0
 ![Figure 1](/assembly-images/complete_assembly_1.JPG "Figure 1: The fully assembled RasQberry Two model.")
 
 ![Figure 2](/assembly-images/complete_assembly_2.JPG "Figure 2: Ditto.")
-
-Questions? Ask [Ket](/?assistant=1).

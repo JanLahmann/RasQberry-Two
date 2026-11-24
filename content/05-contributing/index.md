@@ -61,5 +61,3 @@ Build new interactive demonstrations:
 **Development:**
 - The Python and Qiskit versions on the image (`rq_info.sh`), Raspberry Pi 4 or 5
 - RasQberry OS image from [releases](/latest/)
-
-Questions? Ask [Ket](/?assistant=1).
