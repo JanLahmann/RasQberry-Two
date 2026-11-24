@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-23T23:03:17Z",
+  "generated": "2026-11-24T22:34:31Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -22,35 +22,33 @@
       "ab_extract_size": 12398362624,
       "ab_image_download_size": 1820633140,
       "highlights": [
-        "After an update, \"What's new\" opens once, and the update offer shows it before you install",
-        "Your own extras after an update: root-owned scripts in /data/rasqberry/after-update.d/ run once on the new system",
-        "Fun with Quantum works offline on the Pi, with three new games: The CHSH Game, The Quantum Prisoner's Dilemma and GHZ on Real Quantum Devices",
-        "Workshop Server: doQumentation code runs on the Pi, also without the internet",
-        "Demo Loop can start at login and now shows Quantum Fractals too",
-        "Touchscreens: Raspberry Pi OS's own on-screen keyboard is back and pops up in text fields, also for the Wi-Fi password",
-        "Updates keep more: Home Connect settings, the right clock, and the taskbar badge; the badge says \"being checked\" until the new system is confirmed",
-        "Feedback by GitHub or e-mail (info@rasqberry.org), no GitHub account needed",
-        "traQmania is now racetraQ (v0.3.0, with a German UI); an existing install moves over",
-        "Quantum Lab and Quantum Mixer start from tested images, downloads show realistic times, Ctrl+C during any Docker download stops cleanly, and fewer false \"no internet\" messages at a demo's first start"
+        "Wi-Fi hotspot for booths and classrooms: phones and laptops join the Pi's own network with a QR code and find its demos on a landing page",
+        "A new Pi without a network opens a setup hotspot, so you can reach it and connect it to your Wi-Fi, also without a screen",
+        "Without a password from Imager, SSH accepts the published password only for 15 minutes after a start and asks for a new one; VNC comes on after that",
+        "Bluetooth speakers: calibrate the sound delay until the tick and the LED flash come together",
+        "Qiskit 2.6, the IBM Quantum Learning paths, and Ket, the AI helper, on the Pi's start page",
+        "Many fixes from user tests: window sizes, names and bookmarks, LED demos in a sandbox, VNC kept after an update, Wi-Fi names with accents"
       ]
     },
     "dev": {
-      "tag": "development-2026-11-23-233322",
-      "name": "rasqberry-development-2026-11-23-233322",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-233322/rasqberry-development-2026-11-23-233322.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-23-233322",
-      "release_date": "2026-11-23 23:33",
-      "image_download_size": 2059343520,
-      "extract_size": 9596567552,
-      "extract_sha256": "4ad0a9479b33278e48d149e3554f4442110628ebc046581a721f3a9915402c28",
-      "image_sha256": "86b501002847871dcbb3277cc8c5627f0bc8e40db5165a2f990bc6e5d78236c9",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-23-233322/rasqberry-development-2026-11-23-233322-ab.img.xz",
-      "ab_extract_sha256": "bb7c670cc7c8525f46df0066489b7e923050873f221fe4cd2c3ce1f4939e25e9",
-      "ab_image_sha256": "1a9ea34093c06fd1e080ae76630ca02c9adbd9c2c3eef7da507bfdd7612820c6",
-      "ab_image_download_size": 2111482016,
+      "tag": "development-2026-11-24-230425",
+      "name": "rasqberry-development-2026-11-24-230425",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-24-230425/rasqberry-development-2026-11-24-230425.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-24-230425",
+      "release_date": "2026-11-24 23:04",
+      "image_download_size": 2057108796,
+      "extract_size": 9604956160,
+      "extract_sha256": "e3fe049587776f4e631465e544dc35ce3d994c7cdabd5b14b0ae2fdc9721fdd4",
+      "image_sha256": "d38912acec2293183678f40148965b8ceebc56f2a935ce5c8efc2fde17deda23",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-24-230425/rasqberry-development-2026-11-24-230425-ab.img.xz",
+      "ab_extract_sha256": "ce09f9ffe8bd4c555bad762c594008fbe42124f4e0c6c5440637b10c3a1afd38",
+      "ab_image_sha256": "be01476b1c6708bb32f2804cca0ec3d343e379a0d04cbf461ff92c5f2599f019",
+      "ab_image_download_size": 2106463988,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Tester missions: sound and hotspot are in the beta (#429)"
+        "Testing page generator: drop the hint for images built before 16 October (#452)",
+        "Grok Bloch server: send Cache-Control: no-cache (#449)",
+        "rq_ssh_window.sh status: report a closed window as closed (#448)"
       ]
     }
   }
