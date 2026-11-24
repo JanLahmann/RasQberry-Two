@@ -67,7 +67,7 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
 
 <div className="feature-grid">
   <a className="feature" href="/03-quantum-computing-demos/01-demo-list/">
-    <img src="/demo-screenshots/bloch-sphere.webp" width="1000" height="560" loading="lazy" alt="Grokking the Bloch Sphere: a qubit as an arrow on a sphere, with its formula and gate buttons" />
+    <img src="/demo-screenshots/bloch-sphere-rx.webp" width="1000" height="625" loading="lazy" alt="Grokking the Bloch Sphere: a qubit as an arrow on a sphere, with its formula and gate buttons" />
     <strong>Demos and games</strong>
     <span>Bloch sphere, quantum coin game, Quantum Lights Out, Qoffee-Maker and more, each one click away.</span>
   </a>
