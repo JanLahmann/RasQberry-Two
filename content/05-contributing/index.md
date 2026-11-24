@@ -3,13 +3,15 @@ description: "How to contribute to RasQberry Two, the open-source quantum comput
 ---
 # Contributing to RasQberry
 
-We welcome contributions to this quantum computing education project!
+RasQberry Two is open source and grows with its community: test it, report what
+you find, improve the docs, or add a demo.
 
 ## How to Contribute
 
 ### 1. Test & Report Issues
 
 The most valuable contribution is testing and reporting bugs:
+- [Become a tester](/testing/): missions for your hardware, with Ket as your helper
 - Try out RasQberry on your hardware
 - [Report issues](https://github.com/JanLahmann/RasQberry-Two/issues) with clear steps to reproduce
 - Include error messages, screenshots, and hardware details
@@ -57,5 +59,7 @@ Build new interactive demonstrations:
 - [Qiskit Documentation](https://quantum.cloud.ibm.com/docs/)
 
 **Development:**
-- Python 3.11+, Raspberry Pi 4 or 5
+- Python 3.13 and Qiskit 2.x (as on the image), Raspberry Pi 4 or 5
 - RasQberry OS image from [releases](/latest/)
+
+Questions? Ask [Ket](/?assistant=1).

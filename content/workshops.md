@@ -15,7 +15,8 @@ You bring the Raspberry Pis; we help you get them ready.
 
 ## One of your Pis as a server for the whole group
 
-The **Workshop & Qiskit Server** runs on one of your Pis and serves the
+*In the [development image](/latest/dev); we set it up with you.* The
+**Workshop & Qiskit Server** runs on one of your Pis and serves the
 participants' laptops over the local network: IBM Quantum tutorials and courses,
 with the Qiskit code running on the Pi. It is based on
 [doQumentation](https://doqumentation.org). We help you size it for your group.
@@ -30,8 +31,9 @@ participants; open the same entry again to stop it.
 
 **Network:** the participants' devices must be on the same network as the Pi.
 Guest Wi-Fi and networks with client isolation block the connection between
-devices, so check this with the venue before the event. Participants join by
-opening the address or scanning the QR code the Pi shows.
+devices. Check with the venue, or bring the network along: the Pi's own
+[Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot). Participants join
+by opening the address or scanning the QR code the Pi shows.
 
 ## For a stand
 
@@ -40,7 +42,7 @@ Demos that draw visitors in, on a large monitor and on the model. The
 without anyone at the keyboard, and can start by itself at login; the learning path **First 15 minutes** is a good
 guided tour for visitors who stay.
 
-- **LED demos on the model**: circuits, logos and colour effects on the LED panel.
+- **LED demos on the model**: circuits, logos and color effects on the LED panel.
 - **Quantum Lights Out**: Grover's search solves the puzzle, step by step on the LEDs.
 - **Grokking the Bloch Sphere**: apply gates to a qubit and watch the sphere turn.
 - **Quantum Fractals**: fractals that change with the state of one qubit.
@@ -63,3 +65,5 @@ Please get in touch early, about four weeks before your event.
 <EventsEmail />
 
 Using other Fun with Quantum projects as well? See [fun-with-quantum.org/workshops](https://fun-with-quantum.org/workshops/).
+
+Questions? Ask [Ket](/?assistant=1).
