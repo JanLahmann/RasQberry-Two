@@ -4,7 +4,7 @@ A quantum circuit produces a complex number; that number draws a Julia set. Step
 the circuit through a rotation and the fractal moves with it — so an abstract
 quantum state becomes something you can watch change.
 
-![Quantum Fractals Demo](/demo-screenshots/quantum-fractals.png)
+<img src="/demo-screenshots/quantum-fractals.webp" width="1000" height="340" loading="lazy" alt="Quantum Fractals: a Bloch sphere next to three Julia-set fractals" className="media-image" />
 
 **Needs:** a display · **Start it with:** `rq_demo_run.sh quantum-fractals`
 
@@ -62,3 +62,5 @@ Created by **Wiktor Mazin** and team; ported to RasQberry by **Jan-R. Lahmann**.
 - [Julia sets on Wikipedia](https://en.wikipedia.org/wiki/Julia_set)
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
+
+Questions? Ask [Ket](/?assistant=1).

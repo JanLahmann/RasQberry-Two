@@ -2,11 +2,12 @@
 
 ![Raspberry Tie](/qrtimages/New Logo Screen.png)
 
-Run a quantum circuit — on a simulator or on real IBM Quantum hardware — and watch
+Run a quantum circuit — on a simulator, or on real IBM Quantum hardware in the
+[development image](/latest/dev) — and watch
 the measured qubits light up on the panel, laid out the way the qubits are
 actually arranged on the processor.
 
-**Needs:** the LED panel · a display · an IBM Quantum account for the `real` variant
+**Needs:** the LED panel or its on-screen view · a display · network on first start · IBM Quantum account optional
 **Start it with:** `rq_demo_run.sh quantum-raspberry-tie`
 
 ## Run it
@@ -22,19 +23,19 @@ From a terminal you can pick the backend:
 ```bash
 rq_demo_run.sh quantum-raspberry-tie            # local Aer simulator (default)
 rq_demo_run.sh quantum-raspberry-tie noise      # simulator with a noise model
-rq_demo_run.sh quantum-raspberry-tie real       # real IBM Quantum hardware
+rq_demo_run.sh quantum-raspberry-tie real       # real IBM Quantum hardware (development image)
 ```
 
-The `real` variant needs a network connection and your IBM Quantum account, and
+The `real` variant is in the [development image](/latest/dev) only. It needs a network connection and your IBM Quantum account, and
 your job may sit in a queue before it runs.
 
-**Your IBM Quantum account:** the `real` variant asks for your API key when none
+**Your IBM Quantum account** (development image): the `real` variant asks for your API key when none
 is saved, and saves it. Or save it once: `sudo raspi-config` → **0 RasQberry** →
 **IBM Quantum account** → **Save my API key**.
 
 ## What you'll see
 
-Each qubit is a coloured pixel: **blue** for a qubit measured as |1⟩, **red** for
+Each qubit is a colored pixel: **blue** for a qubit measured as |1⟩, **red** for
 |0⟩, and a paler shade for qubits that were not measured. The pixels are not in a
 line — they are placed to match the connectivity of a real IBM processor, so a
 5-qubit run makes the "bowtie", and larger runs the heavy-hex pattern used by
@@ -58,3 +59,5 @@ display modes, backends and options in full — start there rather than here:
 - [Bill of Materials](/01-3d-model/01-bill-of-materials/) · [Hardware Assembly Guide](/01-3d-model/02-hardware-assembly-guide/) — for the LED panel
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
+
+Questions? Ask [Ket](/?assistant=1).
