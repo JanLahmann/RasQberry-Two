@@ -2,6 +2,11 @@
 
 Every page on this site follows these rules. Ket's summaries use them too.
 
+## Goal
+
+A visitor grasps the essentials in seconds, sees how much RasQberry can do, and wants to
+build one. Pages give the overview; details live on detail pages, and questions go to Ket.
+
 ## Reader
 
 Curious newcomers: teachers, students, makers, workshop guests. No quantum or Linux
@@ -9,8 +14,9 @@ knowledge assumed. Experts follow the links.
 
 ## Voice
 
-- Friendly, direct, calm. Address the reader as "you".
-- No hype ("revolutionary", "amazing"). Show what it does.
+- Friendly, direct, inviting. Address the reader as "you".
+- Spark the wish to build and try it: lead with what you can do and see, not with setup.
+- Concrete, not hype ("revolutionary", "amazing"): let images and real features impress.
 - RasQberry is a community project: never imply IBM endorses or supports it.
 
 ## Language
@@ -28,6 +34,9 @@ knowledge assumed. Experts follow the links.
 4. Last line: `Questions? Ask [Ket](/?assistant=1).`
 
 ## Rules
+
+- Scannable: headings, short bullets and images carry the page; a reader who only skims them
+  still gets the message.
 
 - Each fact lives on one page; everywhere else links to it.
 - Mention every capability once, in one line, on the page that owns it.
