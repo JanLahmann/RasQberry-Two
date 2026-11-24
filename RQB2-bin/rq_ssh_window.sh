@@ -226,7 +226,13 @@ cmd_check() {
 
 cmd_status() {
     local state=none
-    [ -e "$DROPIN" ] && state=$(grep -q '^[[:space:]]*PasswordAuthentication no' "$DROPIN" && echo closed || echo open)
+    if [ -e "$DROPIN" ]; then
+        # indented: the line sits inside the Match block; a read error is not "open"
+        if grep -q '^[[:space:]]*PasswordAuthentication no' "$DROPIN"; then state=closed
+        elif [ $? -eq 1 ]; then state=open
+        else state=unknown
+        fi
+    fi
     printf 'demo_password=%s\nwindow_min=%s\nvnc_in_window=%s\ndropin=%s\n' \
         "$(demo_password)" "$(window_minutes)" "$(vnc_in_window && echo yes || echo no)" "$state"
 }

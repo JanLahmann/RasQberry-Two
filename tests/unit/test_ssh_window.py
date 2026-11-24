@@ -53,9 +53,10 @@ def test_closed_before_sshd_starts_while_the_demo_password_is_set(tmp_path):
 
 def test_status_reports_the_window_state(tmp_path):
     # the drop-in indents PasswordAuthentication inside its Match block (#421)
-    _run(tmp_path, "cmd_close")
+    assert "dropin=none" in _run(tmp_path, "cmd_status").stdout
+    assert _run(tmp_path, "cmd_close").returncode == 0
     assert "dropin=closed" in _run(tmp_path, "cmd_status").stdout
-    _run(tmp_path, "write_dropin open")
+    assert _run(tmp_path, "write_dropin open").returncode == 0
     assert "dropin=open" in _run(tmp_path, "cmd_status").stdout
 
 
