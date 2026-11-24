@@ -7,12 +7,13 @@ the solution played out on the LED panel.
 
 ![Quantum Lights Out Animation](https://github.com/user-attachments/assets/23778cc3-99d3-4872-9463-fcd3b8f09b4f)
 
-**Needs:** the LED panel (or its on-screen view), network on first start · **Start it with:** `rq_demo_run.sh quantum-lights-out`
+**Needs:** the LED panel or its on-screen view · network on first start · **Start it with:** `rq_demo_run.sh quantum-lights-out`
 
 ## Run it
 
 Open the **LED panel** folder on the desktop and double-click **Quantum Lights
-Out**; the puzzle and its solution appear on the LED panel.
+Out**; the puzzle and its solution appear on the LED panel (without a panel, in its
+[on-screen view](/03-quantum-computing-demos/00-overview/#2-no-led-panel)).
 
 It is also under **Applications → RasQberry → Quantum Lights Out**, or in
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **LED panel** →
@@ -33,7 +34,7 @@ turns everything off? That is what Grover's algorithm is for.
 The circuit holds the board, a set of "flip" qubits standing for the presses you
 might make, and an **oracle** — a piece of circuit that recognizes a winning
 combination without being told what it is. Grover then alternates the oracle with
-a **diffusion** step, and each round nudges probability towards the answers. After
+a **diffusion** step, and each round nudges probability toward the answers. After
 enough rounds, measuring the flip qubits gives you a solution.
 
 That is the interesting part: the oracle only *checks* a combination, yet Grover

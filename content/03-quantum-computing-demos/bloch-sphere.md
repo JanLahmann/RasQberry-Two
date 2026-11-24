@@ -6,12 +6,12 @@ a single qubit.
 
 <img src="/demo-screenshots/bloch-sphere.webp" width="800" height="463" loading="lazy" alt="Grokking the Bloch Sphere on the Pi: the qubit as an arrow on the sphere, gate buttons and tips on what to try" className="media-image" />
 
-**Needs:** a display, network on first start · **Start it with:** `rq_demo_run.sh grok-bloch`
+**Needs:** network on first start · **Start it with:** `rq_demo_run.sh grok-bloch`
 
 ## Run it
 
 Double-click the **Grokking the Bloch Sphere** icon on the desktop, and it opens in
-your browser. This version works offline and has tips on what to try and a short
+your browser. After its first download this version works offline and has tips on what to try and a short
 explanation.
 
 It is also under **Applications → RasQberry → Grokking the Bloch Sphere**, or in
