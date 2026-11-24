@@ -30,9 +30,7 @@ the beta yet.
   passphrase you got from us unlocks it.
 - **Do the mission on your own.** A mission is a goal, not a recipe. Find your way with
   the [documentation](/) and Ket on the Pi's start page (the normal RasQberry helper), as any
-  user would. On an image built before 16 October 2026, open
-  [rasqberry.org/?from=pi&assistant=1](https://rasqberry.org/?from=pi&assistant=1) once in
-  the Pi's browser: Ket then stays for that tab. In tester mode, Ket does not help with the
+  user would. In tester mode, Ket does not help with the
   mission itself; it points you there. Where the documentation or Ket leaves you stuck,
   that is a finding too.
 - **Report back to Ket:** what worked, what didn't, confusing words, slow
