@@ -8,6 +8,17 @@ import Link from "next/link"
 import { NotebookLMIcon } from "@/components/NotebookLMIcon"
 import { ClaudeIcon } from "@/components/ClaudeIcon"
 import { UMAMI, umamiAttrs } from "@/lib/umami"
+import { Chat } from "@carbon/icons-react"
+
+// Opens Ket, the RasQberry helper, on this page: through the widget's hook when
+// it offers one, otherwise by reloading with ?assistant=1, which loads the widget.
+function openKet() {
+    const open = (window as { fwqAssistantOpen?: () => void }).fwqAssistantOpen
+    if (typeof open === "function") return open()
+    const url = new URL(window.location.href)
+    url.searchParams.set("assistant", "1")
+    window.location.assign(url)
+}
 
 export type NavItem = {
     label: string
@@ -38,6 +49,10 @@ export function HeaderNav({ items }: Props) {
                         {items.map(getMenuItem)}
                     </HeaderNavigation>
                     <HeaderGlobalBar>
+                        <button type="button" className={styles['header-nav__ket']} onClick={openKet}>
+                            <Chat size={16} aria-hidden="true" />
+                            <span>Ask Ket</span>
+                        </button>
                         {process.env.NEXT_PUBLIC_CLAUDE_ARTIFACT_URL && (
                             <HeaderGlobalAction
                                 aria-label="RasQberry Assistant - AI-powered help"

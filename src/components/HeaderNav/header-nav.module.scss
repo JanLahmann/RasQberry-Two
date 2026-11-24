@@ -18,4 +18,31 @@
     & :global(.cds--header__name) {
         padding: 0 1rem 0 0;
     }
+
+    // "Ask Ket": the one labeled action in the header, so visitors see the helper
+    .header-nav__ket {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        align-self: center;
+        margin-inline-end: 0.5rem;
+        padding: 0.5rem 0.875rem;
+        border: none;
+        border-radius: 1rem;
+        background: #0f62fe;
+        color: #fff;
+        font: inherit;
+        font-size: 0.875rem;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &:hover {
+            background: #0353e9;
+        }
+
+        &:focus-visible {
+            outline: 2px solid #0f62fe;
+            outline-offset: 2px;
+        }
+    }
 }
