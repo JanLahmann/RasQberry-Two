@@ -4,8 +4,9 @@ description: "RasQberry Two system settings: Wi-Fi, the Pi's own Wi-Fi hotspot, 
 # System Options
 
 Connect your RasQberry, open its own Wi-Fi for a booth or class, reach it from your
-computer, and add sound. Most settings are in **0 RasQberry** (double-click
-**RasQberry Configuration**); every rule and setting in full: [details](/details/system-options/).
+computer, and add sound. Most settings are in **0 RasQberry**: double-click
+**RasQberry Configuration**, or run `sudo raspi-config`. Every rule and setting in full:
+[details](/details/system-options/).
 
 ## Wi-Fi
 
@@ -22,13 +23,19 @@ apart. Phones and laptops join it and open the demos at `http://10.42.0.1`.
 
 - **Start it:** **0 RasQberry** → **Wi-Fi Hotspot** → **Hotspot**.
 - **Let people join:** **Join card** shows the name, password and QR codes.
+- **One Wi-Fi can't do both:** without a USB Wi-Fi adapter, the built-in Wi-Fi leaves
+  your network while the hotspot runs, and a remote session to the Pi drops. A network
+  cable keeps the Pi online.
+- **SSH and VNC from the hotspot** work only once no account that can use `sudo` still
+  has `Qiskit1!`, because the hotspot's password is on a public card.
 - **More:** start at boot, share internet, the band, and setting it up before the first
   start ([hotspot settings](/details/system-options/#2-hotspot-settings)).
 
 ## Remote access
 
 On most networks the Pi is `rasqberry.local`; otherwise use its IP address (**System
-Info**). Log in with the user from Imager, otherwise `rasqberry` / `Qiskit1!`.
+Info**). Log in with the user from Imager, otherwise `rasqberry` / `Qiskit1!`. Password,
+SSH, VNC, the Pi's name and Connect are in **0 RasQberry** → **Remote Access & Security**.
 
 ### First access without a screen
 
@@ -45,7 +52,8 @@ For a classroom or booth, the window and VNC can be changed
 ### SSH, VNC and Raspberry Pi Connect
 
 - **SSH:** `ssh <user>@rasqberry.local` ([log in with a key](/details/system-options/#2-ssh-keys)).
-- **VNC (the desktop):** connect **RealVNC Viewer** or **TigerVNC** to `rasqberry.local`
+- **VNC (the desktop):** on once the Pi has your own password. Connect **RealVNC Viewer**
+  or **TigerVNC** to `rasqberry.local`
   ([other clients](/details/system-options/#2-vnc-clients)). Start display demos there,
   not over SSH: over SSH they have no screen.
 - **Raspberry Pi Connect:** the desktop in your browser, from anywhere, with a free
