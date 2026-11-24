@@ -1,10 +1,10 @@
 # Bill of Materials
 
-Everything you need to buy to build the RasQberry Two model: a Raspberry Pi, an LED panel, printed parts and a few small items, with no soldering. When it is done, it looks like this:
+Everything you need to build the RasQberry Two model: a Raspberry Pi, LED panels, filament for the printed parts and a few small items. When it is done, it looks like this:
 
 <p align='center'><img src='/Artwork/RasQberry2model.webp' loading='lazy' width="88%" height="88%"/></p>
 
-No printed model yet? [Explore it in 3D](/01-3d-model/02-hardware-assembly-guide#3-explore-the-model-in-3d) in the assembly guide.
+No printed model yet? [Explore it in 3D](/01-3d-model/02-hardware-assembly-guide/#3-explore-the-model-in-3d) in the assembly guide.
 
 - **[Required Components](#2-required-components):** a quick list of the core parts and the optional extras.
 - **[Bill of Materials](#2-bill-of-materials):** every part in a table with quantity, cost and purchase links.
