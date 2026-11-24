@@ -51,6 +51,14 @@ def test_closed_before_sshd_starts_while_the_demo_password_is_set(tmp_path):
     assert "within 15 minutes" in (tmp_path / "banner.txt").read_text()
 
 
+def test_status_reports_the_window_state(tmp_path):
+    # the drop-in indents PasswordAuthentication inside its Match block (#421)
+    _run(tmp_path, "cmd_close")
+    assert "dropin=closed" in _run(tmp_path, "cmd_status").stdout
+    _run(tmp_path, "write_dropin open")
+    assert "dropin=open" in _run(tmp_path, "cmd_status").stdout
+
+
 def test_unknown_counts_as_the_demo_password(tmp_path):
     _run(tmp_path, "cmd_close", demo="unknown")
     assert "PasswordAuthentication no" in _dropin(tmp_path)

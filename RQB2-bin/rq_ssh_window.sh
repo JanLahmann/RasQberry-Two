@@ -226,7 +226,7 @@ cmd_check() {
 
 cmd_status() {
     local state=none
-    [ -e "$DROPIN" ] && state=$(grep -q '^PasswordAuthentication no' "$DROPIN" && echo closed || echo open)
+    [ -e "$DROPIN" ] && state=$(grep -q '^[[:space:]]*PasswordAuthentication no' "$DROPIN" && echo closed || echo open)
     printf 'demo_password=%s\nwindow_min=%s\nvnc_in_window=%s\ndropin=%s\n' \
         "$(demo_password)" "$(window_minutes)" "$(vnc_in_window && echo yes || echo no)" "$state"
 }
