@@ -1,13 +1,13 @@
 # Quantum Lights Out
 
 The [Lights Out puzzle](https://en.wikipedia.org/wiki/Lights_Out_(game)) — press a
-tile, it toggles itself and its neighbours, and you have to turn every light off —
+tile, it toggles itself and its neighbors, and you have to turn every light off —
 solved by **Grover's search** running on a quantum simulator, with each step of
 the solution played out on the LED panel.
 
 ![Quantum Lights Out Animation](https://github.com/user-attachments/assets/23778cc3-99d3-4872-9463-fcd3b8f09b4f)
 
-**Needs:** the LED panel · **Start it with:** `rq_demo_run.sh quantum-lights-out`
+**Needs:** the LED panel (or its on-screen view), network on first start · **Start it with:** `rq_demo_run.sh quantum-lights-out`
 
 ## Run it
 
@@ -31,7 +31,7 @@ Lights Out is a **search** problem: of all the combinations of presses, which on
 turns everything off? That is what Grover's algorithm is for.
 
 The circuit holds the board, a set of "flip" qubits standing for the presses you
-might make, and an **oracle** — a piece of circuit that recognises a winning
+might make, and an **oracle** — a piece of circuit that recognizes a winning
 combination without being told what it is. Grover then alternates the oracle with
 a **diffusion** step, and each round nudges probability towards the answers. After
 enough rounds, measuring the flip qubits gives you a solution.
@@ -51,3 +51,5 @@ with the quantum algorithm from the IBM Quantum Challenge 2020.
 - [IBM Quantum Learning: Grover's algorithm](https://quantum.cloud.ibm.com/learning/en/courses/fundamentals-of-quantum-algorithms/grover-algorithm/introduction)
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
+
+Questions? Ask [Ket](/?assistant=1).

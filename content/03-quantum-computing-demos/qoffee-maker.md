@@ -7,7 +7,7 @@ mechanics being what it is, you can shift the odds but never quite give an order
 
 ![Qoffee Maker](https://qoffee-maker.org/Bilder/Event%20Image.jpeg)
 
-**Needs:** a display · a network connection · **Start it with:** `rq_demo_run.sh qoffee-maker`
+**Needs:** a display · a network connection · a 32 GB card · **Start it with:** `rq_demo_run.sh qoffee-maker`
 
 ## Run it
 
@@ -58,7 +58,9 @@ computing" family. Full details, the hardware setup and the event kit are on the
 project's own site:
 
 - **[qoffee-maker.org](https://qoffee-maker.org)** — the project and its documentation
-- [Fun with Quantum](http://fun-with-quantum.org) — more quantum games, also on this image
+- [Fun with Quantum](https://fun-with-quantum.org) — more quantum games (the Quantum Coin Game is on this image)
 - [IBM Quantum Learning: measurement](https://quantum.cloud.ibm.com/learning/en/courses/basics-of-quantum-information/single-systems/quantum-information)
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
+
+Questions? Ask [Ket](/?assistant=1).
