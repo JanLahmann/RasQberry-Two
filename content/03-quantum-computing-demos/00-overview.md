@@ -20,23 +20,25 @@ RasQberry menu. *Dev* marks demos that are in the
 | **Big projects** | [Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/), Quantum Mixer, [Entangible](#2-entangible) (*dev*), [racetraQ](https://racetraq.org) (*dev*) |
 | **Learn & code** | [My Quantum Programs](#2-your-own-qiskit-programs), [Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/), IBM Quantum Tutorials and Courses, IBM Quantum Composer; doQumentation and Qiskit Live (*dev*) |
 | **Workshops & events** | Demo Loop; Workshop & Qiskit Server (*dev*) |
-| **Contributed demos** | Partner demos from the catalogue: SAP Quantum LED, SAP Quantum Learning |
+| **Contributed demos** | Partner demos from the catalog: SAP Quantum LED, SAP Quantum Learning |
 
-The LED demos and Quantum Fractals are on the card from the start; the others
-download on their first start, which needs a network. Docker demos (Qoffee-Maker,
-Quantum Mixer, Qiskit Live, Workshop & Qiskit Server) take 2–4 GB each and need a
-card of 32 GB or more.
+Only the LED Demos (text, logos, tests), RasQ-LED and Quantum Fractals are on the card from the
+start; the others download on their first start, which needs a network. Docker demos
+take 2–4 GB each and need a card of 32 GB or more: Qoffee-Maker, Quantum Mixer, and
+in the development image doQumentation, Qiskit Live, QuBins and the Workshop & Qiskit Server.
 
 ## Running demos
 
 - **Desktop:** double-click an icon, or a group's folder and then the demo.
 - **RasQberry menu:** **RasQberry Configuration** (or `sudo raspi-config`) →
-  **0 RasQberry** → **Quantum Demos**.
+  **0 RasQberry** → **Quantum Demos**. All paths below start there.
 - **Terminal:** `rq_demo_run.sh <id>`, e.g. `rq_demo_run.sh quantum-fractals`
   (ids: [demo list](/03-quantum-computing-demos/01-demo-list/)).
 
 Most demos need a display: a monitor, or [VNC](/02-software/02-system-options/).
-To stop one, close its window or press Enter or Ctrl+C in it.
+To stop one, close its window or press Enter or Ctrl+C in it. Docker demos keep
+running: **Manage demos** → **Stop Docker demos**. An LED demo still holding the
+panel: **Quantum Demos** → **Stop a running LED demo**.
 
 ## No LED panel?
 
@@ -44,13 +46,14 @@ LED demos open the panel on screen, so they work without one.
 
 <img src="/demo-screenshots/virtual-led-panel.webp" width="575" height="262" loading="lazy" alt="The on-screen LED panel showing the IBM logo" className="media-image" />
 
-To watch it in a browser on another device: **Quantum Demos** → **LED panel** →
+To watch it in a browser on another device: **0 RasQberry** → **Quantum Demos** → **LED panel** →
 **LED setup & tests** → **Output Targets**, then open `http://rasqberry.local:8098`.
 
 ## IBM Quantum accounts
 
-Every demo runs on the built-in simulator, without an account. For real IBM quantum
-computers, get a free account at [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com)
+The demos run on the built-in simulator, without an account; the online IBM Quantum
+Composer simulates up to four qubits without signing in. For real IBM quantum
+computers (some demos offer them), get a free account at [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com)
 and save its API key once: **0 RasQberry** → **IBM Quantum account** → **Save my API key**.
 Most IBM Quantum Tutorials are written for real hardware.
 
@@ -87,8 +90,9 @@ address its window shows (they warn about the certificate once: **Advanced** →
   after another (Enter skips, x stops); it can start at login.
 - Open the Pi's own [Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot)
   so visitors' phones can join.
-- The screen doesn't blank (**2 Display Options** → **Screen Blanking**).
-  **Desktop Settings** → **Browser at login** stops rasqberry.org opening at every start.
+- The screen doesn't blank (`sudo raspi-config` → **2 Display Options** →
+  **Screen Blanking**). **0 RasQberry** → **Desktop Settings** → **Browser at login**
+  stops rasqberry.org opening at every start.
 - Visitors stop for Quantum Lights Out, Grokking the Bloch Sphere, Quantum Fractals,
   the LED demos and the Quantum Coin Game ([more](/workshops/#2-for-a-stand)).
 
