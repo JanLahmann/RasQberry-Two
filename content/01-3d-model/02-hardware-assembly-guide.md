@@ -1,6 +1,6 @@
 # Hardware Assembly Procedure
 
-This section provides a step-by-step photographic guide on how to assemble the RasQberry Two Platform. The guide is divided into different sections based on the separate components of the 3D model, as well as a section detailing setup instructions for the Raspberry Pi. The three main components of the RasQberry Two platform are: The Wall, The Cryostat and The Floor.
+Build the RasQberry Two model step by step, with photos. You set up the Raspberry Pi, then assemble the three main parts: the Wall, the Floor and the Cryostat. You need the [parts from the bill of materials](/01-3d-model/01-bill-of-materials/) and the printed pieces.
 
 ### Explore the model in 3D
 
@@ -179,7 +179,7 @@ Now it’s time to test the LEDs! Double-click the **RasQberry Setup** icon on t
 sudo rq_led_setup_wizard.sh
 ```
 
-(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LED panel` → `LED setup & tests` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colours; pick the colour in which the logo reads upright, and RasQberry stores your panel layout.
+(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LED panel` → `LED setup & tests` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colors; pick the color in which the logo reads upright, and RasQberry stores your panel layout.
 
 If everything is wired up correctly, the IBM logo appears on the LED panel in the correct orientation. Verify that your result looks similar to this:
 
@@ -215,7 +215,7 @@ On the welding shield, you will want to mark out a rectangle in the center that 
 
 ![Figure 23](/assembly-images/wall_assembly_23.JPG "Figure 23: Using tape, a straightedge ruler and a scalpel to mark out the lines to be cut.")
 
-Once you have marked out the dimenensions of the rectangle, use a pair of scissors to cut along the lines you have marked. The welding shield should be fairly easy to cut, use a little bit of force but go slow to ensure you are following the lines. Once you have cut out the rectangle, it should look like this:
+Once you have marked out the dimensions of the rectangle, use a pair of scissors to cut along the lines you have marked. The welding shield should be fairly easy to cut, use a little bit of force but go slow to ensure you are following the lines. Once you have cut out the rectangle, it should look like this:
 
 ![Figure 24](/assembly-images/wall_assembly_24.JPG "Figure 24: The welding shield cut into a rectangle 240mm x 83mm.")
 
@@ -229,7 +229,7 @@ Try placing the Wall Lid on top of the Wall Base to ensure that the panel fits p
 
 Now you have successfully placed the welding shield onto the Wall!
 
-Place the Hex Bolts or 'screws' (R2_Screw) into the corresponding hexagonal holes at the bottom of the wall. It is helpful to do this last so that the wall can stand on its own in the mean time. These should fit snuggly. If not, a dab of glue will hold them in place until they are used to connect the wall to the floor.
+Place the Hex Bolts or 'screws' (R2_Screw) into the corresponding hexagonal holes at the bottom of the wall. It is helpful to do this last so that the wall can stand on its own in the meantime. These should fit snugly. If not, a dab of glue will hold them in place until they are used to connect the wall to the floor.
 
 ### Attach the Pi to the Wall
 
@@ -265,7 +265,7 @@ The Wall Back attaches to the Wall Base using three hooks on each side of the Ba
 
 ![Figure 30](/assembly-images/wall_assembly_30.JPG "Figure 30: Cutouts on the Wall Back.")
 
-To attach the Back and Base plates together, slightly angle the Back plate so that the three hooks come in above each connection point on the Base plate. Push the two parts together until the Back sits flush with the Base. As you push the two parts together, keep an eye on all of the wires from the Pi and LED panels. You want to gently move them into the space inside the Wall. Be careful not to bend any of the wires at a sharp angle so as to not damage them. Pay close attention to the wire connections with the GPIO on the Pi. There should be enough room for the wires to slightly curve away from the GPIO, leaving the female connectors securly attached to the GPIO pins.
+To attach the Back and Base plates together, slightly angle the Back plate so that the three hooks come in above each connection point on the Base plate. Push the two parts together until the Back sits flush with the Base. As you push the two parts together, keep an eye on all of the wires from the Pi and LED panels. You want to gently move them into the space inside the Wall. Be careful not to bend any of the wires at a sharp angle so as to not damage them. Pay close attention to the wire connections with the GPIO on the Pi. There should be enough room for the wires to slightly curve away from the GPIO, leaving the female connectors securely attached to the GPIO pins.
 
 ![Figure 31](/assembly-images/wall_assembly_31.JPG "Figure 31: Inserting the Back plate into the Base plate at a slight angle.")
 
@@ -273,7 +273,7 @@ Then, gently push down on the Back plate until the gap between the Back plate an
 
 ![Figure 32](/assembly-images/wall_assembly_32.JPG "Figure 32: View of the Wall from behind, with the Back plate and Base plate attached together.")
 
-Finally, place the Wall Lid piece on top of the rest of the Wall. There are two small holes on either corner of the Wall next to the where the LED panels are. Line up the two connectors from the Wall Lid with those two holes for a secure fit. As you are lowering the Lid piece, take care to gently arrange all of the wires inside of the Wall. When the Lid is securly attached, your Wall will look like this:
+Finally, place the Wall Lid piece on top of the rest of the Wall. There are two small holes on either corner of the Wall next to the where the LED panels are. Line up the two connectors from the Wall Lid with those two holes for a secure fit. As you are lowering the Lid piece, take care to gently arrange all of the wires inside of the Wall. When the Lid is securely attached, your Wall will look like this:
 
 ![Figure 33](/assembly-images/wall_assembly_33.JPG "Figure 33: View of the Wall fully assembled.")
 
@@ -304,7 +304,7 @@ The floor comes in 6 different pieces, each piece is marked with a number that c
 
 Notice that tiles 5 and 6 at the top of the image contain the hexagonal cutouts for the Wall to be attached.
 
-Each floor tile has two holes on each side where it connects to another floor tile. To connect the floor tiles together, line up two floor panels together so that the holes are in alignment. Insert an M3 Bolt (or #4 bolt in the US) through the hole and thread the nut onto the bolt until tightened. Reapeat the process to connect all of the panels together, making sure to preserve the correct order of panels as shown in the above image. We have found that holding the nut with a pair of pliers and using an allen key to tighten the bolt helps make the process easier, given the small space available beneath the floor tiles.
+Each floor tile has two holes on each side where it connects to another floor tile. To connect the floor tiles together, line up two floor panels together so that the holes are in alignment. Insert an M3 Bolt (or #4 bolt in the US) through the hole and thread the nut onto the bolt until tightened. Repeat the process to connect all of the panels together, making sure to preserve the correct order of panels as shown in the above image. We have found that holding the nut with a pair of pliers and using an allen key to tighten the bolt helps make the process easier, given the small space available beneath the floor tiles.
 
 ![Figure 2](/assembly-images/floor_assembly_2.png "Figure 2: How to attach floor tiles together. The yellow arrows show where the bolts should be inserted and tightened.")
 
@@ -356,7 +356,7 @@ The Door (**R2_NewDoor**) should be printed upright, so that the layer lines ali
 
 ![Figure 7](/assembly-images/cryostat_assembly_7.JPG "Figure 7: The door to the cryostat. Notice that the bottom magnet is inserted while the top magnet has not been glued in yet.")
 
-The outside of the main Cryostat and RTE Server model and the inside of the 3 stand alone single RTE Servers (**R2_NarrowServerSingle**) connect with Magnets, alowing one to demonstrate the configurability of the system. Fit 2 large (15x2mm) magnets into the indents or pockets on the outer edge of each of the 3 RTE “arms”. Make sure they are all the same way round, so the RTEs will attach. Do the same with the individual RTE Servers.
+The outside of the main Cryostat and RTE Server model and the inside of the 3 standalone single RTE Servers (**R2_NarrowServerSingle**) connect with Magnets, allowing one to demonstrate the configurability of the system. Fit 2 large (15x2mm) magnets into the indents or pockets on the outer edge of each of the 3 RTE “arms”. Make sure they are all the same way around, so the RTEs will attach. Do the same with the individual RTE Servers.
 
 ![Figure 8](/assembly-images/cryostat_assembly_8.JPG "Figure 8: The two large magnets glued inside the RTE server.")
 
@@ -372,7 +372,7 @@ Magnets have a life of their own, and can be very frustrating. Here are some tip
 
 Big magnets (15x2mm) sit in indents in the walls of the conjoined double RTEs and the separate single RTEs.
 
-The magnets usually come in a stack, all pointing the same way. It’s important to install the magnets the same way round (all the same in the conjoined RTEs of the Cryostat, and all the same in the single RTEs, such that the RTEs attach to the Cryostat).
+The magnets usually come in a stack, all pointing the same way. It’s important to install the magnets the same way around (all the same in the conjoined RTEs of the Cryostat, and all the same in the single RTEs, such that the RTEs attach to the Cryostat).
 
 A good tip is to put a dot with a permanent marker (“Sharpie”) on the back of a magnet before you remove it from the stack. That way, the side with the dot on it is always the same polarity.
 
@@ -386,7 +386,7 @@ Small magnets (3x2mm) are very frustrating.
 
 They are used to hold the door onto the Cryostat, and the lid onto the Wall.
 
-The magnets usually come in a stack, all pointing the same way. It’s important to install the magnets the same way round (all the same in the Cryostat door frame, all the same in the wall base, all the same in the door, and all the same in the Wall lid, such that the door attaches to the Cryostat and the Wall lid attaches to the Wall base).
+The magnets usually come in a stack, all pointing the same way. It’s important to install the magnets the same way around (all the same in the Cryostat door frame, all the same in the wall base, all the same in the door, and all the same in the Wall lid, such that the door attaches to the Cryostat and the Wall lid attaches to the Wall base).
 
 A good tip is to put a dot with a permanent marker (“Sharpie”) on the back of a magnet before you remove it from the stack. That way, the side with the dot on it is always the same polarity.
 
@@ -402,8 +402,10 @@ Roll any excess glue off with your finger when it’s dried.
 
 If you've reached this point in the assembly guide, congratulations! You have successfully assembled the RasQberry Two model! 🎉
 
-Be sure to check out the [Quantum Computing Demos](/03-quantum-computing-demos/01-demo-list) section of the website to learn about some quantum demos you can run on your completed model.
+Be sure to check out the [Quantum Computing Demos](/03-quantum-computing-demos/01-demo-list/) section of the website to learn about some quantum demos you can run on your completed model.
 
 ![Figure 1](/assembly-images/complete_assembly_1.JPG "Figure 1: The fully assembled RasQberry Two model.")
 
 ![Figure 2](/assembly-images/complete_assembly_2.JPG "Figure 2: Ditto.")
+
+Questions? Ask [Ket](/?assistant=1).
