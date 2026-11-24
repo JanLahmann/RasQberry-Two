@@ -73,6 +73,12 @@ class QuietHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         super().log_message(format, *args)
 
+    def end_headers(self):
+        # Revalidate every file: after a patch refresh the browser would
+        # otherwise show its cached copy of the old file for a while
+        self.send_header('Cache-Control', 'no-cache')
+        super().end_headers()
+
 
 class ReusableTCPServer(socketserver.ThreadingTCPServer):
     # TCPServer defaults this to False, so a port left in TIME_WAIT by the
