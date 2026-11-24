@@ -44,6 +44,57 @@ img {
   font-size: 0.9rem;
 }
 
+// Homepage overview: one tile per capability (image, title, one line), the whole tile is the link
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0 2rem;
+}
+
+a.feature {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: themes.$text-primary;
+  text-decoration: none;
+  background: themes.$layer-01;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: top;
+  }
+
+  strong,
+  span {
+    padding: 0 1rem;
+  }
+
+  strong {
+    font-size: 1.05rem;
+    margin-top: 0.4rem;
+  }
+
+  span {
+    font-size: 0.9rem;
+    color: themes.$text-secondary;
+    padding-bottom: 1rem;
+  }
+
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 14px rgba(0, 0, 0, 0.15);
+  }
+}
+
 .centered-media {
   margin: 2rem 0;
   text-align: center;
