@@ -4,7 +4,7 @@ An interactive Bloch sphere in your browser: click a gate, watch the qubit move.
 It is the quickest way to build intuition for what quantum gates actually *do* to
 a single qubit.
 
-<img src="/demo-screenshots/bloch-sphere.webp" width="800" height="463" loading="lazy" alt="Grokking the Bloch Sphere on the Pi: the qubit as an arrow on the sphere, gate buttons and tips on what to try" className="media-image" />
+<img src="/demo-screenshots/bloch-sphere.webp" width="1000" height="560" loading="lazy" alt="Grokking the Bloch Sphere on the Pi: the qubit as an arrow on the sphere after H and two Rx rotations, with its formula, probability bar, phase and gate buttons" className="media-image" />
 
 **Needs:** network on first start · **Start it with:** `rq_demo_run.sh grok-bloch`
 
