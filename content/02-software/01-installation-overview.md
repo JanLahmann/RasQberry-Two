@@ -32,6 +32,9 @@ take 2–4 GB each, per system.
 
 ## Write the card
 
+{/* Old anchor, kept for links from the README */}
+<span id="3-one-click-open-in-raspberry-pi-imager-recommended" />
+
 Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer, then:
 
 <p><a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: imager open" data-umami-event-where="installation" data-umami-event-stream="beta">▶ Write RasQberry Two to your SD card</a></p>
@@ -47,7 +50,9 @@ Imager can prepare the Pi so it needs no screen:
 
 - **Localisation:** time zone and keyboard (also sets the Wi-Fi country).
 - **Wi-Fi:** your network and password.
-- **User:** your login name and password instead of `rasqberry` / `Qiskit1!`.
+- **User:** your login name and password instead of `rasqberry` / `Qiskit1!`. If the
+  name can't be used (the system already has it), the login stays `rasqberry` and the
+  first login says why.
 - **Remote access:** SSH is on. **Use public key authentication** accepts only
   your key and needs the **User** step.
 - **Hostname:** the Pi becomes `<name>.local` instead of `rasqberry.local`.
@@ -73,7 +78,8 @@ Customisation applies to the first start of a newly written card only.
 
 ## First start
 
-The first start takes a few minutes and restarts once: don't unplug the Pi. Then
+The first start takes a few minutes and the Pi restarts on its own, sometimes more
+than once: don't unplug it. Then
 the desktop opens with the setup checklist. Over SSH or VNC, log in with the user
 from Imager; without one, see [first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen).
 
@@ -90,7 +96,8 @@ The checklist offers what still needs you:
 - **Download all demos** now, or each on its first start.
 - **Touch mode**, for a touchscreen.
 
-Every step can wait: the **RasQberry Setup** icon opens the list again.
+Every step can wait: the **RasQberry Setup** icon opens the list again. After
+**Don't show again** it stays in **0 RasQberry** → **Setup Checklist**.
 
 ## The RasQberry menu
 
@@ -106,10 +113,12 @@ double-click **RasQberry Configuration** (or run `sudo raspi-config`), then **0 
 - **Wi-Fi Hotspot:** the Pi's own network for booths and classrooms.
 - **Software & Image Updates:** newer images; the Slot Manager on the A/B image.
 - **System Info:** versions of the image, Python and Qiskit.
-- **Shut Down Safely:** LEDs off, then shutdown.
+- **Advanced:** edit a setting, refresh the demo list, update from a GitHub branch.
+- **Shut Down Safely:** LEDs off, then shutdown; switch the power off once the
+  green light stays off.
 
 The image runs Raspberry Pi OS Trixie (64-bit) with Qiskit 2.x in
-`~/RasQberry-Two/venv/RQB2`. Code for Qiskit 1.x may need the
+`~/RasQberry-Two/venv/RQB2` (`source ~/RasQberry-Two/venv/RQB2/bin/activate`). Code for Qiskit 1.x may need the
 [migration guide](https://quantum.cloud.ibm.com/docs/en/migration-guides/qiskit-2.0).
 
 ## Keeping up to date
@@ -136,7 +145,8 @@ The image runs Raspberry Pi OS Trixie (64-bit) with Qiskit 2.x in
 - **VNC doesn't connect:** VNC stays off until you set your own password
   ([remote access](/02-software/02-system-options/)).
 - **"Failed to run demo":** the message names the cause, usually no network on a
-  first start, or a display demo started over SSH.
+  first start, or a display demo started over SSH (start it on the desktop or
+  over VNC).
 - **Disk full:** Docker demos need 32 GB or more ([card sizes](#2-which-image)).
 - **LED panel stays dark:** [LED troubleshooting](/03-quantum-computing-demos/led-display/).
 - **Still stuck?** `rq_info.sh --report` saves a report in your home folder. Attach
