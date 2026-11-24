@@ -4,8 +4,11 @@ description: "RasQberry Two system settings: Wi-Fi, the Pi's own Wi-Fi hotspot, 
 # System Options
 
 Connect your RasQberry, open its own Wi-Fi for a booth or class, reach it from your
-computer, and add sound. Most settings are in **0 RasQberry** (double-click
-**RasQberry Configuration**, or run `sudo raspi-config`).
+computer, and add sound. Settings are in `sudo raspi-config` (or double-click
+**RasQberry Configuration**); password, SSH, VNC and the Pi's name also in
+**0 RasQberry** → **Remote Access & Security**. Raspberry Pi Imager can set Wi-Fi,
+a user and an SSH key before the first start
+([customisation](/02-software/01-installation-overview/#3-customisation)).
 
 ## Wi-Fi
 
@@ -14,9 +17,10 @@ icon in the taskbar, or `sudo raspi-config` → **1 System Options** → **S1 Wi
 The Pi remembers its networks and reconnects by itself.
 
 **No screen and no network?** A new Pi that has never had a network opens the Wi-Fi
-**RasQberry-Setup-XXXX** after about two minutes (password `rasqberry`; the LED
-panel scrolls both). Join it with your phone: a page lists the networks in range;
-pick yours, and the LED panel scrolls the Pi's new address.
+**RasQberry-Setup-XXXX** after about two minutes, password `rasqberry` (an LED panel
+scrolls both). Join it with your phone: a page lists the networks in range; pick
+yours. It closes after 30 minutes unused (an hour at most); switch the Pi off and on
+to open it again.
 
 The Pi's IP address: **System Info** in **0 RasQberry**, `hostname -I`, or the LED
 panel at start-up.
@@ -29,14 +33,20 @@ apart. Phones and laptops join it and open the demos at `http://10.42.0.1`.
 <img src="/installation-images/hotspot-menu.webp" width="800" height="575" loading="lazy" alt="The Wi-Fi Hotspot menu: hotspot on or off, name, password and QR codes, join card, start at boot, share internet, band, SSH/VNC from the hotspot" className="media-image" />
 
 - **Start it:** **0 RasQberry** → **Wi-Fi Hotspot** → **Hotspot**.
-- **Let people join:** **Join card** shows the name, password and QR codes on the
-  screen, to show or print.
+- **Let people join:** **Join card** opens a page with the name, password and QR
+  codes, to show or print. Over SSH, **Show name, password and QR codes** prints them.
 - **Name and password:** `RasQberry-XXXX` and a random password, unless you set your own.
 - **Start at boot**, **share this Pi's internet**, and the **band** (5 GHz; 2.4 GHz
   for older devices) are in the same menu.
-- **One Wi-Fi can't do both:** while the hotspot runs, the built-in Wi-Fi leaves
-  your network. A network cable or a USB Wi-Fi adapter keeps the Pi online.
-- **SSH and VNC from the hotspot** work only once the Pi has your own password.
+- **One Wi-Fi can't do both:** the hotspot takes a USB Wi-Fi adapter if there is one.
+  Otherwise the built-in Wi-Fi leaves your network while the hotspot runs; a network
+  cable keeps the Pi online.
+- **SSH and VNC from the hotspot:** by default only once no account that can use
+  `sudo` still has `Qiskit1!`, because the hotspot's password is on a public card.
+  **SSH/VNC from the hotspot** sets it to always or never.
+- **Before the first start:** a file `rasqberry-hotspot.txt` on the card's boot
+  partition (the CONFIG partition on the A/B image) with lines such as
+  `HOTSPOT_SSID=Booth`, `HOTSPOT_PASSWORD=…`, `HOTSPOT_AT_BOOT=yes` sets the hotspot up.
 
 ## Remote access
 
@@ -54,10 +64,11 @@ Without a user or SSH key from Imager, the Pi protects its published password:
    password twice. It is also your password for VNC and `sudo`.
 3. **VNC comes on** once the password is changed.
 
-With a screen, change the password in the setup checklist instead. For a booth that
-keeps `Qiskit1!`: in `rasqberry_boot.env` on the boot drive (bootfs; BOOT-A or BOOT-B
-on the A/B image) remove the `#` in front of `DEFAULT_PW_WINDOW_MIN` (minutes, `0` =
-keys only) or `DEFAULT_PW_WINDOW_VNC` (`yes`: VNC on as well).
+With a screen, change the password in the setup checklist instead. To change the
+rules, edit `rasqberry_boot.env` on the boot drive (bootfs; BOOT-A or BOOT-B on the
+A/B image): remove the `#` and set a value. `DEFAULT_PW_WINDOW_MIN=30` gives 30
+minutes (`0`: keys only); `DEFAULT_PW_WINDOW_VNC=yes` turns VNC on as well, for a
+classroom or booth.
 
 ### SSH
 
