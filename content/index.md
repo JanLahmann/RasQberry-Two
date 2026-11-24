@@ -97,7 +97,7 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
     <span>Its own Wi-Fi hotspot with a QR code to join, touch mode, a demo loop and Bluetooth speakers.</span>
   </a>
   <a className="feature" href="/02-software/03-ab-boot/">
-    <img src="/demo-screenshots/desktop.webp" width="800" height="450" loading="lazy" alt="The RasQberry desktop after the start: demo icons and the welcome page" />
+    <img src="/installation-images/slot-manager-tile.webp" width="800" height="500" loading="lazy" alt="The A/B Boot Slot Manager: Slot A runs the beta, Slot B is ready for the next update" />
     <strong>Updates without a new card</strong>
     <span>On cards of 64 GB or more, new releases install over the air and the previous system stays as a fallback.</span>
   </a>
