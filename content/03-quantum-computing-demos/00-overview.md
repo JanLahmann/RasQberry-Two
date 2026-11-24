@@ -9,7 +9,7 @@ visible, on screen and on the LED panel. Each one in detail: the
 
 Six groups, each a folder on the desktop and a submenu of **Quantum Demos** in the
 RasQberry menu. *Dev* marks demos that are in the
-[development image](/latest/dev) only, not in the beta.
+[development image](/testing/#2-before-you-start-the-right-version) only, not in the beta.
 
 <img src="/demo-screenshots/group-led-panel.webp" width="500" height="426" loading="lazy" alt="The LED panel group on the desktop: IBM LED Demo, RasQ-LED Demo, Quantum Lights Out, Quantum Raspberry Tie, LED-Painter, Clear All LEDs" className="media-image" />
 

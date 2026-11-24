@@ -255,7 +255,7 @@ ${first}> This page is generated from the [demo manifests](https://github.com/${
     if (!byGroup[g.id].length) continue;
     // The Pi's group title says "Beta", but these demos are in the development image only
     const title = g.beta ? 'In development: try & tell us' : g.title;
-    const devNote = g.beta ? 'In the [development image](/latest/dev) only, not in the beta. ' : '';
+    const devNote = g.beta ? 'In the [development image](/testing/#2-before-you-start-the-right-version) only, not in the beta. ' : '';
     md += `## ${title}\n\n${devNote}${g.description ? `${g.description}\n\n` : '\n\n'}${TABLE_HEAD}`;
     for (const m of byGroup[g.id]) md += row(m);
     md += `\n`;

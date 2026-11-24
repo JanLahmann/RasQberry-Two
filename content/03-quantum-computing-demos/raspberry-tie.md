@@ -3,7 +3,7 @@
 ![Raspberry Tie](/qrtimages/New Logo Screen.png)
 
 Run a quantum circuit — on a simulator, or on real IBM Quantum hardware in the
-[development image](/latest/dev) — and watch
+[development image](/testing/#2-before-you-start-the-right-version) — and watch
 the measured qubits light up on the panel, laid out the way the qubits are
 actually arranged on the processor.
 
@@ -26,7 +26,7 @@ rq_demo_run.sh quantum-raspberry-tie noise      # simulator with a noise model
 rq_demo_run.sh quantum-raspberry-tie real       # real IBM Quantum hardware (development image)
 ```
 
-The `real` variant is in the [development image](/latest/dev) only. It needs a network connection and your IBM Quantum account, and
+The `real` variant is in the [development image](/testing/#2-before-you-start-the-right-version) only. It needs a network connection and your IBM Quantum account, and
 your job may sit in a queue before it runs.
 
 **Your IBM Quantum account** (development image): the `real` variant asks for your API key when none
