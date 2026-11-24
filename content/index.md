@@ -67,7 +67,7 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
 
 <div className="feature-grid">
   <a className="feature" href="/03-quantum-computing-demos/01-demo-list/">
-    <img src="/demo-screenshots/bloch-sphere.webp" width="800" height="745" loading="lazy" alt="Grokking the Bloch Sphere: a qubit's state as an arrow on a sphere, with gate buttons" />
+    <img src="/demo-screenshots/bloch-sphere.webp" width="800" height="463" loading="lazy" alt="Grokking the Bloch Sphere: a qubit as an arrow on a sphere, gate buttons and tips on what to try" />
     <strong>15 demos and games</strong>
     <span>Bloch sphere, quantum coin game, Quantum Lights Out, Qoffee-Maker and more, each one click away.</span>
   </a>
@@ -97,7 +97,7 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
     <span>Its own Wi-Fi hotspot with a QR code to join, touch mode, a demo loop and Bluetooth speakers.</span>
   </a>
   <a className="feature" href="/02-software/03-ab-boot/">
-    <img src="/demo-screenshots/desktop.webp" width="800" height="450" loading="lazy" alt="The RasQberry desktop with demo icons" />
+    <img src="/demo-screenshots/desktop.webp" width="800" height="450" loading="lazy" alt="The RasQberry desktop after the start: demo icons and the welcome page" />
     <strong>Updates without a new card</strong>
     <span>On cards of 64 GB or more, new releases install over the air and the previous system stays as a fallback.</span>
   </a>
