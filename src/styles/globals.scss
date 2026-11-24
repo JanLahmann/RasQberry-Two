@@ -62,14 +62,17 @@ a.feature {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
 
   img {
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 10;
     object-fit: cover;
-    object-position: top;
+    object-position: center;
   }
 
   strong,
@@ -90,8 +93,11 @@ a.feature {
 
   &:hover,
   &:focus-visible {
-    transform: translateY(-2px);
     box-shadow: 0 8px 14px rgba(0, 0, 0, 0.15);
+
+    @media (prefers-reduced-motion: no-preference) {
+      transform: translateY(-2px);
+    }
   }
 }
 

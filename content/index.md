@@ -35,11 +35,11 @@ leadspace:
           event: "RasQberry Two: pi welcome click"
           target: first-15-minutes
       secondary:
-        label: First boot
+        label: Setup checklist
         url: /02-software/01-installation-overview/#3-setup-checklist
         umami:
           event: "RasQberry Two: pi welcome click"
-          target: first-boot
+          target: setup-checklist
       tertiary:
         label: All demos
         url: /03-quantum-computing-demos/01-demo-list/
@@ -55,7 +55,7 @@ leadspace:
 
 {/* BETA BOX: announces beta-2026-11-15-225917. For a newer beta, update the release tag in the "What's new" link; when a stable release ships, reword or remove the box. */}
 <div className="callout callout--news">
-  <p><strong>New beta:</strong> Wi-Fi hotspot for booths and classrooms, Bluetooth speakers, learning paths, safer first access and Qiskit 2.6. <a href="https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-11-15-225917" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="release-notes">What's new</a> · <a href="/testing/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="testing">Become a tester</a></p>
+  <p><strong>New beta:</strong> Wi-Fi hotspot for booths and classrooms, Bluetooth speakers, learning paths, safer first access and Qiskit 2.6. <a href="https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-11-15-225917" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="release-notes">What's new</a> · <a href="/testing/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="testing">Become a tester</a> · <a href="https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=New%20beta" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="feedback">Tell us what you think</a></p>
 </div>
 
 RasQberry Two is a working model of IBM Quantum System Two that you build
@@ -68,7 +68,7 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
 <div className="feature-grid">
   <a className="feature" href="/03-quantum-computing-demos/01-demo-list/">
     <img src="/demo-screenshots/bloch-sphere.webp" width="800" height="463" loading="lazy" alt="Grokking the Bloch Sphere: a qubit as an arrow on a sphere, gate buttons and tips on what to try" />
-    <strong>15 demos and games</strong>
+    <strong>Demos and games</strong>
     <span>Bloch sphere, quantum coin game, Quantum Lights Out, Qoffee-Maker and more, each one click away.</span>
   </a>
   <a className="feature" href="/03-quantum-computing-demos/led-display/">
@@ -127,11 +127,15 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
   </div>
 </div>
 
+{/* Old anchors, kept so earlier links still land here */}
+<span id="3-first-boot" />
+<span id="2-working-with-qiskit" />
+
 ## Getting started
 
-1. **Write the card.** Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer, click the button, then choose your Pi, **RasQberry Two Beta** and your card (128 GB recommended, 16 GB minimum).
-2. **Start the Pi.** The first start takes a few minutes and restarts on its own.
-3. **Follow the setup checklist**, then double-click a demo or a learning path.
+1. **Write the card.** Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer and click the button below. In Imager, confirm **Switch repository**, then choose your Pi, **RasQberry Two Beta** and your card (128 GB recommended, 16 GB minimum). The button did nothing? [Other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).
+2. **Start the Pi.** The first start takes a few minutes and restarts on its own. No screen? Read [first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen).
+3. **Follow the [setup checklist](/02-software/01-installation-overview/#3-setup-checklist)**, then double-click a demo or a learning path.
 
 <p><a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: imager open" data-umami-event-where="home-getting-started" data-umami-event-stream="beta">▶ Write RasQberry Two to your SD card</a></p>
 
@@ -147,6 +151,7 @@ Click a part for its name and STL file, press **Assemble** to watch it come toge
 
 - **Test new versions** with missions for your hardware: [become a tester](/testing/).
 - **Share ideas, report bugs, add a demo:** [contributing](/05-contributing/).
+- **Stuck?** See [troubleshooting](/02-software/01-installation-overview/#2-troubleshooting) or [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues).
 - **News:** [announcements](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements).
 - Looking for the model of IBM Quantum System One? See [rasqberry.one](https://rasqberry.one).
 
