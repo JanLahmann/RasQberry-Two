@@ -72,7 +72,7 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
     <span>Bloch sphere, quantum coin game, Quantum Lights Out, Qoffee-Maker and more, each one click away.</span>
   </a>
   <a className="feature" href="/03-quantum-computing-demos/led-display/">
-    <img src="/demo-screenshots/led-panel-ibm-logo.webp" width="1000" height="500" loading="lazy" alt="The LED panel in the dark, showing the IBM logo in rainbow colors" />
+    <img src="/demo-screenshots/led-panel-ibm-logo-tile.webp" width="800" height="500" loading="lazy" alt="The LED panel in the dark, showing the IBM logo in rainbow colors" />
     <strong>Qubits in light</strong>
     <span>Measurements light up a 24×8 LED panel. No panel yet? The same view opens on screen.</span>
   </a>

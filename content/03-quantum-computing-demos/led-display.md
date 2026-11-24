@@ -2,7 +2,7 @@
 
 The model's LED panel (24×8 LEDs) shows qubits, text, logos and color effects.
 
-<img src="/demo-screenshots/led-panel-ibm-logo.webp" width="1000" height="500" loading="lazy" alt="The LED panel in the dark, showing the IBM logo in rainbow colors" className="media-image" />
+<img src="/demo-screenshots/led-panel-ibm-logo.webp" width="1000" height="424" alt="The LED panel in the dark, showing the IBM logo in rainbow colors" className="media-image" />
 
 No panel? LED demos open the same view on screen:
 
