@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-24T22:34:31Z",
+  "generated": "2026-11-24T22:35:16Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,16 +39,14 @@
       "image_download_size": 2057108796,
       "extract_size": 9604956160,
       "extract_sha256": "e3fe049587776f4e631465e544dc35ce3d994c7cdabd5b14b0ae2fdc9721fdd4",
-      "image_sha256": "d38912acec2293183678f40148965b8ceebc56f2a935ce5c8efc2fde17deda23",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-24-230425/rasqberry-development-2026-11-24-230425-ab.img.xz",
       "ab_extract_sha256": "ce09f9ffe8bd4c555bad762c594008fbe42124f4e0c6c5440637b10c3a1afd38",
       "ab_image_sha256": "be01476b1c6708bb32f2804cca0ec3d343e379a0d04cbf461ff92c5f2599f019",
-      "ab_image_download_size": 2106463988,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2106463988,
       "highlights": [
-        "Testing page generator: drop the hint for images built before 16 October (#452)",
-        "Grok Bloch server: send Cache-Control: no-cache (#449)",
-        "rq_ssh_window.sh status: report a closed window as closed (#448)"
+        "Bump version to development-2026-11-24-230425",
+        "Testing page generator: drop the hint for images built before 16 October (#452)"
       ]
     }
   }
