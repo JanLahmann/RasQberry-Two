@@ -67,5 +67,3 @@ Please get in touch early, about four weeks before your event.
 <EventsEmail />
 
 Using other Fun with Quantum projects as well? See [fun-with-quantum.org/workshops](https://fun-with-quantum.org/workshops/).
-
-Questions? Ask [Ket](/?assistant=1).

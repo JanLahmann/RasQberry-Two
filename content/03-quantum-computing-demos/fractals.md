@@ -62,5 +62,3 @@ Created by **Wiktor Mazin** and team; ported to RasQberry by **Jan-R. Lahmann**.
 - [Julia sets on Wikipedia](https://en.wikipedia.org/wiki/Julia_set)
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
-
-Questions? Ask [Ket](/?assistant=1).

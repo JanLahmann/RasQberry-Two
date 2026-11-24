@@ -152,5 +152,3 @@ The image runs Raspberry Pi OS Trixie (64-bit) with Qiskit 2.x in
 - **Still stuck?** `rq_info.sh --report` saves a report in your home folder. Attach
   it to a [GitHub issue](https://github.com/JanLahmann/RasQberry-Two/issues) or
   e-mail it to info@rasqberry.org.
-
-Questions? Ask [Ket](/?assistant=1).

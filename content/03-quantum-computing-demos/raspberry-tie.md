@@ -59,5 +59,3 @@ display modes, backends and options in full — start there rather than here:
 - [Bill of Materials](/01-3d-model/01-bill-of-materials/) · [Hardware Assembly Guide](/01-3d-model/02-hardware-assembly-guide/) — for the LED panel
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
-
-Questions? Ask [Ket](/?assistant=1).

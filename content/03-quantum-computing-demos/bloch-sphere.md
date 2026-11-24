@@ -53,5 +53,3 @@ Built by **James Weaver** (JavaFXpert) — [JavaFXpert/grok-bloch](https://githu
 - [Bloch sphere on Wikipedia](https://en.wikipedia.org/wiki/Bloch_sphere)
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
-
-Questions? Ask [Ket](/?assistant=1).

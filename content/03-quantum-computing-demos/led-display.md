@@ -90,5 +90,3 @@ clear_all_leds()
   root there). Never `sudo python3`.
 - Examples: `~/My-Quantum-Programs/03_led_hello.py` and `04_bell_on_leds.py`. The
   menu's demos are `/usr/bin/demo_led_*.py`, e.g. `rq_python /usr/bin/demo_led_ibm_logo.py`.
-
-Questions? Ask [Ket](/?assistant=1).
