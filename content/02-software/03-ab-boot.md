@@ -38,6 +38,8 @@ automatically. To keep it as one system, create an empty file named
 3. If the update works, the new system becomes the one the Pi starts from. If
    it doesn't, the Pi goes back to the other one by itself.
 
+<img src="/installation-images/slot-manager.webp" width="800" height="573" loading="lazy" alt="The Slot Manager on a new card: Slot A runs the beta, Slot B is empty, next step: install an update into Slot B" className="media-image" />
+
 Updates take turns between Slot A and Slot B. The slot you left keeps the
 previous system, so you can go back to it.
 
@@ -88,3 +90,5 @@ Updates** and **What's new**. After an update, What's new opens once by itself.
 
 The partition layout, the boot mechanism and the command-line tools are in
 [docs/ab-boot.md](https://github.com/JanLahmann/RasQberry-Two/blob/development/docs/ab-boot.md).
+
+Questions? Ask [Ket](/?assistant=1).
