@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Image from 'next/image';
 
 import styles from './lead-space.module.scss'
@@ -8,6 +8,7 @@ import clsx from "clsx";
 import { Button, Column, Grid, Link } from "@/components/carbon-wrapper";
 import { icons } from "@/components/icons";
 import { umamiAttrs } from "@/lib/umami";
+import { openKet, useKetReady } from "@/lib/ketWidget";
 
 interface CTA {
     label: string
@@ -74,23 +75,8 @@ function CallToAction({ cta }: { cta: CTAs }) {
     </div>
 }
 
-// The widget (div#fwq-assistant, open shadow root) has no open() call: press
-// its own floating button, unless the panel is open already
-function openKet() {
-    const button = document.getElementById('fwq-assistant')?.shadowRoot?.querySelector<HTMLButtonElement>('.fa-open');
-    if (button && button.getAttribute('aria-expanded') !== 'true') button.click();
-}
-
 function KetPrompt({ label }: { label: string }) {
-    const [ready, setReady] = useState(false);
-    useEffect(() => {
-        // The host only: its shadow content may be filled after it is added
-        const found = () => !!document.getElementById('fwq-assistant');
-        if (found()) { setReady(true); return; }
-        const observer = new MutationObserver(() => { if (found()) { setReady(true); observer.disconnect(); } });
-        observer.observe(document.body, { childList: true });
-        return () => observer.disconnect();
-    }, []);
+    const ready = useKetReady();
     if (!ready) return null;
     return <p className={styles['lead-space__ket']}>
         {/* No Umami attribute: the widget counts its own "assistant open" */}

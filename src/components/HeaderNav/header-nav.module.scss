@@ -29,19 +29,24 @@
         padding: 0.5rem 0.875rem;
         border: none;
         border-radius: 1rem;
-        background: #0f62fe;
-        color: #fff;
+        background: var(--cds-button-primary, #0f62fe);
+        color: var(--cds-text-on-color, #fff);
         font: inherit;
         font-size: 0.875rem;
         cursor: pointer;
         white-space: nowrap;
 
         &:hover {
-            background: #0353e9;
+            background: var(--cds-button-primary-hover, #0050e6);
+        }
+
+        // narrow phones: the icon alone, the name stays in aria-label
+        @media (max-width: 24rem) {
+            span { display: none; }
         }
 
         &:focus-visible {
-            outline: 2px solid #0f62fe;
+            outline: 2px solid var(--cds-focus, #0f62fe);
             outline-offset: 2px;
         }
     }
