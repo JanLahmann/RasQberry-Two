@@ -35,6 +35,9 @@ automatically. To keep it as one system, create an empty file named
    about 2 GB and takes 10–20 minutes, then the Pi restarts into the new system.
    If nothing newer is out, it offers your release again as a second copy, and
    **Other release...** for another one.
+
+   <img src="/installation-images/slot-manager.webp" width="800" height="573" loading="lazy" alt="The Slot Manager on a new card: Slot A running, Slot B empty, next step: install an update into Slot B" className="media-image" />
+
 3. If the update works, the new system becomes the one the Pi starts from. If
    it doesn't, the Pi goes back to the other one by itself.
 
@@ -67,8 +70,8 @@ stay in the other slot: switch back to fetch them.
   **CONFIG** drive. In `autoboot.txt`, under `[all]`, set `boot_partition=2`
   (Slot A), save, and put the card back.
 
-**System Info** in the RasQberry menu shows what each slot holds and which one
-you are running.
+**System Info** in the RasQberry menu, or **Slot Manager** → **Show slot details**,
+shows what each slot holds and which one you are running.
 
 ## Raspberry Pi 4
 
@@ -88,3 +91,5 @@ Updates** and **What's new**. After an update, What's new opens once by itself.
 
 The partition layout, the boot mechanism and the command-line tools are in
 [docs/ab-boot.md](https://github.com/JanLahmann/RasQberry-Two/blob/development/docs/ab-boot.md).
+
+Questions? Ask [Ket](/?assistant=1).
