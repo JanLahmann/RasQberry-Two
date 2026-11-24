@@ -98,8 +98,28 @@ written card only, not after an update.
 
 The first start takes a few minutes and the Pi restarts on its own: do not
 unplug it. Then the desktop opens, without a login, and a short setup checklist
-appears (see [First boot](/#3-first-boot)). Over SSH and VNC, log in with the
+appears (below). Over SSH and VNC, log in with the
 user set in Imager; without one, see [first access without a screen](/02-software/02-system-options/#3-first-access-without-a-screen).
+
+### Setup checklist
+
+At the first login a short checklist offers the steps that still need you:
+
+- **Keyboard layout and time zone** (UK until you change them).
+- **Wi-Fi**, when the Pi has no network.
+- **Your own password.** Keep `Qiskit1!` only for a booth.
+- **A name for this RasQberry**, when several share a network.
+- **The LED panel:** pick the color in which the IBM logo reads upright. No
+  panel? Say so; LED demos then show on screen.
+- **Download all demos** now, or each on its first start.
+- **Touch mode**, when a touchscreen is attached.
+
+On the [A/B image](/02-software/03-ab-boot/) the first start prepares two
+systems on cards of 64 GB or more.
+
+Every step can wait: the **RasQberry Setup** icon opens the list again. Tick
+**Don't show again** to remove the icon; the list stays in **0 RasQberry** →
+**Setup Checklist**.
 
 ## Downloads
 
