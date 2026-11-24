@@ -73,6 +73,15 @@ class QuietHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         super().log_message(format, *args)
 
+    def end_headers(self):
+        """Add Cache-Control: no-store, so a patched file shows at once.
+
+        Not no-cache: revalidation compares mtimes, and a Pi without a clock
+        can write the patched file with an older mtime (304, old file kept).
+        """
+        self.send_header('Cache-Control', 'no-store')
+        super().end_headers()
+
 
 class ReusableTCPServer(socketserver.ThreadingTCPServer):
     # TCPServer defaults this to False, so a port left in TIME_WAIT by the
