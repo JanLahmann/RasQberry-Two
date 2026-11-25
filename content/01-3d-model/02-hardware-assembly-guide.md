@@ -1,6 +1,6 @@
 # Hardware Assembly Procedure
 
-Build the RasQberry Two model step by step, with photos. You set up the Raspberry Pi, then assemble the three main parts: the Wall, the Floor and the Cryostat. You need the [parts from the bill of materials](/01-3d-model/01-bill-of-materials/) and the printed pieces.
+Build the RasQberry Two model step by step, with photos. You set up the Raspberry Pi, then assemble the three main parts: the Wall, the Floor and the Cryostat. You need the [parts from the bill of materials](/01-3d-model/01-bill-of-materials/) and the printed pieces ([what to print](#3-what-to-print)).
 
 ### Explore the model in 3D
 
@@ -37,17 +37,14 @@ in more slicers.
 
 Amounts per color: [bill of materials](/01-3d-model/01-bill-of-materials/#2-bill-of-materials).
 
-Variants, not needed for the standard build: `R2_Wall-Back+13` (the Pi's screw
-posts 13 mm higher), `R2_Wall-Back-SolidForStaticModels` (a closed back, without
-Pi posts, for a model without electronics), and floor tiles 1 and 2 in
-`floor/Sign Magnet Indent Version` (with indents for magnets to hold a sign).
+Not needed for the standard build: `R2_Wall-Back+13` (the Pi's screw posts 13 mm
+higher), `R2_Wall-Back-SolidForStaticModels` (a closed back, without Pi posts, for
+a model without electronics), floor tiles 1 and 2 in `floor/Sign Magnet Indent Version`
+(with indents for magnets to hold a sign), the alternatives in
+`cryostat/Standalone Version`, and the variants in `3D Model - modifications - Jan`.
 
-**New, not yet tested:** `3D Model/print/generated` has every part rebuilt, as
-STL and as 3MF with the filament color, large parts also split in two for smaller
-printers, and ready print plates
-([details](/details/3d-printing/)). Nobody has printed the whole set yet. If you
-do, tell us how it went: [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues)
-or [become a tester](/testing/).
+**New, not yet tested:** rebuilt parts and ready print plates in
+`3D Model/print/generated` ([details and feedback](/details/3d-printing/)).
 
 ## Setting up the Raspberry Pi
 

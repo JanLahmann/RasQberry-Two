@@ -86,7 +86,7 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
     <strong>Code with Qiskit</strong>
     <span>JupyterLab opens at Hello World. Run on the built-in simulator, or on a real IBM quantum computer with a free account.</span>
   </a>
-  <a className="feature" href="/01-3d-model/02-hardware-assembly-guide/#3-what-to-print">
+  <a className="feature" href="/01-3d-model/02-hardware-assembly-guide/">
     <img src="/Artwork/RasQberry2exploded.webp" width="1200" height="822" loading="lazy" alt="Exploded view of the 3D-printed RasQberry Two parts" />
     <strong>Print and build the model</strong>
     <span>STL files, a bill of materials and a step-by-step guide. Turn the model in 3D below.</span>

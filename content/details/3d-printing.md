@@ -5,27 +5,31 @@ Background for [what to print](/01-3d-model/02-hardware-assembly-guide/#3-what-t
 ## The standard parts
 
 The STL files in [`print/originals`](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/originals) are the parts the
-assembly guide shows. They print without supports. On a bed smaller than about
-250 mm, split the Wall parts in your slicer
-([how](/01-3d-model/02-hardware-assembly-guide/#3-gluing-all-the-pieces-together)).
+assembly guide shows. On a bed smaller than about 250 mm, split the Wall parts in
+your slicer ([how](/01-3d-model/02-hardware-assembly-guide/#3-gluing-all-the-pieces-together)).
+The filament amounts in the bill of materials are PrusaSlicer's estimate for
+these parts (Prusament PLA, 0.20 mm layers, without supports).
 
 ## The new parts (not yet tested)
 
-[`print/generated`](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/generated) has every part rebuilt from code
-([`cad`](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/cad)). Nobody has printed the whole set yet; until then the
-originals stay the standard. Feedback is very welcome:
+[`print/generated`](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/generated) has parts rebuilt from code
+([`cad`](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/cad)); the others are copied from the originals. Nobody has printed
+the whole set yet, so the originals stay the standard. Feedback is very welcome:
 [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues) or
 [become a tester](/testing/).
 
-- **STL, 3MF and STEP** for each part; the 3MF already has the filament color.
+- **Formats:** STL and 3MF (with the filament color) for every part, STEP for
+  nearly all.
 - **Split parts** (`.split-A` / `.split-B`) for printers smaller than about 250 mm.
-- **Without floor:** `-no-floor` versions of the wall base and the cryostat, without
-  the holes for the floor plugs.
-- **Floor plugs:** `R2_Floor-CryoPlug` and `R2_Floor-WallPlug` join the floor
-  to the cryostat and the wall.
 - **Print plates** ([`plates`](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/generated/plates)): PrusaSlicer projects
-  (2.9 or later), one per filament color, with grams and print time per bed. Made
-  for the Prusa Core One; for another printer, choose it in PrusaSlicer and
-  arrange. `-indx` files are for the Core One INDX tool changer.
+  (2.9 or later) for the Prusa Core One, with grams and print time per bed; for
+  another printer, choose it in PrusaSlicer and arrange. `-indx` files are for
+  the Core One INDX tool changer.
+- **Jan's variant:** the plates build a different set from the assembly guide:
+  `R2_Wall-Base-jrl01-2`, `R2_Wall-Back+13`, a galaxy-black LED panel frame
+  (`RQB2-WallPanel-jrl02-2`), the cryostat `RQB2-R2_CryoStandaloneGamma-jrl04`
+  with 9 separate RTE servers, and floor plugs that join the floor to the wall
+  and the cryostat. Only this set has `-no-floor` versions of the wall base and
+  the cryostat.
 - **The whole model** in color ([`complete`](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/generated/complete)), to
   see what goes where.
