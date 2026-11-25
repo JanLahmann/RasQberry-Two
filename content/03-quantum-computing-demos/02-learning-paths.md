@@ -7,7 +7,8 @@ play around. Each path is a short tour for one audience; on the Pi, the
 **Learning paths** icon starts each demo for you. All demos are on the
 [Demo List](/03-quantum-computing-demos/01-demo-list/).
 
-Steps tagged <span className="beta-tag">dev image</span> are in the development image only; a beta image skips them.
+<span className="beta-tag">dev image</span> marks what only the development image has. A beta image leaves those
+steps out (or opens them online), and the paths with fewer than two steps left.
 For a class or event that needs them, use the
 [development image](/testing/#2-before-you-start-the-right-version): we help you
 check it for your event ([workshops & events](/workshops/)).
@@ -64,14 +65,14 @@ Learn what a superposition is and what a measurement does to it.
 
 ## Entanglement
 
-Curious learners · about 40 minutes
+Curious learners · about 40 minutes · <span className="beta-tag">dev image</span>
 
 Win games that no classical team can win every time, with entangled qubits.
 
-1. **GHZ Game** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a> <span className="beta-tag">dev image</span>
+1. **GHZ Game** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Look for a strategy that always wins, then let the quantum team play.
    - Notice: No classical strategy wins every round. Three entangled qubits do.
-2. **Mermin–Peres Magic Square** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a> <span className="beta-tag">dev image</span>
+2. **Mermin–Peres Magic Square** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Look for a magic square that works, then run the quantum strategy for many rounds.
    - Notice: Alice's and Bob's answers are random, yet they always agree where they meet.
 3. **<a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">RasQ-LED Demo</a>**

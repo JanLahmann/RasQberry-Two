@@ -24,7 +24,7 @@ with the image already written; LED panels are optional, because the LED demos
 also show on screen. Starting points: the
 [LED panel from your own code](/03-quantum-computing-demos/led-display/#2-for-developers) and
 [your own Qiskit programs](/03-quantum-computing-demos/00-overview/#2-your-own-qiskit-programs).
-Several Pis on one network: give each its own name in Imager ([customisation](/02-software/01-installation-overview/#3-customisation)).
+Several Pis on one network: give each its own name in Imager ([customization](/02-software/01-installation-overview/#3-customisation)).
 
 ## One of your Pis as a server for the whole group
 
