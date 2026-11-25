@@ -15,23 +15,17 @@ There are quite a lot of pieces, but they're easy to print, without the need for
 
 ## Files
 
-All in [`3D Model/`](3D%20Model):
+All in [`3D Model/print/`](3D%20Model/print):
 
-- **[`print/`](3D%20Model/print)**: the files to print. Every part has an
-  STL and a 3MF; the 3MF already has the filament colour. Large parts also
-  come split in two (`.split-A` / `.split-B`) for smaller printers.
-- **[`originals/`](3D%20Model/originals)**: the original SketchUp and
-  Tinkercad files, unchanged, for reference.
-- **[`cad/`](3D%20Model/cad)**: the code that generates `print/`.
-
-What to print (folders in `print/`):
-
-| Section | Parts |
-|---|---|
-| Wall | `R2_Wall-Base-jrl01-2` (`-no-floor` if you print without floor), `R2_Wall-Lid`, `R2_Wall-Back+13` (to mount a Raspberry Pi; `R2_Wall-Back-SolidForStaticModels` for a display model), `RQB2-WallPanel-jrl02-2` |
-| RTE | 9x `RQB2-R2_NarrowServerSingle-jrl02`, 9x `R2_NarrowServerSingleLid` |
-| Cryostat | `RQB2-R2_CryoStandaloneGamma-jrl04` (`-no-floor` …), 3x `R2_ChandelierSingle`, `R2_CryoLid-Simple`, `R2_NewDoor` |
-| Floor | `R2_Floor-Tile1` … `Tile6s` |
+- **[`originals/`](3D%20Model/print/originals)**: the standard parts, the STL
+  files the [assembly guide](https://rasqberry.org/01-3d-model/02-hardware-assembly-guide/)
+  shows. What to print, how many and in which color:
+  [what to print](https://rasqberry.org/01-3d-model/02-hardware-assembly-guide/#3-what-to-print).
+- **[`generated/`](3D%20Model/print/generated)**: every part rebuilt from code
+  ([`cad/`](3D%20Model/cad)), as STL and as 3MF with the filament colour, large
+  parts also split in two (`.split-A` / `.split-B`), and print plates.
+  **Not yet tested:** nobody has printed the whole set. Feedback is very welcome,
+  in an [issue](https://github.com/JanLahmann/RasQberry-Two/issues).
 
 If a lid is too loose or too tight on the RTE servers, adjust its fit in
 [`cad/RTE/rte_lid.py`](3D%20Model/cad/RTE/rte_lid.py).
