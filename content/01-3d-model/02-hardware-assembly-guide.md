@@ -16,18 +16,38 @@ Luka Dojcinovic, Andy Stanford-Clark, Eric H Jenney, Jan-Rainer Lahmann, Sascha 
 
 You can contact any of us with questions, concerns or suggestions for changes to the hardware specs and the assembly guide
 
-### Where to find the 3D files
+### What to print
 
-This assembly guide assumes that you have already printed out the 3D files for the Wall, Floor, Cryostat and the RTEs. If you haven't already downloaded and printed the STL files, they can be found [here](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model).
+{/* Old anchor, kept for existing links */}
+<span id="3-where-to-find-the-3d-files" />
 
-**Tip:** Use the `*_repaired.stl` version of a file where there is one, for best slicer compatibility.
+Print the STL files in [`3D Model/print/originals`](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/originals) on the `3D-model`
+branch. Use the `*_repaired.stl` version of a file where there is one; it opens
+in more slicers.
+
+| Section | Parts | Filament |
+|---|---|---|
+| [Wall](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/originals/wall) | `R2_Wall-Base`, `R2_Wall-Back`, `R2_Wall-Lid`, 2× `R2_Screw`, 3× `R2_Hex_Nut` | matte black |
+| [Floor](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/originals/floor) | `R2_Floor-Tile1` … `R2_Floor-Tile6s`, or `R2_Floor-all` in one piece | white |
+| [Cryostat](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/originals/cryostat) | `R2_NarrowYCryoConjoined`, `R2_ScrewOctopusAlignment2`, `R2_NewDoor` | silk silver |
+| | `R2_CryoLid-Simple` | transparent |
+| | 3× `R2_ChandelierSingle` | silk gold |
+| [RTE](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/print/originals/RTE) | 3× `R2_NarrowServerSingle` | silk silver |
+| | 9× `R2_NarrowServerSingleLid` | transparent |
+
+Amounts per color: [bill of materials](/01-3d-model/01-bill-of-materials/#2-bill-of-materials).
 
 Variants, not needed for the standard build: `R2_Wall-Back+13` (the Pi's screw
 posts 13 mm higher), `R2_Wall-Back-SolidForStaticModels` (a closed back, without
 Pi posts, for a model without electronics), and floor tiles 1 and 2 in
 `floor/Sign Magnet Indent Version` (with indents for magnets to hold a sign).
-The folder `3D Model - modifications - Jan` holds experimental variants that this
-guide does not cover.
+
+**New, not yet tested:** `3D Model/print/generated` has every part rebuilt, as
+STL and as 3MF with the filament color, large parts also split in two for smaller
+printers, and ready print plates
+([details](/details/3d-printing/)). Nobody has printed the whole set yet. If you
+do, tell us how it went: [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues)
+or [become a tester](/testing/).
 
 ## Setting up the Raspberry Pi
 
