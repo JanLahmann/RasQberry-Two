@@ -12,10 +12,10 @@ the reference.
 
 ```
 print/
-  generated/   what to print: STL + 3MF (with the filament colour) + STEP,
+  generated/   not yet tested: STL + 3MF (with the filament colour) + STEP,
                per part folder (wall/ floor/ cryostat/ RTE/). Generated:
                rebuilt parts from cad/, the rest copied from originals/.
-  originals/   the SketchUp/Tinkercad STLs and Jan's modifications, untouched
+  originals/   the standard: the SketchUp/Tinkercad STLs and Jan's modifications, untouched
                (*_repaired.stl: mesh repairs made by CI)
 cad/           this code
   rqb_params.py    values shared by all parts (scale, body height, fits, export)

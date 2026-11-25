@@ -19,19 +19,22 @@ All in [`3D Model/print/`](3D%20Model/print):
 
 - **[`originals/`](3D%20Model/print/originals)**: the standard parts, the STL
   files the [assembly guide](https://rasqberry.org/01-3d-model/02-hardware-assembly-guide/)
-  shows. What to print, how many and in which color:
+  shows; which ones, how many and in which color:
   [what to print](https://rasqberry.org/01-3d-model/02-hardware-assembly-guide/#3-what-to-print).
-- **[`generated/`](3D%20Model/print/generated)**: every part rebuilt from code
-  ([`cad/`](3D%20Model/cad)), as STL and as 3MF with the filament colour, large
-  parts also split in two (`.split-A` / `.split-B`), and print plates.
-  **Not yet tested:** nobody has printed the whole set. Feedback is very welcome,
-  in an [issue](https://github.com/JanLahmann/RasQberry-Two/issues).
-
-If a lid is too loose or too tight on the RTE servers, adjust its fit in
-[`cad/RTE/rte_lid.py`](3D%20Model/cad/RTE/rte_lid.py).
+  The folder `3D Model - modifications - Jan` holds variants the guide does not
+  cover.
+- **[`generated/`](3D%20Model/print/generated)**: parts rebuilt from code
+  ([`cad/`](3D%20Model/cad)), the others copied from the originals; STL and
+  3MF with the filament color (STEP for nearly all), large parts also split in two
+  (`.split-A` / `.split-B`). The [print plates](3D%20Model/print/generated/plates)
+  (PrusaSlicer, Prusa Core One) use Jan's variants, a different set from the
+  assembly guide. **Not yet tested:** nobody has printed the whole set. Feedback
+  is very welcome: [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues)
+  or [become a tester](https://rasqberry.org/testing/). For a rebuilt RTE lid that
+  is too loose or too tight, adjust its fit in
+  [`cad/RTE/rte_lid.py`](3D%20Model/cad/RTE/rte_lid.py).
 
 ![Exploded parts view of RasQberry 2 model](artwork/RasQberry2exploded.png "Exploded view of RasQerry 2")
 
 We hope you have as much fun building a model of the IBM Quantum System Two as we have had designing it!   
-We very much welcome your feedback and suggestions for improvement.
 
