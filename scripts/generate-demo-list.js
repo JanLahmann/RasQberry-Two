@@ -329,10 +329,32 @@ function trackedLink(text, url, path, to, title) {
   return `<a ${a.join(' ')}>${esc(text)}</a>`;
 }
 
+// What a beta image does with a step, as rq_demo_level.py trims it: "kept",
+// "online" (a dropped demo whose material is online becomes a web step) or
+// "dropped". A missing level counts as dev there, and a variant without one
+// takes its demo's.
+const LEVELS = ['dev', 'beta', 'prod'];
+const levelOf = (v, dflt = 'dev') => (LEVELS.includes(v) ? v : v === 'stable' ? 'prod' : dflt);
+const onBeta = (level) => LEVELS.indexOf(level) >= LEVELS.indexOf('beta');
+function betaFate(step, byId) {
+  if (!step.demo) return 'kept';
+  const m = byId[step.demo];
+  const level = levelOf(m.maturity);
+  const variants = (m.variants || []).filter((v) => onBeta(levelOf(v.maturity, level)));
+  const kept = m.variants?.length
+    ? variants.length > 0 && (!step.variant || variants.some((v) => v.id === step.variant))
+    : onBeta(level);
+  if (kept) return 'kept';
+  return step.online && step.name ? 'online' : 'dropped';
+}
+// A beta image drops a path left with fewer than two steps
+const MIN_STEPS = 2;
+const pathOnBeta = (p, byId) => p.steps.filter((st) => betaFate(st, byId) !== 'dropped').length >= MIN_STEPS;
+
 // One step: where to start it, then what to try and what to notice. A demo
 // links to its page (or the demo list); a notebook inside a demo (a Fun with
 // Quantum game) names the demo it is in.
-function renderStep(step, i, byId, pathId) {
+function renderStep(step, i, byId, pathId, tagged) {
   let what;
   if (step.demo) {
     const m = byId[step.demo];
@@ -345,14 +367,16 @@ function renderStep(step, i, byId, pathId) {
     // or the same material online, with its source's time
     if (step.page) {
       const local = trackedLink(m.name.replace(/ \(.*\)$/, ''), link, pathId, link);
-      what = `**${esc(step.name)}** (${esc(step.time)}): in ${local} on the Pi, or ${trackedLink('online at IBM Quantum', step.online, pathId, step.online)}`;
+      const tag = !tagged && betaFate(step, byId) === 'online' ? ` ${BETA_TAG}` : '';
+      what = `**${esc(step.name)}** (${esc(step.time)}): in ${local}${tag} on the Pi, or ${trackedLink('online at IBM Quantum', step.online, pathId, step.online)}`;
     }
   } else if (step.command) {
     what = `**${esc(step.name)}** (desktop icon on the Pi)`;
   } else {
     what = `**${trackedLink(step.name, step.url, pathId, step.url)}** (online)`;
   }
-  return `${i + 1}. ${what}\n   - Try: ${esc(step.try)}\n   - Notice: ${esc(step.notice)}\n`;
+  const dev = !tagged && betaFate(step, byId) === 'dropped' ? ` ${BETA_TAG}` : '';
+  return `${i + 1}. ${what}${dev}\n   - Try: ${esc(step.try)}\n   - Notice: ${esc(step.notice)}\n`;
 }
 
 // The anchor the site gives an H2 (src/utils/toKebabCase.ts, "2-" + title)
@@ -412,9 +436,17 @@ Ideas to get you started, not a curriculum: explore the Pi, try things out and
 play around. Each path is a short tour for one audience; on the Pi, the
 **Learning paths** icon starts each demo for you. All demos are on the
 [Demo List](${DEMO_LIST_URL}).
+
+${BETA_TAG} marks what only the development image has. A beta image leaves those
+steps out (or opens them online), and the paths with fewer than two steps left.
+For a class or event that needs them, use the
+[development image](/testing/#2-before-you-start-the-right-version): we help you
+check it for your event ([workshops & events](/workshops/)).
 `;
   for (const p of paths) {
-    const beta = isDev(p) ? ` · ${BETA_TAG}` : '';
+    // a dev path, or one a beta image drops: tagged once, on its header
+    const tagged = isDev(p) || !pathOnBeta(p, byId);
+    const beta = tagged ? ` · ${BETA_TAG}` : '';
     md += `
 <div className="path-card">
 
@@ -424,7 +456,7 @@ ${esc(p.audience)} · about ${duration(p.minutes)}${beta}
 
 ${esc(p.goal)}
 ${p.credit ? `\n${trackedLink(p.credit, p.credit_url, p.id, p.credit_url)}\n` : ''}
-${p.steps.map((st, i) => renderStep(st, i, byId, p.id)).join('')}
+${p.steps.map((st, i) => renderStep(st, i, byId, p.id, tagged)).join('')}
 ${renderNext(p, paths, learning.ibm_learning)}
 ${isDev(p) ? 'This path is new: [tell' : '[Tell'} us how it went](${FEEDBACK}&demo=learning-paths/${p.id}).
 
