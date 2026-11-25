@@ -14,6 +14,10 @@ RasQberry Two for it: free, as part of our open-source community work.
   below, are only in the [development image](/testing/#2-before-you-start-the-right-version).
   Need one? We check the development image for your event and, where we can, move
   what you need into the beta.
+- **Student accounts** without admin rights are planned. Need them for your class?
+  Get in touch: we build them with you. Until then, students use the main account,
+  so set your own password before class (in the
+  [setup checklist](/02-software/01-installation-overview/#3-setup-checklist)).
 
 You bring the Raspberry Pis; we help you get them ready.
 
