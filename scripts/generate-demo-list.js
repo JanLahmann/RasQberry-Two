@@ -329,6 +329,13 @@ function trackedLink(text, url, path, to, title) {
   return `<a ${a.join(' ')}>${esc(text)}</a>`;
 }
 
+// A step's level: its variant's, else its demo's. A beta image skips dev
+// steps (rq_demo_level.py), so the site tags them.
+function stepLevel(step, m) {
+  const v = (m.variants || []).find((x) => x.id === step.variant);
+  return { maturity: v?.maturity || m.maturity };
+}
+
 // One step: where to start it, then what to try and what to notice. A demo
 // links to its page (or the demo list); a notebook inside a demo (a Fun with
 // Quantum game) names the demo it is in.
@@ -345,14 +352,17 @@ function renderStep(step, i, byId, pathId) {
     // or the same material online, with its source's time
     if (step.page) {
       const local = trackedLink(m.name.replace(/ \(.*\)$/, ''), link, pathId, link);
-      what = `**${esc(step.name)}** (${esc(step.time)}): in ${local} on the Pi, or ${trackedLink('online at IBM Quantum', step.online, pathId, step.online)}`;
+      const tag = isDev(m) ? ` ${BETA_TAG}` : '';
+      what = `**${esc(step.name)}** (${esc(step.time)}): in ${local}${tag} on the Pi, or ${trackedLink('online at IBM Quantum', step.online, pathId, step.online)}`;
     }
   } else if (step.command) {
     what = `**${esc(step.name)}** (desktop icon on the Pi)`;
   } else {
     what = `**${trackedLink(step.name, step.url, pathId, step.url)}** (online)`;
   }
-  return `${i + 1}. ${what}\n   - Try: ${esc(step.try)}\n   - Notice: ${esc(step.notice)}\n`;
+  // (a step with an online page carries its tag next to the Pi option)
+  const dev = step.demo && !step.page && isDev(stepLevel(step, byId[step.demo])) ? ` ${BETA_TAG}` : '';
+  return `${i + 1}. ${what}${dev}\n   - Try: ${esc(step.try)}\n   - Notice: ${esc(step.notice)}\n`;
 }
 
 // The anchor the site gives an H2 (src/utils/toKebabCase.ts, "2-" + title)
@@ -412,6 +422,11 @@ Ideas to get you started, not a curriculum: explore the Pi, try things out and
 play around. Each path is a short tour for one audience; on the Pi, the
 **Learning paths** icon starts each demo for you. All demos are on the
 [Demo List](${DEMO_LIST_URL}).
+
+Steps tagged ${BETA_TAG} are in the development image only; a beta image skips them.
+For a class or event that needs them, use the
+[development image](/testing/#2-before-you-start-the-right-version): we help you
+check it for your event ([workshops & events](/workshops/)).
 `;
   for (const p of paths) {
     const beta = isDev(p) ? ` · ${BETA_TAG}` : '';

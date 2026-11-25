@@ -1,7 +1,7 @@
 # Workshops & events
 
-You run the workshop or event, and we help you prepare RasQberry Two for it:
-free, as part of our open-source community work.
+You run a workshop, class, hackathon or maker event, and we help you prepare
+RasQberry Two for it: free, as part of our open-source community work.
 
 ## How we can help
 
@@ -10,12 +10,25 @@ free, as part of our open-source community work.
 - **Extensions** for your topic.
 - **Testing**: we check every function you plan to use.
 - **Advice** on tools, setup and agenda: how many Pis, offline use, LED panels.
+- **The development image:** some features, such as the Workshop & Qiskit Server
+  below, are only in the [development image](/testing/#2-before-you-start-the-right-version).
+  Need one? We check the development image for your event and, where we can, move
+  what you need into the beta.
 
 You bring the Raspberry Pis; we help you get them ready.
 
+### Hackathons and maker events
+
+Participants build something of their own with Qiskit and the LED panel. Bring Pis
+with the image already written; LED panels are optional, because the LED demos
+also show on screen. Starting points: the
+[LED panel from your own code](/03-quantum-computing-demos/led-display/#2-for-developers) and
+[your own Qiskit programs](/03-quantum-computing-demos/00-overview/#2-your-own-qiskit-programs).
+Several Pis on one network: give each its own name in Imager ([customisation](/02-software/01-installation-overview/#3-customisation)).
+
 ## One of your Pis as a server for the whole group
 
-<span className="beta-tag">dev image</span> The **Workshop & Qiskit Server** runs on one of your Pis and serves the
+<a href="/testing/#2-before-you-start-the-right-version"><span className="beta-tag">dev image</span></a> The **Workshop & Qiskit Server** runs on one of your Pis and serves the
 participants' laptops over the local network: IBM Quantum tutorials and courses,
 with the Qiskit code running on the Pi. It is based on
 [doQumentation](https://doqumentation.org). We help you size it for your group.
