@@ -95,8 +95,7 @@ address its window shows (they warn about the certificate once: **Advanced** →
 - The screen doesn't blank (`sudo raspi-config` → **2 Display Options** →
   **Screen Blanking**). **0 RasQberry** → **Desktop Settings** → **Browser at login**
   stops rasqberry.org opening at every start.
-- In class, students use the main account; set your own password first.
-  Separate student accounts on request ([workshops & events](/workshops/#2-how-we-can-help)).
+- For a class: [student accounts without admin rights](/workshops/#2-how-we-can-help).
 - Visitors stop for Quantum Lights Out, Grokking the Bloch Sphere, Quantum Fractals,
   the LED demos and the Quantum Coin Game ([more](/workshops/#2-for-a-stand)).
 
