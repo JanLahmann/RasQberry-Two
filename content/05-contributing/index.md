@@ -15,7 +15,7 @@ The most valuable contribution is testing and reporting bugs:
 - Try out RasQberry on your hardware
 - [Report issues](https://github.com/JanLahmann/RasQberry-Two/issues) with clear steps to reproduce
 - Include error messages, screenshots, and hardware details
-- Attach the report from `rq_info.sh --report` (saved in your home folder): version, Pi model, A/B slot, disk space and recent logs
+- Attach the report from `rq_info.sh --report` (saved in your home folder): version, Pi model, A/B slot, disk space and recent logs. It also shows the Pi's name and network addresses: check it before you post it in a public issue, or e-mail it to info@rasqberry.org
 
 ### 2. Share Ideas & Feature Requests
 
@@ -35,17 +35,29 @@ Help make RasQberry easier to use:
 Your demo lives in your own public GitHub repository; you don't build an image.
 The full guide is [CONTRIBUTING.md](https://github.com/JanLahmann/RasQberry-Two/blob/development/CONTRIBUTING.md):
 
-1. **Your repository:** a licence, exact package versions (`package==1.2.3`), and an `rqb-demo.json`
-   manifest at its root that says how the demo runs (`python`, `jupyter`, `browser`,
-   `web-static` or `docker`). LED demos draw through `rq_led_utils`, without
-   root ([LEDs](https://github.com/JanLahmann/RasQberry-Two/blob/development/CONTRIBUTING.md#2-leds)).
-2. **Test it on your Pi:** clone it into `~/RasQberry-Two/demos/`, check it with
-   `rq_demo_validate.sh --external rqb-demo.json`, and start it with `rq_demo_run.sh`
-   ([steps](https://github.com/JanLahmann/RasQberry-Two/blob/development/CONTRIBUTING.md#4-test-it-on-your-pi)).
-3. **Into the catalogue:** [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues)
-   with the repository link and the commit to use. We test the demo on a Pi 4 and a Pi 5
-   and add it to the catalogue.
-4. Users then install it from **Quantum Demos** → **Manage demos** → **Add demo from catalogue**.
+1. **Your repository** ([details](https://github.com/JanLahmann/RasQberry-Two/blob/development/CONTRIBUTING.md#1-your-repository)): a license, an
+   `rqb-demo.json` manifest at its root that says how the demo runs (`python`,
+   `jupyter`, `browser`, `web-static` or `docker`), and only your extra packages, in
+   `requirements.txt` with exact versions (`package==1.2.3`). The repository name is
+   the demo's folder on the Pi, so `entrypoint.working_dir` must equal it. LED demos
+   draw through `rq_led_utils`, without root ([LEDs](https://github.com/JanLahmann/RasQberry-Two/blob/development/CONTRIBUTING.md#2-leds)).
+2. **Test it on your Pi** ([details](https://github.com/JanLahmann/RasQberry-Two/blob/development/CONTRIBUTING.md#4-test-it-on-your-pi)):
+
+   ```bash
+   git clone https://github.com/<owner>/my-quantum-demo.git ~/RasQberry-Two/demos/my-quantum-demo
+   cd ~/RasQberry-Two/demos/my-quantum-demo
+   rq_demo_validate.sh --external rqb-demo.json
+   mkdir -p ~/.local/config/demo-manifests
+   cp rqb-demo.json ~/.local/config/demo-manifests/rq_demo_my-quantum-demo.json
+   rq_demo_run.sh my-quantum-demo
+   ```
+
+3. **Into the catalogue** ([details](https://github.com/JanLahmann/RasQberry-Two/blob/development/CONTRIBUTING.md#5-into-the-catalogue)):
+   [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues) with the
+   repository link and the commit to use. We test the demo on a Pi 4 and a Pi 5 and
+   add it to the catalogue.
+4. Users then install it from the desktop or from **Quantum Demos** → **Manage demos**
+   → **Add demo from catalogue** (`rq_demo_add_external.sh <id>`).
 
 **Example demos for inspiration:**
 - [Quantum Lights Out](../03-quantum-computing-demos/quantum-lights-out) - Puzzle game with quantum algorithms
