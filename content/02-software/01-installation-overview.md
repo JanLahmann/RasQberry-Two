@@ -68,7 +68,8 @@ Demo icons and group folders are on the desktop. Everything else is in the menu:
 - **System updates:** the update icon in the taskbar.
 - **New RasQberry releases:** on the A/B image, install into the other system
   ([how](/02-software/03-ab-boot/)). Otherwise write a new card: copy your notebooks
-  and `~/.qiskit` to a USB stick first. The Pi tells you when a release is out.
+  and `~/.qiskit` (a hidden folder: Ctrl+H in the file manager) to a USB stick
+  first. The Pi tells you when a release is out.
 
 All images: [rasqberry.org/latest/](/latest/).
 

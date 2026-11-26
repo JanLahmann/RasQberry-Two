@@ -92,7 +92,8 @@ Open it with the **RasQberry Configuration** icon (or `sudo raspi-config`), then
 ## Python and Qiskit
 
 The image runs Raspberry Pi OS Trixie (64-bit) with Qiskit 2.x in
-`~/RasQberry-Two/venv/RQB2`:
+`~/RasQberry-Two/venv/RQB2`. Every terminal has it active; elsewhere (a script, a
+launcher), activate it first:
 
 ```bash
 source ~/RasQberry-Two/venv/RQB2/bin/activate
@@ -101,14 +102,33 @@ source ~/RasQberry-Two/venv/RQB2/bin/activate
 Code written for Qiskit 1.x may need the
 [migration guide](https://quantum.cloud.ibm.com/docs/en/migration-guides/qiskit-2.0).
 
+The simulator is Qiskit Aer. For real IBM quantum computers, save your API key first
+(**0 RasQberry** → **IBM Quantum account**); your code then needs no key:
+
+```python
+from qiskit_aer import AerSimulator
+from qiskit_ibm_runtime import QiskitRuntimeService
+
+backend = AerSimulator()                         # the built-in simulator
+service = QiskitRuntimeService()                 # the key saved in the menu
+backend = service.least_busy(operational=True)   # a real quantum computer
+```
+
+**More packages:** `pip install <package>` in a terminal, no `sudo`. Demos, JupyterLab
+and Thonny share this environment: leave Qiskit's own packages alone, and check first
+with `pip install --dry-run <package>` that nothing Qiskit changes. Packages stay until
+an A/B update, a new card or a repair of the environment. Keep their names, without
+versions, in `~/My-Quantum-Programs/requirements.txt` (that folder survives A/B updates)
+and install them again with `pip install -r ~/My-Quantum-Programs/requirements.txt`.
+
 ## Updates
 
 - **System updates:** the update icon in the taskbar, or
   `sudo apt update && sudo apt full-upgrade`.
 - **New RasQberry releases:** on the A/B image, install into the other system
   ([how](/02-software/03-ab-boot/)). On one system (the single-system image, or the beta
-  image on a card under 64 GB), write a new card; copy your notebooks and `~/.qiskit`
-  to a USB stick first.
+  image on a card under 64 GB), write a new card
+  ([back up first](/02-software/01-installation-overview/#2-keeping-up-to-date)).
 - A daily check tells you when a newer release is out.
 
 ## Downloads
