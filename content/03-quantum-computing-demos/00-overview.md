@@ -65,6 +65,7 @@ Double-click **My Quantum Programs**: JupyterLab opens in `~/My-Quantum-Programs
 at Hello World, next to example programs. **File** → **New** → **Notebook** starts
 your own; keep it in that folder, which A/B updates keep. Python files run with
 `rq_python my_program.py` or in Thonny. **System Info** shows the Qiskit version.
+Light the LED panel from your code: the [LED API](/03-quantum-computing-demos/led-display/#2-for-developers).
 
 ## Entangible
 
@@ -88,16 +89,17 @@ address its window shows (they warn about the certificate once: **Advanced** →
 ## At a booth or in class
 
 - Run **Download all demos** while you have a network.
-- **Workshops & events** → **Demo Loop** plays LED demos and Quantum Fractals one
-  after another (Enter skips, x stops); it can start at login.
+- **Workshops & events** → **Demo Loop**: **Choose the demos**, then **Start the demo
+  loop** (Enter skips, x stops). **Start the Demo Loop at login** runs it without a
+  keyboard.
+- Several Pis in one room: give each its own name (setup checklist or Imager).
 - Open the Pi's own [Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot)
   so visitors' phones can join.
 - The screen doesn't blank (`sudo raspi-config` → **2 Display Options** →
   **Screen Blanking**). **0 RasQberry** → **Desktop Settings** → **Browser at login**
   stops rasqberry.org opening at every start.
 - For a class: [student accounts without admin rights](/workshops/#2-how-we-can-help).
-- Visitors stop for Quantum Lights Out, Grokking the Bloch Sphere, Quantum Fractals,
-  the LED demos and the Quantum Coin Game ([more](/workshops/#2-for-a-stand)).
+- Demos that draw visitors, and what to bring: [for a stand](/workshops/#2-for-a-stand).
 
 ## Learning resources
 

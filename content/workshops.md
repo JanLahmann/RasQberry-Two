@@ -27,7 +27,7 @@ with the image already written; LED panels are optional, because the LED demos
 also show on screen. Starting points: the
 [LED panel from your own code](/03-quantum-computing-demos/led-display/#2-for-developers) and
 [your own Qiskit programs](/03-quantum-computing-demos/00-overview/#2-your-own-qiskit-programs).
-Several Pis on one network: give each its own name in Imager ([customization](/02-software/01-installation-overview/#3-customisation)).
+Several Pis in one room: [at a booth or in class](/03-quantum-computing-demos/00-overview/#2-at-a-booth-or-in-class).
 
 ## One of your Pis as a server for the whole group
 
@@ -65,6 +65,10 @@ guided tour for visitors who stay.
 - **Grokking the Bloch Sphere**: apply gates to a qubit and watch the sphere turn.
 - **Quantum Fractals**: fractals that change with the state of one qubit.
 - **Quantum Coin Game**: play heads or tails against a quantum computer, and lose.
+
+**Bring along:** the Pi with its power supply, a monitor with an HDMI cable (micro HDMI
+on a Pi 5 or 4), keyboard and mouse, a network cable, a power strip, and a second card
+with the image already written.
 
 ## Past events
 
