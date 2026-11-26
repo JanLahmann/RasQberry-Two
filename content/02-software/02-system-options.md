@@ -8,7 +8,7 @@ computer, and add sound. Settings are in `sudo raspi-config` (or double-click
 **RasQberry Configuration**); password, SSH, VNC and the Pi's name also in
 **0 RasQberry** → **Remote Access & Security**. Raspberry Pi Imager can set Wi-Fi,
 a user and an SSH key before the first start
-([customisation](/02-software/01-installation-overview/#3-customisation)).
+([customisation](/details/installation/#2-imager-customisation)).
 
 ## Wi-Fi
 

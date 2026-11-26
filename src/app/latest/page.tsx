@@ -233,7 +233,7 @@ export default function LatestPage() {
       <p style={{ color: '#666', marginBottom: '2rem' }}>
         Card: 128 GB high-speed (A2/U3) recommended, 16 GB minimum. The recommended image
         holds two systems from 64 GB and one system on smaller cards
-        (<a href="/02-software/01-installation-overview/#2-which-image">card sizes</a>).
+        (<a href="/details/installation/#2-card-sizes-and-docker-demos">card sizes</a>).
       </p>
 
       {error && (
