@@ -20,6 +20,14 @@ No panel? LED demos open the same view on screen:
 All in `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **LED panel**.
 The **LED panel** folder on the desktop has the LED demos.
 
+## Wiring
+
+Three jumper wires from the Pi to the panel's input plug: **5V** to pin 2, **GND** to
+pin 6, **data** to pin 12 (GPIO 18), on the Pi 4 and the Pi 5. Photos, chaining the
+four panels and power: [wiring the LED arrays](/01-3d-model/02-hardware-assembly-guide/#3-wiring-up-the-led-arrays).
+A single 32×8 panel (256 LEDs) works too: set `LED_LAYOUT` to `single-8x32`
+([configuration](#2-configuration)).
+
 ## Set up your panel first
 
 The **LED Setup Wizard** finds out how your panel is wired and which way up it
@@ -63,7 +71,7 @@ Settings are in `/usr/config/rasqberry_environment.env`; change them with
 - **Wrong colors:** check `LED_PIXEL_ORDER` (RGB or GRB).
 - **LEDs stay dark:** one program drives the panel at a time. Stop a running demo
   (**Quantum Demos** → **Stop a running LED demo**) or restart, then test with
-  `rq_demo_run.sh led-demos led-test`. Check wiring and power: on a Pi 5, LEDs that
+  `rq_demo_run.sh led-demos led-test`. Check the [wiring](#2-wiring) and power: on a Pi 5, LEDs that
   stop after a while mean a weak power supply: RasQberry notices and offers a lower
   brightness. Better: the official 27 W supply.
 - **Switch the LEDs off:** **Clear All LEDs** in the **LED panel** folder, or
