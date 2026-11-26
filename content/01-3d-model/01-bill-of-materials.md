@@ -43,9 +43,9 @@ The following core components are necessary to create the base functioning model
 
 #### Raspberry Pi:
 
-- Raspberry Pi 5 8GB (recommended), 4GB or 2GB, or Raspberry Pi 4B 4GB or 8GB
+- Raspberry Pi 5 (8GB recommended) or Raspberry Pi 4B (4GB or more)
 
-  - <em>2 GB of RAM for the Pi 5 is enough for most demos. For the Workshop & Qiskit Server with a group, take 4 GB or more: up to about 2 participants can run code at the same time on 2 GB, 8 on 4 GB and 15 on 8 GB.</em>
+  - <em>2 GB of RAM for the Pi 5 is enough for most demos; 8 GB leaves room to grow. For the Workshop & Qiskit Server with a group, take 4 GB or more: up to about 2 participants can run code at the same time on 2 GB, 8 on 4 GB and 15 on 8 GB.</em>
 
   - <em>The Pi 5 is recommended for this project, however a Pi 4B can be used as well. It needs the official 15W USB-C power supply and its own cooling: the cooling configuration with a Pi 4B has not been tested, so a PWM fan mounted above the CPU is recommended. The LED panel is wired the same way (GPIO 18).</em>
 
@@ -141,9 +141,9 @@ The following components are optional. They are not required for the core functi
 
 At the prices above:
 
-- **Just a Pi** to run the demos on a screen: US $245.75, the PiShop order above (US $148.25
-  with a 2 GB Pi 5).
-- **The whole model:** about US $292: the PiShop order plus the other core parts, in
+- **Just a Pi 5** to run the demos on a screen: US $245.75, the PiShop order above (US $148.25
+  with a 2 GB Pi 5). A Pi 4B needs its own supply and cooling instead.
+- **The whole model:** about US $292 (US $194 with a 2 GB Pi 5): the PiShop order plus the other core parts, in
   the pack sizes sold (four 4×12 panels), plus filament (amounts in the table).
 
 ### Optional Components BOM
