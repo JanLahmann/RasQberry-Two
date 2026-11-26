@@ -137,6 +137,15 @@ The following components are optional. They are not required for the core functi
 > - Micro HDMI to HDMI Adapter
 > - Breadboard Wires
 
+### What it costs
+
+At the prices above (December 2024; check today's):
+
+- **Just a Pi** to run the demos on a screen: US $85.90, the PiShop order above (with a
+  small card; a 128 GB card costs more).
+- **The whole model:** about US $128: the PiShop order plus the other core parts, in the
+  pack sizes sold (four 4×12 panels), plus filament (amounts in the table).
+
 ### Optional Components BOM
 
 **Note:** The prices listed are accurate as of December 12, 2024.
