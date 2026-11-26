@@ -66,7 +66,7 @@ at Hello World, next to example programs. **File** → **New** → **Notebook** 
 your own; keep it in that folder, which A/B updates keep. Python files run with
 `rq_python my_program.py` or in Thonny. **System Info** shows the Qiskit version.
 The [LED panel from your own code](/03-quantum-computing-demos/led-display/#2-for-developers).
-The saved API key in your code, the simulator and more packages: [Python and Qiskit](/details/installation/#2-python-and-qiskit).
+Using the saved API key from your code, the simulator, more packages: [Python and Qiskit](/details/installation/#2-python-and-qiskit).
 
 ## Entangible
 
