@@ -98,8 +98,23 @@ The image runs Raspberry Pi OS Trixie (64-bit) with Qiskit 2.x in
 source ~/RasQberry-Two/venv/RQB2/bin/activate
 ```
 
-Code written for Qiskit 1.x may need the
+A terminal opens with it active. Code written for Qiskit 1.x may need the
 [migration guide](https://quantum.cloud.ibm.com/docs/en/migration-guides/qiskit-2.0).
+
+The simulator is Qiskit Aer; the API key saved in the menu is the default account:
+
+```python
+from qiskit_aer import AerSimulator              # the built-in simulator
+from qiskit_ibm_runtime import QiskitRuntimeService
+
+service = QiskitRuntimeService()                 # the key from the menu
+backend = service.least_busy(operational=True, simulator=False)
+```
+
+**More packages:** `pip install <package>` in a terminal, no `sudo`. They stay until the
+next A/B update or a new card, which bring a fresh environment. Keep a list in
+`~/My-Quantum-Programs/requirements.txt` (that folder survives A/B updates) and install it
+again with `pip install -r ~/My-Quantum-Programs/requirements.txt`.
 
 ## Updates
 
