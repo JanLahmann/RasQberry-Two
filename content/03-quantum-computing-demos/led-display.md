@@ -23,10 +23,11 @@ The **LED panel** folder on the desktop has the LED demos.
 ## Wiring
 
 Three jumper wires from the Pi to the panel's input plug: **5V** to pin 2, **GND** to
-pin 6, **data** to pin 12 (GPIO 18), on the Pi 4 and the Pi 5. Photos, chaining the
-four panels and power: [wiring the LED arrays](/01-3d-model/02-hardware-assembly-guide/#3-wiring-up-the-led-arrays).
-A single 32×8 panel (256 LEDs) works too: set `LED_LAYOUT` to `single-8x32`
-([configuration](#2-configuration)).
+pin 6, **data** to pin 12 (GPIO 18), on the Pi 4 and the Pi 5. The panel then runs on
+the Pi's power supply: keep the brightness at 0.4 or lower (the default). The flexible
+8×32 panel from the [bill of materials](/01-3d-model/01-bill-of-materials/#2-bill-of-materials)
+is cut to 24×8 first; the wizard then treats it as one 24×8 panel. Photos, chaining
+panels and power: [wiring the LED arrays](/01-3d-model/02-hardware-assembly-guide/#3-wiring-up-the-led-arrays).
 
 ## Set up your panel first
 
