@@ -24,16 +24,16 @@ The **LED panel** folder on the desktop has the LED demos.
 
 Three jumper wires from the Pi to the panel's input plug: **5V** to pin 2, **GND** to
 pin 6, **data** to pin 12 (GPIO 18), on the Pi 4 and the Pi 5. The panel then runs on
-the Pi's power supply: keep the brightness at 0.4 or lower (the default). The flexible
-8×32 panel from the [bill of materials](/01-3d-model/01-bill-of-materials/#2-bill-of-materials)
-is cut to 24×8 first; the wizard then treats it as one 24×8 panel. Photos, chaining
-panels and power: [wiring the LED arrays](/01-3d-model/02-hardware-assembly-guide/#3-wiring-up-the-led-arrays).
+the Pi's power supply: keep the brightness at 0.4 or lower (the default). There is no
+ready-made 24×8 panel: cut a flexible 32×8 panel to 24 columns (192 LEDs), or chain four
+4×12 panels ([bill of materials](/01-3d-model/01-bill-of-materials/#2-bill-of-materials)).
+Photos, chaining and power: [wiring the LED arrays](/01-3d-model/02-hardware-assembly-guide/#3-wiring-up-the-led-arrays).
 
 ## Set up your panel first
 
 The **LED Setup Wizard** finds out how your panel is wired and which way up it
 hangs: it shows the IBM logo in up to four colors, and you pick the one that reads
-upright. It knows the single 24×8 and the quad 4×12 panel; other layouts get a
+upright. It knows a 32×8 panel cut to 24×8 and four 4×12 panels; other layouts get a
 step-by-step walkthrough. **LED panel** → **LED setup & tests** → **LED Setup Wizard**
 (or `sudo rq_led_setup_wizard.sh`); the setup checklist offers a short version.
 The result, `LED_LAYOUT`, survives [A/B updates](/02-software/03-ab-boot/).
