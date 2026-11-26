@@ -18,7 +18,8 @@ picks your network ([how](/details/system-options/#2-wi-fi-without-a-screen)).
 ## Wi-Fi hotspot
 
 The Pi's own Wi-Fi, for booths and classrooms where the venue's Wi-Fi keeps devices
-apart. Phones and laptops join it and open the demos at `http://10.42.0.1`.
+apart. Phones and laptops join it; `http://10.42.0.1` lists the web demos running on
+the Pi right now, and opens by itself when the hotspot has no internet.
 
 <img src="/installation-images/hotspot-menu.webp" width="800" height="575" loading="lazy" alt="The Wi-Fi Hotspot menu: hotspot on or off, name, password and QR codes, join card, start at boot, share internet, band, SSH/VNC from the hotspot" className="media-image" />
 
