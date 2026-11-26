@@ -27,7 +27,7 @@ with the image already written; LED panels are optional, because the LED demos
 also show on screen. Starting points: the
 [LED panel from your own code](/03-quantum-computing-demos/led-display/#2-for-developers) and
 [your own Qiskit programs](/03-quantum-computing-demos/00-overview/#2-your-own-qiskit-programs).
-Several Pis in one room: [at a booth or in class](/03-quantum-computing-demos/00-overview/#2-at-a-booth-or-in-class).
+Several Pis on one network: [at a booth or in class](/03-quantum-computing-demos/00-overview/#2-at-a-booth-or-in-class).
 
 ## One of your Pis as a server for the whole group
 
@@ -56,9 +56,9 @@ by opening the address or scanning the QR code the Pi shows.
 ## For a stand
 
 Demos that draw visitors in, on a large monitor and on the model. The
-**Demo Loop** (RasQberry → Quantum Demos → Workshops & events) runs them one after another
-without anyone at the keyboard, and can start by itself at login; the learning path **First 15 minutes** is a good
-guided tour for visitors who stay.
+[Demo Loop](/03-quantum-computing-demos/00-overview/#2-at-a-booth-or-in-class) runs them
+one after another; the learning path **First 15 minutes** is a good guided tour for
+visitors who stay.
 
 - **LED demos on the model**: circuits, logos and color effects on the LED panel.
 - **Quantum Lights Out**: Grover's search solves the puzzle, step by step on the LEDs.
@@ -66,7 +66,7 @@ guided tour for visitors who stay.
 - **Quantum Fractals**: fractals that change with the state of one qubit.
 - **Quantum Coin Game**: play heads or tails against a quantum computer, and lose.
 
-**Bring along:** the Pi with its power supply, a monitor with an HDMI cable (micro HDMI
+**Bring along:** the Pi with its official power supply (27 W for a Pi 5), a monitor with an HDMI cable (micro HDMI
 on a Pi 5 or 4), keyboard and mouse, a network cable, a power strip, and a second card
 with the image already written.
 

@@ -65,7 +65,7 @@ Double-click **My Quantum Programs**: JupyterLab opens in `~/My-Quantum-Programs
 at Hello World, next to example programs. **File** → **New** → **Notebook** starts
 your own; keep it in that folder, which A/B updates keep. Python files run with
 `rq_python my_program.py` or in Thonny. **System Info** shows the Qiskit version.
-Light the LED panel from your code: the [LED API](/03-quantum-computing-demos/led-display/#2-for-developers).
+The [LED panel from your own code](/03-quantum-computing-demos/led-display/#2-for-developers).
 
 ## Entangible
 
@@ -89,10 +89,13 @@ address its window shows (they warn about the certificate once: **Advanced** →
 ## At a booth or in class
 
 - Run **Download all demos** while you have a network.
-- **Workshops & events** → **Demo Loop**: **Choose the demos**, then **Start the demo
-  loop** (Enter skips, x stops). **Start the Demo Loop at login** runs it without a
-  keyboard.
-- Several Pis in one room: give each its own name (setup checklist or Imager).
+- **Quantum Demos** → **Workshops & events** → **Demo Loop** → **Start the demo loop**
+  plays demos one after another (Enter skips, x stops): all of them, or those from
+  **Choose the demos**. **Start the Demo Loop at login** runs it instead of the browser,
+  with no one at the keyboard.
+- Several Pis on one network: give each its own name, in the
+  [setup checklist](/details/installation/#2-first-start-and-the-setup-checklist) or
+  [Imager](/details/installation/#2-imager-customisation).
 - Open the Pi's own [Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot)
   so visitors' phones can join.
 - The screen doesn't blank (`sudo raspi-config` → **2 Display Options** →
