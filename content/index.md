@@ -134,7 +134,7 @@ LED panel. Made for classrooms, meetups, booths and anyone curious.
 ## Getting started
 
 **Start with just a Pi** and a screen: the demos run without the model. Print the model
-and add the LEDs later; the whole model costs roughly US $200 plus filament, with no
+and add the LEDs later; the whole model costs about US $194–292 plus filament, with no
 soldering ([what it costs](/01-3d-model/01-bill-of-materials/#3-what-it-costs)).
 
 1. **Write the card.** Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer and click the button below. In Imager, confirm **Switch repository**, then choose your Pi, **RasQberry Two Beta** and your card (128 GB recommended, 16 GB minimum). The button did nothing? [Other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).

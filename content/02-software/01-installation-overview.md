@@ -4,7 +4,7 @@ Write RasQberry Two to an SD card, start your Pi, and keep it up to date.
 
 ## What you need
 
-- **Raspberry Pi 5** (2 GB RAM is enough) or **Raspberry Pi 4B** (4 GB RAM).
+- **Raspberry Pi 5** (8 GB RAM recommended, 2 GB is enough) or **Raspberry Pi 4B** (4 GB RAM or more).
 - **MicroSD card:** 16 GB minimum; recommended 128 GB, A2/U3.
 - **Official power supply** (27 W for the Pi 5, 15 W for the Pi 4) and, on the Pi 5, an active cooler.
 - **Internet:** most demos download on their first start.
