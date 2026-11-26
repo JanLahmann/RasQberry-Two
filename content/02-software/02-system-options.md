@@ -5,8 +5,9 @@ description: "RasQberry Two system settings: Wi-Fi, the Pi's own Wi-Fi hotspot, 
 
 Connect your RasQberry, open its own Wi-Fi for a booth or class, reach it from your
 computer, and add sound. Most settings are in **0 RasQberry**: double-click
-**RasQberry Configuration**, or run `sudo raspi-config`. Every rule and setting in full:
-[details](/details/system-options/).
+**RasQberry Configuration**, or run `sudo raspi-config`. Imager can set Wi-Fi, a user and an SSH key before the first
+start ([Imager customization](/details/installation/#2-imager-customisation)). Every rule
+and setting in full: [details](/details/system-options/).
 
 ## Wi-Fi
 
