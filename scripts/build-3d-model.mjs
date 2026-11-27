@@ -105,7 +105,7 @@ const BOX_COLOURS = {                     // vertex colours of the parts made of
 };
 
 const FILAMENT_COLOUR = {                 // layout filament -> colour above
-  'matte black': 'wall', white: 'floor', 'silk silver': 'silver', transparent: 'clear', 'silk gold': 'gold',
+  'matte black': 'wall', 'white/stone': 'floor', 'silk silver': 'silver', transparent: 'clear', 'silk gold': 'gold',
 };
 
 const parts = [];
