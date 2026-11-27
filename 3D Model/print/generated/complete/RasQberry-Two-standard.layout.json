@@ -626,7 +626,7 @@
   {
    "part": "R2_Floor-Tile1",
    "stl": "floor/R2_Floor-Tile1.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     1.0,
     0.0,
@@ -649,7 +649,7 @@
   {
    "part": "R2_Floor-Tile2",
    "stl": "floor/R2_Floor-Tile2.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     1.0,
     0.0,
@@ -672,7 +672,7 @@
   {
    "part": "R2_Floor-Tile3",
    "stl": "floor/R2_Floor-Tile3.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     1.0,
     0.0,
@@ -695,7 +695,7 @@
   {
    "part": "R2_Floor-Tile4",
    "stl": "floor/R2_Floor-Tile4.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     1.0,
     0.0,
@@ -718,7 +718,7 @@
   {
    "part": "R2_Floor-Tile5",
    "stl": "floor/R2_Floor-Tile5.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     1.0,
     0.0,
@@ -741,7 +741,7 @@
   {
    "part": "R2_Floor-Tile6s",
    "stl": "floor/R2_Floor-Tile6s.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     1.0,
     0.0,
@@ -764,7 +764,7 @@
   {
    "part": "R2_Floor-CryoPlug",
    "stl": "floor/R2_Floor-CryoPlug.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     1.0,
     0.0,
@@ -787,7 +787,7 @@
   {
    "part": "R2_Floor-WallPlug",
    "stl": "floor/R2_Floor-WallPlug.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     0.86603,
     -0.5,
@@ -810,7 +810,7 @@
   {
    "part": "R2_Floor-WallPlug",
    "stl": "floor/R2_Floor-WallPlug.stl",
-   "filament": "white",
+   "filament": "white/stone",
    "matrix": [
     0.86603,
     -0.5,
