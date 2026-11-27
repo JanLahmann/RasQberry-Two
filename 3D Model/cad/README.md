@@ -59,7 +59,7 @@ original only for a part that has no script yet.
 ## 3MF colours
 
 From the bill of materials (`FILAMENTS` in `rqb_cad.py`, assigned in
-`build_print.py`): wall black (matte preferred), floor white / rock white,
+`build_print.py`): wall black (matte preferred), floor white/stone,
 cryostat and RTE silk silver, chandeliers silk gold, lids transparent;
 the LED filter screen galaxy black (Jan, 2026-11-15).
 A multi-colour 3MF (jrl01) is one object with one part per colour; each part

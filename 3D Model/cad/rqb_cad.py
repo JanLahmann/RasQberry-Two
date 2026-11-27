@@ -266,7 +266,7 @@ def export_multicolour_3mf(parts, path, tolerance=0.01, angular_tolerance=0.1):
 # website's 3D viewer uses.
 FILAMENTS = {
     "matte black": "#232326",
-    "white": "#DCDCD8",          # White / Rock White (floor)
+    "white/stone": "#DCDCD8",    # floor: a white or stone PLA (Jan, 2026-11-27)
     "silk silver": "#9EA3AA",
     "silk gold": "#E3A33A",
     "transparent": "#F3F5F6",

@@ -9,9 +9,9 @@ profiles 2.5.14).
 
 - One project per filament color, one color per bed, for one nozzle.
 - `-indx`: the same parts in their colors for the Core One INDX 8T, each
-  filament on its tool: T1 matte black, T2 white, T3 silk silver, T4 transparent, T5 silk gold, T6 galaxy black.
+  filament on its tool: T1 matte black, T2 white/stone, T3 silk silver, T4 transparent, T5 silk gold, T6 galaxy black.
   `all-parts-indx.3mf` has every bed except the floor
-  (`3-white-floor.3mf`); each bed has one filament, except the lid bed.
+  (`3-white-stone-floor.3mf`); each bed has one filament, except the lid bed.
 - **Without floor:** skip the floor and print the two parts of
   `no-floor-alternatives-indx.3mf` instead of the wall base and the
   cryostat (the same parts without the holes for the floor plugs).
@@ -28,12 +28,12 @@ where (without the LED filter screen, which goes in front of the LEDs).
 |---|---|---|---|---|---|
 | 1-matte-black.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13, 1 x R2_Wall-Lid | matte black | 182 g | 5h 49m 46s |
 | 2-galaxy-black.3mf | 1 | 1 x RQB2-WallPanel-jrl02-2 | galaxy black | 15 g | 24m 32s |
-| 3-white-floor.3mf | 1 | 1 x R2_Floor-Tile1, 1 x R2_Floor-CryoPlug, 2 x R2_Floor-WallPlug | white | 58 g | 1h 30m 17s |
-| 3-white-floor.3mf | 2 | 1 x R2_Floor-Tile2 | white | 47 g | 1h 3m 13s |
-| 3-white-floor.3mf | 3 | 1 x R2_Floor-Tile3 | white | 46 g | 1h 3m 27s |
-| 3-white-floor.3mf | 4 | 1 x R2_Floor-Tile4 | white | 46 g | 1h 4m 20s |
-| 3-white-floor.3mf | 5 | 1 x R2_Floor-Tile5 | white | 45 g | 1h 6m 30s |
-| 3-white-floor.3mf | 6 | 1 x R2_Floor-Tile6s | white | 46 g | 1h 8m 47s |
+| 3-white-stone-floor.3mf | 1 | 1 x R2_Floor-Tile1, 1 x R2_Floor-CryoPlug, 2 x R2_Floor-WallPlug | white/stone | 58 g | 1h 30m 17s |
+| 3-white-stone-floor.3mf | 2 | 1 x R2_Floor-Tile2 | white/stone | 47 g | 1h 3m 13s |
+| 3-white-stone-floor.3mf | 3 | 1 x R2_Floor-Tile3 | white/stone | 46 g | 1h 3m 27s |
+| 3-white-stone-floor.3mf | 4 | 1 x R2_Floor-Tile4 | white/stone | 46 g | 1h 4m 20s |
+| 3-white-stone-floor.3mf | 5 | 1 x R2_Floor-Tile5 | white/stone | 45 g | 1h 6m 30s |
+| 3-white-stone-floor.3mf | 6 | 1 x R2_Floor-Tile6s | white/stone | 46 g | 1h 8m 47s |
 | 4-silk-silver.3mf | 1 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04, 1 x R2_NewDoor, 9 x RQB2-R2_NarrowServerSingle-jrl02 | silk silver | 295 g | 13h 31m 26s |
 | 5-transparent+silk-gold.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 35m 6s |
 | all-parts-indx.3mf | 1 | 1 x R2_Wall-Base-jrl01-2, 1 x R2_Wall-Back+13 | matte black | 126 g | 3h 43m 14s |
@@ -45,6 +45,6 @@ where (without the LED filter screen, which goes in front of the LEDs).
 | no-floor-alternatives-indx.3mf | 2 | 1 x RQB2-R2_CryoStandaloneGamma-jrl04-no-floor | silk silver | 56 g | 1h 59m 45s |
 | 5-transparent+silk-gold-indx.3mf | 1 | 1 x RQB2-Cryostat-jrl01, 9 x R2_NarrowServerSingleLid | transparent + silk gold | 65 + 28 g | 3h 34m 54s |
 
-Filament, standard (Core One; the lid bed split as on the INDX): matte black 182 g, galaxy black 15 g, white 287 g, silk silver 295 g, transparent 65 g, silk gold 28 g; 872 g in total.
+Filament, standard (Core One; the lid bed split as on the INDX): matte black 182 g, galaxy black 15 g, white/stone 287 g, silk silver 295 g, transparent 65 g, silk gold 28 g; 872 g in total.
 
 Filament, without floor (Core One; the lid bed split as on the INDX): matte black 186 g, galaxy black 15 g, silk silver 296 g, transparent 65 g, silk gold 28 g; 590 g in total.

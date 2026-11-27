@@ -64,7 +64,7 @@ SINGLE = ("Prusa CORE One HF0.4 nozzle", "0.20mm SPEED @COREONE HF0.4", "Prusame
 MULTI = ("Prusa CORE One INDX 8T HF0.4 nozzle", "0.20mm Balanced ★ @COREONEINDX HF0.4",
          "Prusament PLA @COREONEINDX HF0.4")
 # the tool each filament is loaded on in Jan's INDX (2026-11-16); T7-T8 free
-INDX_TOOLS = {"matte black": 1, "white": 2, "silk silver": 3, "transparent": 4,
+INDX_TOOLS = {"matte black": 1, "white/stone": 2, "silk silver": 3, "transparent": 4,
               "silk gold": 5, "galaxy black": 6}
 VENDOR_MODELS = ("COREONE", "COREONE_INDX8T")
 GAP = 6.0          # mm between parts on a bed
@@ -96,12 +96,12 @@ FLOOR = [("R2_Floor-Tile1", 1), ("R2_Floor-Tile2", 1), ("R2_Floor-Tile3", 1),
 COLOR_FILES = [
     ("matte-black", [("R2_Wall-Base-jrl01-2", 1), ("R2_Wall-Back+13", 1), ("R2_Wall-Lid", 1)]),
     ("galaxy-black", [("RQB2-WallPanel-jrl02-2", 1)]),
-    ("white-floor", FLOOR),
+    ("white-stone-floor", FLOOR),
     ("silk-silver", [("RQB2-R2_CryoStandaloneGamma-jrl04", 1), ("R2_NewDoor", 1),
                      ("RQB2-R2_NarrowServerSingle-jrl02", 9)]),
     ("transparent+silk-gold", [(TWO_COLOR, 1), ("R2_NarrowServerSingleLid", 9)]),
 ]
-FLOOR_FILE = "white-floor"
+FLOOR_FILE = "white-stone-floor"
 NO_FLOOR = {"R2_Wall-Base-jrl01-2": "R2_Wall-Base-jrl01-2-nofloor",
             "RQB2-R2_CryoStandaloneGamma-jrl04": "RQB2-R2_CryoStandaloneGamma-jrl04-nofloor"}
 VARIANTS = ("standard", "no-floor")
@@ -691,7 +691,7 @@ def write_readme(rows, totals, cz, version):
              "- `-indx`: the same parts in their colors for the Core One INDX 8T, each",
              "  filament on its tool: " + ", ".join(f"T{t} {f}" for f, t in INDX_TOOLS.items()) + ".",
              "  `all-parts-indx.3mf` has every bed except the floor",
-             "  (`3-white-floor.3mf`); each bed has one filament, except the lid bed.",
+             "  (`3-white-stone-floor.3mf`); each bed has one filament, except the lid bed.",
              "- **Without floor:** skip the floor and print the two parts of",
              "  `no-floor-alternatives-indx.3mf` instead of the wall base and the",
              "  cryostat (the same parts without the holes for the floor plugs).",
