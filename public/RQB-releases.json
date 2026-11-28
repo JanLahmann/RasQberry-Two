@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-27T17:46:11Z",
+  "generated": "2026-11-28T05:51:21Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -45,8 +45,7 @@
       "ab_extract_size": 12398362624,
       "ab_image_download_size": 2106463988,
       "highlights": [
-        "Bump version to development-2026-11-24-230425",
-        "Testing page generator: drop the hint for images built before 16 October (#452)"
+        "Development build - see release notes for details"
       ]
     }
   }
